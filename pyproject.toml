@@ -35,6 +35,8 @@ dependencies = [
     "typer>=0.17.4",
     "ruff>=0.14.2",
     "neo4j>=5.0.0",
+    "oauthlib>=3.3.1",
+    "requests-oauthlib>=2.0.0",
 ]
 
 [dependency-groups]

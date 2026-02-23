@@ -127,7 +127,8 @@ class KGGen:
                 max_tokens=self.max_tokens,
                 api_base=self.api_base,
                 cache=not self.disable_cache,
-                model_type="responses" if self.model.startswith("openai/") else "chat",
+                # model_type="responses" if self.model.startswith("openai/") else "chat",
+                model_type="chat",
             )
         else:
             self.lm = dspy.LM(
@@ -139,7 +140,8 @@ class KGGen:
                 if self.reasoning_effort
                 else None,
                 cache=not self.disable_cache,
-                model_type="responses" if self.model.startswith("openai/") else "chat",
+                # model_type="responses" if self.model.startswith("openai/") else "chat",
+                model_type="chat",
             )
 
     @staticmethod
