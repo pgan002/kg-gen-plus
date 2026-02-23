@@ -1,6 +1,7 @@
 import os
 import time
 
+import litellm
 from oauthlib.oauth2 import LegacyApplicationClient
 from requests_oauthlib import OAuth2Session
 
@@ -40,3 +41,20 @@ def get_keycloak_token():
         _token_expires_at = time.time() + token_data.get("expires_in", 300) - 10
 
     return _cached_token
+
+# --- 2. Wrap LiteLLM Core Functions ---
+original_completion = litellm.completion
+original_acompletion = litellm.acompletion
+
+def completion_with_auth(*args, **kwargs):
+    """Inject the token as the standard api_key."""
+    # The OpenAI client in LiteLLM automatically converts api_key into "Authorization: Bearer <token>"
+    kwargs["api_key"] = get_keycloak_token()
+    return original_completion(*args, **kwargs)
+
+async def acompletion_with_auth(*args, **kwargs):
+    kwargs["api_key"] = get_keycloak_token()
+    return await original_acompletion(*args, **kwargs)
+
+litellm.completion = completion_with_auth
+litellm.acompletion = acompletion_with_auth

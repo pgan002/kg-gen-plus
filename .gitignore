@@ -26,5 +26,4 @@ experiments/MINE/faiss-scikit/scikit-learn
 experiments/MINE/faiss-scikit/*.zip
 mlruns/
 examples/wikipedia/
-memo/data/
 .idea
