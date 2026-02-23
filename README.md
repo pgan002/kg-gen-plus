@@ -68,6 +68,8 @@ USERNAME=my.user
 PASSWORD=my.password
 ```
 
+Where do I get the values? You need a [Keycloak](https://keycloak.dev.memorise.sdu.dk/) user credentials and client secret in the realm `oauth2-proxy`.
+
 Load these variables into your current shell session by running:
 ```bash
 source .env
