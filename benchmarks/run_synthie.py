@@ -57,10 +57,13 @@ if __name__ == "__main__":
     )
 
     gs = []
+    prev_usage = None
     for i, item in enumerate(iter_synthie_jsonl(davinci2_test_small_path), start=1):
         print(f"\n\n{i = }, {item.id_ = }\n{item.text = }\n")
+        if i <= 50:
+            pass
         item_entities = [e.surfaceform for e in item.entities]
-        g = kg.generate(
+        g, usage = kg.generate(
             input_data=item.text,
             relation_context="Use predicates from Wikidata for the extracted relations. "
             "Provide the Wikidata identifiers for the extracted relations, "
@@ -70,18 +73,25 @@ if __name__ == "__main__":
             output_folder=str(synthie_base_data_path),
             deduplication_method=None,
         )
-        print(f"{item.triplets = }")
-        print(f"{g = }")
+        if prev_usage is not None:
+            prev_usage += usage
+        else:
+            prev_usage = usage
+        # print(f"{item.triplets = }")
+        # print(f"{g = }")
+        # print(f"{usage = }\n")
         gs.append(g)
-        if i > 15:
+        if i > 55:
             break
     agg_g = kg.aggregate(gs)
-    agg_g = kg.deduplicate(
+    agg_g, dedup_stats = kg.deduplicate(
         graph=agg_g,
         # method=DeduplicateMethod.FULL
         # method=DeduplicateMethod.SEMHASH,
         # semhash_similarity_threshold=0.5
         method=DeduplicateMethod.LM_BASED,
     )
+    print(f"{prev_usage = }")
+    print(f"{dedup_stats = }")
     kg.export_graph(graph=agg_g, output_path=str(synthie_base_data_path / "graph.json"))
     kg.visualize(agg_g, str(synthie_base_data_path / "graph.html"), True)

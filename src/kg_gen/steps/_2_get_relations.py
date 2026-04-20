@@ -169,7 +169,7 @@ def extraction_sig(
     if not is_conversation:
 
         class ExtractTextRelations(dspy.Signature):
-            __doc__ = f"""Extract subject-predicate-object triples from the source text. 
+            __doc__ = f"""Extract subject-predicate-object triples from the source text.
       Subject and object must be from entities list. Entities provided were previously extracted from the same source text.
       This is for an extraction task, please be thorough, accurate, and faithful to the reference text. {context}"""
 
@@ -219,7 +219,7 @@ def fallback_extraction_sig(
 
 def _filter_entities(entities: List[str]) -> List[str]:
     """Filter out entities that contain backslashes."""
-    return [e for e in entities if '"' not in e] # not received by oai api
+    return [e for e in entities if '"' not in e]  # not received by oai api
 
 
 def get_relations_typed(
@@ -228,15 +228,22 @@ def get_relations_typed(
     predicate_domain_range: list[OntologyPredicate] = None,
     context: str = "",
     temperature: float = 0.0,
-    n_retries=3
+    n_retries=3,
 ) -> list[Relation]:
+    latest_exception = None
+    assert n_retries > 0, "n_retries must be greater than 0"
     for _ in range(n_retries):
         try:
             extract = dspy.Predict(ExtractTextRelations, temperature=temperature)
-            result = extract(source_text=input_text, typed_entities=typed_entities, context=context,
-                             predicate_domain_range=predicate_domain_range)
+            result = extract(
+                source_text=input_text,
+                typed_entities=typed_entities,
+                context=context,
+                predicate_domain_range=predicate_domain_range,
+            )
             return result.relations
         except Exception as e:
+            latest_exception = e
             pass
     else:
-        raise e
+        raise latest_exception

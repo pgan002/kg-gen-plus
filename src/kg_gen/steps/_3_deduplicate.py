@@ -1,5 +1,3 @@
-import logging
-
 from kg_gen.models import Graph
 from kg_gen.utils.deduplicate import run_semhash_deduplication
 from kg_gen.utils.llm_deduplicate import LLMDeduplicate
@@ -27,10 +25,6 @@ def run_deduplication(
         raise ValueError("No retrieval model provided")
     if not graph.entities and not graph.edges:
         return graph
-
-    logging.warning(
-        f"{method = }, {type(method) = }, {method == DeduplicateMethod.SEMHASH = }"
-    )
 
     if method == DeduplicateMethod.SEMHASH:
         deduplicated_graph = run_semhash_deduplication(

@@ -3,7 +3,8 @@ from pathlib import Path
 import dspy
 import litellm
 
-from kg_gen.models import TextEntities, ConversationEntities, EntitiesResponse, TypedEntity, TypedEntities
+
+from kg_gen.models import TextEntities, EntitiesResponse, TypedEntity, TypedEntities
 
 
 def _load_entities_prompt() -> str:
@@ -64,22 +65,27 @@ def get_entities(
     input_data: str,
     temperature: float = 0.0,
     types: list[str] = None,
-    context: str = None
-) -> List[str]:
+    context: str = None,
+) -> list[str]:
     extract = dspy.Predict(TextEntities, temperature=temperature)
     if types is None:
         result = extract(source_text=input_data, context=context)
     else:
-        result = extract(source_text=input_data, context=context, types_to_extract=types)
+        result = extract(
+            source_text=input_data, context=context, types_to_extract=types
+        )
     return result.entities
 
 
-def type_terms(input_data: str,
-               terms: list[str],
-               types: Optional[list[str]] = None,
-               temperature: float = 0.0,
-               context: Optional[str] = None
-               ) -> List[TypedEntity]:
+def type_terms(
+    input_data: str,
+    terms: list[str],
+    types: Optional[list[str]] = None,
+    temperature: float = 0.0,
+    context: Optional[str] = None,
+) -> list[TypedEntity]:
     predict_type = dspy.Predict(TypedEntities, temperature=temperature)
-    result = predict_type(entities=terms, types=types, source_text=input_data, context=context)
+    result = predict_type(
+        entities=terms, types=types, source_text=input_data, context=context
+    )
     return result.typed_entities
