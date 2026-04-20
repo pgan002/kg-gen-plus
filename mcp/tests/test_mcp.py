@@ -4,16 +4,12 @@ This tests the server integration, tools, and memory management.
 """
 
 import pytest
-import asyncio
 import os
 import tempfile
-import json
 from pathlib import Path
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-from dotenv import load_dotenv
-
-load_dotenv()
+from kg_gen.config import settings
 
 
 @pytest.fixture
@@ -35,8 +31,8 @@ async def init_mcp_server(storage_path=None):
 
     # Set up environment
     env = os.environ.copy()
-    env["KG_MODEL"] = env.get("LLM_MODEL")  # Use cheaper model for testing
-    env["KG_API_KEY"] = env.get("LLM_API_KEY")
+    env["KG_MODEL"] = settings.llm_model  # Use cheaper model for testing
+    env["KG_API_KEY"] = settings.llm_api_key
     if storage_path:
         env["KG_STORAGE_PATH"] = storage_path
 
@@ -239,7 +235,7 @@ async def test_memory_aggregation(temp_storage_dir):
 
             # Add first batch of memories
             text1 = "SpaceX is a space company. Elon Musk founded SpaceX."
-            result1 = await session.call_tool("add_memories", {"text": text1})
+            await session.call_tool("add_memories", {"text": text1})
 
             # Get stats after first addition
             stats1 = await session.call_tool("get_memory_stats", {})
@@ -247,7 +243,7 @@ async def test_memory_aggregation(temp_storage_dir):
 
             # Add second batch of memories
             text2 = "SpaceX launched Falcon Heavy. Falcon Heavy is a rocket."
-            result2 = await session.call_tool("add_memories", {"text": text2})
+            await session.call_tool("add_memories", {"text": text2})
 
             # Get stats after second addition
             stats2 = await session.call_tool("get_memory_stats", {})

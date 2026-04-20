@@ -1,12 +1,12 @@
-from typing import Union, List, Dict, Optional
+from typing import Union, Dict, Optional
 from typing_extensions import deprecated
 
-from kg_gen.steps._1_get_entities import get_entities
-from kg_gen.steps._2_get_relations import get_relations
+from kg_gen.steps._1_get_entities import get_entities, type_terms
+from kg_gen.steps._2_get_relations import get_relations_typed
 from kg_gen.steps._3_deduplicate import run_deduplication, DeduplicateMethod
 from kg_gen.utils.chunk_text import chunk_text
 from kg_gen.utils.visualize_kg import visualize as visualize_kg
-from kg_gen.models import Graph
+from kg_gen.models import Graph, Relation
 import dspy
 import json
 import os
@@ -21,8 +21,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-dspy_logger = logging.getLogger("dspy")
-dspy_logger.setLevel(logging.CRITICAL)
+# dspy_logger = logging.getLogger("dspy")
+# dspy_logger.setLevel(logging.CRITICAL)
 
 
 class KGGen:
@@ -67,7 +67,9 @@ class KGGen:
 
     def validate_temperature(self, temperature: float):
         if "gpt-5" in self.model and temperature < 1.0:
-            raise ValueError("Temperature must be 1.0 for gpt-5 family models")
+            raise ValueError(
+                f"Temperature must be 1.0 for gpt-5 family models, {temperature = }."
+            )
 
     def validate_max_tokens(self, max_tokens: int):
         if "gpt-5" in self.model and max_tokens < 16000:
@@ -156,16 +158,17 @@ class KGGen:
 
     def generate(
         self,
-        input_data: Union[str, List[Dict]],
-        model: str = None,
-        api_key: str = None,
-        api_base: str = None,
-        context: str = "",
+        input_data: str,
+        entity_context: str = "",
+        terms: Optional[list[str]] = None,
+        types: Optional[list[str]] = None,
+        relation_context: str = "",
+        dedup_context: str = "",
         chunk_size: Optional[int] = None,
-        reasoning_effort: str = None,
         deduplication_method: DeduplicateMethod | None = DeduplicateMethod.SEMHASH,
         temperature: float = None,
         output_folder: Optional[str] = None,
+        reasoning_effort: str = None,
         no_dspy: bool = False,
     ) -> Graph:
         """Generate a knowledge graph from input text or messages.
@@ -181,69 +184,44 @@ class KGGen:
         Returns:
             Graph: Generated knowledge graph
         """
-
-        # Process input data
-        is_conversation = isinstance(input_data, list)
-        if is_conversation:
-            # Extract text from messages
-            text_content = []
-            for message in input_data:
-                if (
-                    not isinstance(message, dict)
-                    or "role" not in message
-                    or "content" not in message
-                ):
-                    raise ValueError(
-                        "Messages must be dicts with 'role' and 'content' keys"
-                    )
-                if message["role"] in ["user", "assistant"]:
-                    text_content.append(f"{message['role']}: {message['content']}")
-
-            # Join with newlines to preserve message boundaries
-            processed_input = "\n".join(text_content)
-        else:
-            processed_input = input_data
-
-        # Reinitialize dspy with new parameters if any are provided
-        if any([model, temperature, api_key, api_base, reasoning_effort]):
-            self.init_model(
-                model=model or self.model,
-                temperature=temperature or self.temperature,
-                api_key=api_key or self.api_key,
-                api_base=api_base or self.api_base,
-                reasoning_effort=reasoning_effort or self.reasoning_effort,
-            )
+        processed_input: str = input_data
 
         def _process(content, lm):
             with dspy.context(lm=lm):
-                entities = get_entities(
-                    content,
-                    is_conversation,
-                    use_litellm_prompt=no_dspy,
-                    model=self.model,
-                    api_key=self.api_key,
-                    api_base=self.api_base,
+                if not terms:
+                    entities = get_entities(
+                        content,
+                        context=entity_context,
+                        types=types,
+                        temperature=temperature
+                        if temperature is not None
+                        else self.temperature,
+                    )
+                else:
+                    entities = terms
+                typed_entities = type_terms(
+                    input_data=content,
+                    terms=entities,
+                    types=types,
                     temperature=temperature
                     if temperature is not None
                     else self.temperature,
                 )
-                relations = get_relations(
+                relations = get_relations_typed(
                     content,
-                    entities,
-                    is_conversation=is_conversation,
-                    use_litellm_prompt=no_dspy,
-                    model=self.model,
-                    api_key=self.api_key,
-                    api_base=self.api_base,
+                    typed_entities=typed_entities,
+                    predicate_domain_range=None,
+                    context=relation_context,
                     temperature=temperature
                     if temperature is not None
                     else self.temperature,
                 )
-                return entities, relations
+
+                return typed_entities, relations
 
         if not chunk_size:
             try:
-                entities, relations = _process(processed_input, self.lm)
+                typed_entities, relations = _process(processed_input, self.lm)
             except Exception as e:
                 if "context length" in str(e).lower():
                     logger.warning(
@@ -255,8 +233,8 @@ class KGGen:
 
         if chunk_size:
             chunks = chunk_text(processed_input, chunk_size)
-            entities = set()
-            relations = set()
+            typed_entities = set()
+            relations: list[Relation] = []
 
             with ThreadPoolExecutor() as executor:
                 future_to_chunk = {
@@ -264,19 +242,23 @@ class KGGen:
                 }
 
                 for future in as_completed(future_to_chunk):
-                    chunk_entities, chunk_relations = future.result()
-                    entities.update(chunk_entities)
-                    relations.update(chunk_relations)
+                    chunk_typed_entities, chunk_relations = future.result()
+                    typed_entities.update(chunk_typed_entities)
+                    relations.extend(chunk_relations)
 
+        logger.info(f"{relations = }")
+        entities = {e.entity for e in typed_entities} | {
+            e.type for e in typed_entities if e.type
+        }
         graph = Graph(
             entities=entities,
             relations=relations,
-            edges={relation[1] for relation in relations},
+            edges={relation.predicate for relation in relations},
         )
 
         if deduplication_method:
             graph = self.deduplicate(
-                graph, method=deduplication_method, context=context
+                graph, method=deduplication_method, context=dedup_context
             )
 
         if output_folder:
@@ -302,6 +284,7 @@ class KGGen:
         api_base: str = None,
         context: str = "",  # TODO: implement context
     ) -> Graph:
+        assert isinstance(method, DeduplicateMethod), method
         # Reinitialize dspy with new parameters if any are provided
         if any([model, temperature, api_key, api_base]):
             self.init_model(
@@ -322,14 +305,14 @@ class KGGen:
     def aggregate(self, graphs: list[Graph]) -> Graph:
         # Initialize empty sets for combined graph
         all_entities = set()
-        all_relations = set()
+        all_relations: list[Relation] = []
         all_edges = set()
         all_entity_metadata: dict[str, set[str]] = {}
 
         # Combine all graphs
         for graph in graphs:
             all_entities.update(graph.entities)
-            all_relations.update(graph.relations)
+            all_relations.extend(graph.relations)
             all_edges.update(graph.edges)
             if graph.entity_metadata:
                 for entity, metadata_set in graph.entity_metadata.items():
@@ -368,8 +351,7 @@ class KGGen:
             G.add_node(entity)
 
         for relation in graph.relations:
-            source, rel, target = relation
-            G.add_edge(source, target, relation=rel)
+            G.add_edge(relation.subject, relation.object, relation=relation.predicate)
         return G
 
     def generate_embeddings(
@@ -453,7 +435,7 @@ class KGGen:
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         graph_dict = {
             "entities": list(graph.entities),
-            "relations": list(graph.relations),
+            "relations": [r.model_dump() for r in graph.relations],
             "edges": list(graph.edges),
             "entity_clusters": {k: list(v) for k, v in graph.entity_clusters.items()}
             if graph.entity_clusters

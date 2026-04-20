@@ -2,30 +2,8 @@ from typing import List, Optional
 from pathlib import Path
 import dspy
 import litellm
-from pydantic import BaseModel
 
-
-class TextEntities(dspy.Signature):
-    """Extract key entities from the source text. Extracted entities are subjects or objects.
-    This is for an extraction task, please be THOROUGH and accurate to the reference text."""
-
-    source_text: str = dspy.InputField()
-    entities: list[str] = dspy.OutputField(desc="THOROUGH list of key entities")
-
-
-class ConversationEntities(dspy.Signature):
-    """Extract key entities from the conversation Extracted entities are subjects or objects.
-    Consider both explicit entities and participants in the conversation.
-    This is for an extraction task, please be THOROUGH and accurate."""
-
-    source_text: str = dspy.InputField()
-    entities: list[str] = dspy.OutputField(desc="THOROUGH list of key entities")
-
-
-class EntitiesResponse(BaseModel):
-    """Structured response for entity extraction."""
-
-    entities: List[str]
+from kg_gen.models import TextEntities, ConversationEntities, EntitiesResponse, TypedEntity, TypedEntities
 
 
 def _load_entities_prompt() -> str:
@@ -84,26 +62,24 @@ Here is the text to extract entities from:
 
 def get_entities(
     input_data: str,
-    is_conversation: bool = False,
-    use_litellm_prompt: bool = False,
-    model: Optional[str] = None,
-    api_key: Optional[str] = None,
-    api_base: Optional[str] = None,
     temperature: float = 0.0,
+    types: list[str] = None,
+    context: str = None
 ) -> List[str]:
-    if use_litellm_prompt and not is_conversation:
-        return _get_entities_litellm(
-            input_data,
-            model=model,
-            api_key=api_key,
-            api_base=api_base,
-            temperature=temperature,
-        )
-
-    extract = (
-        dspy.Predict(ConversationEntities)
-        if is_conversation
-        else dspy.Predict(TextEntities)
-    )
-    result = extract(source_text=input_data)
+    extract = dspy.Predict(TextEntities, temperature=temperature)
+    if types is None:
+        result = extract(source_text=input_data, context=context)
+    else:
+        result = extract(source_text=input_data, context=context, types_to_extract=types)
     return result.entities
+
+
+def type_terms(input_data: str,
+               terms: list[str],
+               types: Optional[list[str]] = None,
+               temperature: float = 0.0,
+               context: Optional[str] = None
+               ) -> List[TypedEntity]:
+    predict_type = dspy.Predict(TypedEntities, temperature=temperature)
+    result = predict_type(entities=terms, types=types, source_text=input_data, context=context)
+    return result.typed_entities

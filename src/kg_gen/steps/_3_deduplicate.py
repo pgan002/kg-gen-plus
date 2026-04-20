@@ -1,3 +1,5 @@
+import logging
+
 from kg_gen.models import Graph
 from kg_gen.utils.deduplicate import run_semhash_deduplication
 from kg_gen.utils.llm_deduplicate import LLMDeduplicate
@@ -23,6 +25,12 @@ def run_deduplication(
 ) -> Graph:
     if method != DeduplicateMethod.SEMHASH and retrieval_model is None:
         raise ValueError("No retrieval model provided")
+    if not graph.entities and not graph.edges:
+        return graph
+
+    logging.warning(
+        f"{method = }, {type(method) = }, {method == DeduplicateMethod.SEMHASH = }"
+    )
 
     if method == DeduplicateMethod.SEMHASH:
         deduplicated_graph = run_semhash_deduplication(
@@ -39,5 +47,7 @@ def run_deduplication(
         llm_deduplicate = LLMDeduplicate(retrieval_model, lm, deduplicated_graph)
         llm_deduplicate.cluster()
         deduplicated_graph = llm_deduplicate.deduplicate()
+    else:
+        raise ValueError(f"Invalid deduplication method: {method}")
 
     return deduplicated_graph

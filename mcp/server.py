@@ -27,11 +27,10 @@ The server provides tools for agent memory:
 
 import os
 import json
-from typing import Optional
-from pathlib import Path
 from fastmcp import FastMCP
 
-from kg_gen import KGGen, Graph
+from kg_gen import KGGen
+from kg_gen.models import Graph, Relation
 
 # Global variables
 kg_gen_instance = None
@@ -84,7 +83,7 @@ def load_memory_graph():
 
             memory_graph = Graph(
                 entities=set(graph_dict.get("entities", [])),
-                relations=set(tuple(rel) for rel in graph_dict.get("relations", [])),
+                relations=[Relation(**rel) for rel in graph_dict.get("relations", [])],
                 edges=set(graph_dict.get("edges", [])),
                 entity_clusters={
                     k: set(v) for k, v in graph_dict.get("entity_clusters", {}).items()
@@ -102,9 +101,9 @@ def load_memory_graph():
             )
         except Exception as e:
             print(f"Error loading memory graph: {e}")
-            memory_graph = Graph(entities=set(), relations=set(), edges=set())
+            memory_graph = Graph(entities=set(), relations=[], edges=set())
     else:
-        memory_graph = Graph(entities=set(), relations=set(), edges=set())
+        memory_graph = Graph(entities=set(), relations=[], edges=set())
 
 
 def save_memory_graph():
@@ -117,7 +116,7 @@ def save_memory_graph():
     try:
         graph_dict = {
             "entities": list(memory_graph.entities),
-            "relations": list(memory_graph.relations),
+            "relations": [r.model_dump() for r in memory_graph.relations],
             "edges": list(memory_graph.edges),
             "entity_clusters": {
                 k: list(v) for k, v in memory_graph.entity_clusters.items()
@@ -172,7 +171,7 @@ def add_memories(text: str) -> str:
         # Save to storage
         success = save_memory_graph()
 
-        result = f"Successfully extracted and stored memories from text.\n"
+        result = "Successfully extracted and stored memories from text.\n"
         result += f"New memories: {len(new_graph.entities)} entities, {len(new_graph.relations)} relations\n"
         result += f"Total memories: {len(memory_graph.entities)} entities, {len(memory_graph.relations)} relations\n"
         result += f"Storage: {'Saved successfully' if success else 'Failed to save'}"
@@ -209,7 +208,10 @@ def retrieve_relevant_memories(query: str) -> str:
         relevant_relations = [
             r
             for r in memory_graph.relations
-            if any(query_lower in str(part).lower() for part in r)
+            if any(
+                query_lower in getattr(r, part).lower()
+                for part in ["subject", "predicate", "object"]
+            )
         ]
 
         if not relevant_entities and not relevant_relations:
@@ -226,7 +228,9 @@ def retrieve_relevant_memories(query: str) -> str:
         if relevant_relations:
             result += f"Related facts ({len(relevant_relations)}):\n"
             for relation in relevant_relations[:10]:  # Limit to top 10
-                result += f"- {relation[0]} {relation[1]} {relation[2]}\n"
+                result += (
+                    f"- {relation.subject} {relation.predicate} {relation.object}\n"
+                )
 
         return result
 
