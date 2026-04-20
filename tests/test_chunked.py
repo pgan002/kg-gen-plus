@@ -1,10 +1,15 @@
+from pathlib import Path
+
+import pytest
+
+from kg_gen.config import settings
 from src.kg_gen import KGGen
-import os
-from fixtures import kg
 
 
+@pytest.mark.skipif(not settings.llm_api_key, reason="LLM API key not set")
 def test_chunked(kg: KGGen):
-    with open("tests/data/kingkiller_chapter_one.txt", "r", encoding="utf-8") as f:
+    txt_path = Path(__file__).parent / "data" / "kingkiller_chapter_one.txt"
+    with txt_path.open() as f:
         text = f.read()
 
     graph = kg.generate(
@@ -48,9 +53,11 @@ def test_chunked(kg: KGGen):
     )
 
 
+@pytest.mark.skipif(not settings.llm_api_key, reason="LLM API key not set")
 def test_chunk_and_cluster(kg: KGGen):
     # Load fresh wiki content
-    with open("tests/data/fresh_wiki_article.md", "r", encoding="utf-8") as f:
+    md_path = Path(__file__).parent / "data" / "fresh_wiki_article.md"
+    with md_path.open() as f:
         text = f.read()
 
     # # Generate graph from wiki text with chunking

@@ -1,3 +1,11 @@
+# SynthIE experiments
+
+The target folder is [benchmarks](./benchmarks). You will find a script `run_synthie.py`. The KGGen instance is created inside the script.
+
+You need to create your own `.env` file by copying [`.env.example`](./.env.example) and load it to your environment. Adapt the KGGen instance creation to indicate the correct LLM for your settings.
+
+The SynthIE data should be placed inside `./benchmarks/data/synthie`. The data can be downloaded from [here](https://huggingface.co/datasets/martinjosifoski/SynthIE/tree/main/processed/sdg_code_davinci_002).
+
 # kg-gen: Knowledge Graph Generation from Any Text
 
 Welcome! `kg-gen` helps you extract knowledge graphs from any plain text using AI. It can process both small and large text inputs, and it can also handle messages in a conversation format.

@@ -2,7 +2,7 @@ from typing import List
 from scipy.spatial.distance import cdist
 from concurrent.futures import ThreadPoolExecutor
 import dspy
-from kg_gen.models import Graph
+from kg_gen.models import Graph, Relation
 import logging
 from sklearn.metrics.pairwise import cosine_similarity
 from rank_bm25 import BM25Okapi
@@ -40,8 +40,9 @@ class LLMDeduplicate:
         )
         self.node_bm25_tokenized = [text.lower().split() for text in self.nodes]
 
-        # Always rebuild BM25 from tokens (it's fast and simpler than serializing the object)
-        self.node_bm25 = BM25Okapi(self.node_bm25_tokenized)
+        if self.node_bm25_tokenized:
+            # Always rebuild BM25 from tokens (it's fast and simpler than serializing the object)
+            self.node_bm25 = BM25Okapi(self.node_bm25_tokenized)
 
         # Embeddings and BM25 tokens for edges
         self.edge_embeddings = retrieval_model.encode(
@@ -49,8 +50,9 @@ class LLMDeduplicate:
         )
         self.edge_bm25_tokenized = [text.lower().split() for text in self.edges]
 
-        # Always rebuild BM25 from tokens
-        self.edge_bm25 = BM25Okapi(self.edge_bm25_tokenized)
+        if self.edge_bm25_tokenized:
+            # Always rebuild BM25 from tokens
+            self.edge_bm25 = BM25Okapi(self.edge_bm25_tokenized)
 
         dspy.configure(lm=lm)
 
@@ -210,7 +212,7 @@ class LLMDeduplicate:
                 )
 
             class Deduplicate(dspy.Signature):
-                __doc__ = f"""Find duplicate {plural_type} for the item and an alias that best represents the duplicates. Duplicates are those that are the same in meaning, such as with variation in tense, plural form, stem form, case, abbreviation, shorthand. Return an empty list if there are none. 
+                __doc__ = f"""Find duplicate {plural_type} for the item and an alias that best represents the duplicates. Duplicates are those that are the same in meaning, such as with variation in tense, plural form, stem form, case, abbreviation, shorthand. Return an empty list if there are none.
                 """
                 item: str = dspy.InputField()
                 set: list[str] = dspy.InputField()
@@ -306,10 +308,11 @@ class LLMDeduplicate:
         )
 
         # Update relations based on clusters
-        relations: set[tuple[str, str, str]] = set()
+        relations: set[Relation] = set()
 
-        for s, p, o in self.graph.relations:
+        for r in self.graph.relations:
             # Look up subject in entity clusters
+            s, p, o = r.subject, r.predicate, r.object
             if s not in entities:
                 for rep, cluster in entity_clusters.items():
                     if s in cluster:
@@ -330,7 +333,7 @@ class LLMDeduplicate:
                         o = rep
                         break
 
-            relations.add((s, p, o))
+            relations.add(Relation(subject=s, predicate=p, object=o))
 
         # Update entity_metadata keys to match deduplicated entity names
         new_entity_metadata: dict[str, set[str]] | None = None

@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: kg-gen-dedup-demo
+    container_name: kg-gen-server
+    command: uvicorn app.server:app --reload --host 0.0.0.0 --port 8000
+    volumes:
+      - .:/workspace
+      - ./output:/workspace/output
+      - ./logs:/workspace/logs
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    restart: unless-stopped

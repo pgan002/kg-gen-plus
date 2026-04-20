@@ -3,18 +3,15 @@ Pytest configuration and shared fixtures for MCP server tests.
 """
 
 import pytest
-import os
 import tempfile
 from pathlib import Path
-from dotenv import load_dotenv
-
-load_dotenv()
+from kg_gen.config import settings
 
 
 @pytest.fixture(scope="session")
 def test_api_key():
     """Get API key for testing, with helpful error if missing."""
-    api_key = os.environ.get("LLM_API_KEY")
+    api_key = settings.llm_api_key
     if not api_key:
         pytest.skip("LLM_API_KEY environment variable not set")
     return api_key

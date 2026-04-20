@@ -10,6 +10,8 @@ from typing import Any, Iterable
 import colorsys
 import webbrowser
 
+import logging
+
 from kg_gen.models import Graph
 
 
@@ -30,14 +32,14 @@ def _sorted_ignore_case(items: Iterable[str]) -> list[str]:
 def _build_view_model(graph: Graph) -> dict[str, Any]:
     # Collect all entities from both the entities set and relations
     all_entities = set(graph.entities)
-    for subject, _, obj in graph.relations:
-        all_entities.add(subject)
-        all_entities.add(obj)
+    for r in graph.relations:
+        all_entities.add(r.subject)
+        all_entities.add(r.object)
     entities = _sorted_ignore_case(all_entities)
 
     relations = sorted(
         graph.relations,
-        key=lambda triple: (triple[1].lower(), triple[0].lower(), triple[2].lower()),
+        key=lambda triple: (triple.predicate.lower(), triple.subject.lower(), triple.object.lower()),
     )
 
     entity_clusters = graph.entity_clusters or {}
@@ -107,7 +109,8 @@ def _build_view_model(graph: Graph) -> dict[str, Any]:
 
     edges_view: list[dict[str, Any]] = []
 
-    for index, (subject, predicate, obj) in enumerate(relations):
+    for index, r in enumerate(relations):
+        subject, predicate, obj = r.subject, r.predicate, r.object
         predicate_counts[predicate] += 1
         degree[subject] += 1
         degree[obj] += 1
@@ -235,13 +238,13 @@ def _build_view_model(graph: Graph) -> dict[str, Any]:
 
     relation_records = [
         {
-            "source": subject,
-            "predicate": predicate,
-            "target": obj,
+            "source": r.subject,
+            "predicate": r.predicate,
+            "target": r.object,
             "edgeId": edge["id"],
             "color": edge["color"],
         }
-        for edge, (subject, predicate, obj) in zip(edges_view, relations)
+        for edge, r in zip(edges_view, relations)
     ]
 
     return {

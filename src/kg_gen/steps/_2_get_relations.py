@@ -5,6 +5,8 @@ import dspy
 import litellm
 from pydantic import BaseModel, create_model, ValidationError
 
+from kg_gen.models import TypedEntity, ExtractTextRelations, Relation, OntologyPredicate
+
 
 def parse_relations_response(
     raw_json: str,
@@ -220,68 +222,21 @@ def _filter_entities(entities: List[str]) -> List[str]:
     return [e for e in entities if '"' not in e] # not received by oai api
 
 
-def get_relations(
-    input_data: str,
-    entities: list[str],
-    is_conversation: bool = False,
+def get_relations_typed(
+    input_text: str,
+    typed_entities: list[TypedEntity],
+    predicate_domain_range: list[OntologyPredicate] = None,
     context: str = "",
-    use_litellm_prompt: bool = False,
-    model: Optional[str] = None,
-    api_key: Optional[str] = None,
-    api_base: Optional[str] = None,
     temperature: float = 0.0,
-) -> List[Tuple[str, str, str]]:
-    # Filter out entities containing backslashes
-    entities = _filter_entities(entities)
-
-    if use_litellm_prompt and not is_conversation:
-        return _get_relations_litellm(
-            input_data,
-            entities,
-            model=model,
-            api_key=api_key,
-            api_base=api_base,
-            temperature=temperature,
-        )
-
-    class Relation(BaseModel):
-        """Knowledge graph subject-predicate-object tuple."""
-
-        subject: str = dspy.InputField(desc="Subject entity", examples=["Kevin"])
-        predicate: str = dspy.InputField(desc="Predicate", examples=["is brother of"])
-        object: str = dspy.InputField(desc="Object entity", examples=["Vicky"])
-
-    ExtractRelations = extraction_sig(Relation, is_conversation, context)
-
-    try:
-        extract = dspy.Predict(ExtractRelations)
-        result = extract(source_text=input_data, entities=entities)
-        return [(r.subject, r.predicate, r.object) for r in result.relations]
-
-    except Exception as _:
-        # print("get_relations: fallback extraction")
-        Relation, ExtractRelations = fallback_extraction_sig(
-            entities, is_conversation, context
-        )
-        extract = dspy.Predict(ExtractRelations)
-        result = extract(source_text=input_data, entities=entities)
-
-        class FixedRelations(dspy.Signature):
-            """Fix the relations so that every subject and object of the relations are exact matches to an entity. Keep the predicate the same. The meaning of every relation should stay faithful to the reference text. If you cannot maintain the meaning of the original relation relative to the source text, then do not return it."""
-
-            source_text: str = dspy.InputField()
-            entities: list[str] = dspy.InputField()
-            relations: list[Relation] = dspy.InputField()
-            fixed_relations: list[Relation] = dspy.OutputField()
-
-        fix = dspy.ChainOfThought(FixedRelations)
-
-        fix_res = fix(
-            source_text=input_data, entities=entities, relations=result.relations
-        )
-
-        good_relations = []
-        for rel in fix_res.fixed_relations:
-            if rel.subject in entities and rel.object in entities:
-                good_relations.append(rel)
-        return [(r.subject, r.predicate, r.object) for r in good_relations]
+    n_retries=3
+) -> list[Relation]:
+    for _ in range(n_retries):
+        try:
+            extract = dspy.Predict(ExtractTextRelations, temperature=temperature)
+            result = extract(source_text=input_text, typed_entities=typed_entities, context=context,
+                             predicate_domain_range=predicate_domain_range)
+            return result.relations
+        except Exception as e:
+            pass
+    else:
+        raise e

@@ -1,5 +1,7 @@
+import pytest
+
 from src.kg_gen import KGGen
-from fixtures import kg
+from src.kg_gen.config import settings
 
 
 def match_subset(set1: set[str], set2: set[str]) -> bool:
@@ -25,6 +27,7 @@ def match_subset(set1: set[str], set2: set[str]) -> bool:
     return True
 
 
+@pytest.mark.skipif(not settings.llm_api_key, reason="LLM API key not set")
 def test_basic(kg: KGGen):
     # Generate a simple graph
     text = "Harry has two parents - his dad James Potter and his mom Lily Potter. Harry and his wife Ginny have three kids together: their oldest son James Sirius, their other son Albus, and their daughter Lily Luna."
@@ -44,6 +47,7 @@ def test_basic(kg: KGGen):
     assert match_subset(expected_entities, graph.entities)
 
 
+@pytest.mark.skipif(not settings.llm_api_key, reason="LLM API key not set")
 def test_clustered(kg: KGGen):
     # Test texts
     text1 = "Linda is Joshua's mother. Ben is Josh's brother. Andrew is Josh's father."
@@ -52,12 +56,12 @@ def test_clustered(kg: KGGen):
     # Generate individual graphs
     graph1 = kg.generate(
         input_data=text1,
-        context="Family relationships",
+        entity_context="Family relationships",
     )
 
     graph2 = kg.generate(
         input_data=text2,
-        context="Family relationships",
+        entity_context="Family relationships",
     )
 
     # # Aggregate the graphs
@@ -107,6 +111,7 @@ def test_clustered(kg: KGGen):
     print("Edge Clusters:", clustered_graph.edge_clusters)
 
 
+@pytest.mark.skipif(not settings.llm_api_key, reason="LLM API key not set")
 def test_conversation(kg: KGGen):
     messages = [
         {"role": "user", "content": "What is the capital of France?"},

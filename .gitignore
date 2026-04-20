@@ -27,3 +27,4 @@ experiments/MINE/faiss-scikit/*.zip
 mlruns/
 examples/wikipedia/
 .idea
+benchmarks/data
