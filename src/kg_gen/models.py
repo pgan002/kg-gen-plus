@@ -1,7 +1,7 @@
 import json
 
 import dspy
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 from typing import Optional, List
 
 
@@ -168,3 +168,73 @@ class Graph(BaseModel):
         print(
             f"{name or 'Graph'} with:\n\t{len(self.entities)} entities\n\t{len(self.edges)} edges\n\t{len(self.relations)} relations"
         )
+
+
+class LMUsage(BaseModel):
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+
+
+class StepStats(BaseModel):
+    lm_usage: LMUsage
+    execution_time: float
+
+    def __add__(self, other: "StepStats") -> "StepStats":
+        new_lm_usage = LMUsage(
+            prompt_tokens=self.lm_usage.prompt_tokens + other.lm_usage.prompt_tokens,
+            completion_tokens=self.lm_usage.completion_tokens
+            + other.lm_usage.completion_tokens,
+            total_tokens=self.lm_usage.total_tokens + other.lm_usage.total_tokens,
+        )
+        new_stats = StepStats(
+            lm_usage=new_lm_usage,
+            execution_time=self.execution_time + other.execution_time,
+        )
+        return new_stats
+
+
+class KGGenStats(BaseModel):
+    get_entities: StepStats
+    type_terms: StepStats
+    get_relations_typed: StepStats
+    deduplicate: Optional[StepStats] = None
+
+    @computed_field
+    @property
+    def overall_usage(self) -> StepStats:
+        overall_stats = StepStats(lm_usage=LMUsage(), execution_time=0.0)
+        for step_stats in [
+            self.get_entities,
+            self.type_terms,
+            self.get_relations_typed,
+            self.deduplicate,
+        ]:
+            if step_stats:
+                overall_stats.lm_usage.prompt_tokens += (
+                    step_stats.lm_usage.prompt_tokens
+                )
+                overall_stats.lm_usage.completion_tokens += (
+                    step_stats.lm_usage.completion_tokens
+                )
+                overall_stats.lm_usage.total_tokens += step_stats.lm_usage.total_tokens
+                overall_stats.execution_time += step_stats.execution_time
+        return overall_stats
+
+    def __add__(self, other: "KGGenStats") -> "KGGenStats":
+        if self.deduplicate:
+            if other.deduplicate:
+                new_deduplicate = self.deduplicate + other.deduplicate
+            else:
+                new_deduplicate = self.deduplicate
+        elif other.deduplicate:
+            new_deduplicate = other.deduplicate
+        else:
+            new_deduplicate = None
+        new_stats = KGGenStats(
+            get_entities=self.get_entities + other.get_entities,
+            type_terms=self.type_terms + other.type_terms,
+            get_relations_typed=self.get_relations_typed + other.get_relations_typed,
+            deduplicate=new_deduplicate,
+        )
+        return new_stats

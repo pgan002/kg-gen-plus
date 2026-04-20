@@ -1,12 +1,13 @@
 from typing import Union, Dict, Optional
 from typing_extensions import deprecated
+import time  # Import time module
 
 from kg_gen.steps._1_get_entities import get_entities, type_terms
 from kg_gen.steps._2_get_relations import get_relations_typed
 from kg_gen.steps._3_deduplicate import run_deduplication, DeduplicateMethod
 from kg_gen.utils.chunk_text import chunk_text
 from kg_gen.utils.visualize_kg import visualize as visualize_kg
-from kg_gen.models import Graph, Relation
+from kg_gen.models import Graph, Relation, KGGenStats, StepStats, LMUsage
 import dspy
 import json
 import os
@@ -64,6 +65,7 @@ class KGGen:
             api_base=api_base,
             retrieval_model=retrieval_model,
         )
+        dspy.configure(track_usage=True)
 
     def validate_temperature(self, temperature: float):
         if "gpt-5" in self.model and temperature < 1.0:
@@ -168,9 +170,7 @@ class KGGen:
         deduplication_method: DeduplicateMethod | None = DeduplicateMethod.SEMHASH,
         temperature: float = None,
         output_folder: Optional[str] = None,
-        reasoning_effort: str = None,
-        no_dspy: bool = False,
-    ) -> Graph:
+    ) -> tuple[Graph, KGGenStats]:
         """Generate a knowledge graph from input text or messages.
 
         Args:
@@ -182,12 +182,18 @@ class KGGen:
             output_folder: Path to save partial progress
 
         Returns:
-            Graph: Generated knowledge graph
+            tuple[Graph, KGGenStats]: Generated knowledge graph and generation statistics
         """
         processed_input: str = input_data
+        all_chunk_stats = []
 
         def _process(content, lm):
             with dspy.context(lm=lm):
+                step_stats = {}  # Stats for this chunk processing
+
+                # Step 1: Get Entities
+                self.reset_token_usage()
+                start_time = time.time()
                 if not terms:
                     entities = get_entities(
                         content,
@@ -197,8 +203,22 @@ class KGGen:
                         if temperature is not None
                         else self.temperature,
                     )
+                    step_stats["get_entities"] = StepStats(
+                        lm_usage=LMUsage(**self.extract_token_usage_from_history()),
+                        execution_time=time.time() - start_time,
+                    )
                 else:
                     entities = terms
+                    step_stats["get_entities"] = StepStats(
+                        lm_usage=LMUsage(
+                            prompt_tokens=0, completion_tokens=0, total_tokens=0
+                        ),
+                        execution_time=0.0,
+                    )
+
+                # Step 2: Type Terms
+                self.reset_token_usage()
+                start_time = time.time()
                 typed_entities = type_terms(
                     input_data=content,
                     terms=entities,
@@ -207,6 +227,14 @@ class KGGen:
                     if temperature is not None
                     else self.temperature,
                 )
+                step_stats["type_terms"] = StepStats(
+                    lm_usage=LMUsage(**self.extract_token_usage_from_history()),
+                    execution_time=time.time() - start_time,
+                )
+
+                # Step 3: Get Relations
+                self.reset_token_usage()
+                start_time = time.time()
                 relations = get_relations_typed(
                     content,
                     typed_entities=typed_entities,
@@ -216,12 +244,19 @@ class KGGen:
                     if temperature is not None
                     else self.temperature,
                 )
+                step_stats["get_relations_typed"] = StepStats(
+                    lm_usage=LMUsage(**self.extract_token_usage_from_history()),
+                    execution_time=time.time() - start_time,
+                )
 
-                return typed_entities, relations
+                return typed_entities, relations, step_stats
 
         if not chunk_size:
             try:
-                typed_entities, relations = _process(processed_input, self.lm)
+                typed_entities, relations, chunk_stats = _process(
+                    processed_input, self.lm
+                )
+                all_chunk_stats.append(chunk_stats)
             except Exception as e:
                 if "context length" in str(e).lower():
                     logger.warning(
@@ -241,12 +276,34 @@ class KGGen:
                     executor.submit(_process, chunk, self.lm): chunk for chunk in chunks
                 }
 
-                for future in as_completed(future_to_chunk):
-                    chunk_typed_entities, chunk_relations = future.result()
+                for i, future in enumerate(as_completed(future_to_chunk)):
+                    chunk_typed_entities, chunk_relations, chunk_stats = future.result()
                     typed_entities.update(chunk_typed_entities)
                     relations.extend(chunk_relations)
+                    all_chunk_stats.append(chunk_stats)
 
-        logger.info(f"{relations = }")
+        # Aggregate stats
+        aggregated_stats = {
+            "get_entities": StepStats(lm_usage=LMUsage(), execution_time=0.0),
+            "type_terms": StepStats(lm_usage=LMUsage(), execution_time=0.0),
+            "get_relations_typed": StepStats(lm_usage=LMUsage(), execution_time=0.0),
+        }
+
+        for chunk_stats in all_chunk_stats:
+            for step_name, step_stat in chunk_stats.items():
+                aggregated_stats[step_name].execution_time += step_stat.execution_time
+                aggregated_stats[
+                    step_name
+                ].lm_usage.prompt_tokens += step_stat.lm_usage.prompt_tokens
+                aggregated_stats[
+                    step_name
+                ].lm_usage.completion_tokens += step_stat.lm_usage.completion_tokens
+                aggregated_stats[
+                    step_name
+                ].lm_usage.total_tokens += step_stat.lm_usage.total_tokens
+
+        kg_gen_stats = KGGenStats(**aggregated_stats)
+
         entities = {e.entity for e in typed_entities} | {
             e.type for e in typed_entities if e.type
         }
@@ -257,13 +314,16 @@ class KGGen:
         )
 
         if deduplication_method:
-            graph = self.deduplicate(
+            graph, dedup_stats = self.deduplicate(
                 graph, method=deduplication_method, context=dedup_context
             )
+            kg_gen_stats.deduplicate = dedup_stats
 
         if output_folder:
             self.export_graph(graph, os.path.join(output_folder, "graph.json"))
-        return graph
+
+        # Return the graph and the statistics
+        return graph, kg_gen_stats
 
     @deprecated("Use KGGen.deduplicate() method instead")
     def cluster(
@@ -283,8 +343,7 @@ class KGGen:
         api_key: str = None,
         api_base: str = None,
         context: str = "",  # TODO: implement context
-    ) -> Graph:
-        assert isinstance(method, DeduplicateMethod), method
+    ) -> tuple[Graph, StepStats]:
         # Reinitialize dspy with new parameters if any are provided
         if any([model, temperature, api_key, api_base]):
             self.init_model(
@@ -294,13 +353,20 @@ class KGGen:
                 api_base=api_base or self.api_base,
             )
 
-        return run_deduplication(
+        self.reset_token_usage()
+        start_time = time.time()
+        graph = run_deduplication(
             lm=self.lm,
             graph=graph,
             method=method,
             retrieval_model=self.retrieval_model,
             semhash_similarity_threshold=semhash_similarity_threshold,
         )
+        stats = StepStats(
+            lm_usage=LMUsage(**self.extract_token_usage_from_history()),
+            execution_time=time.time() - start_time,
+        )
+        return graph, stats
 
     def aggregate(self, graphs: list[Graph]) -> Graph:
         # Initialize empty sets for combined graph

@@ -1,4 +1,5 @@
 from typing import List
+
 from scipy.spatial.distance import cdist
 from concurrent.futures import ThreadPoolExecutor
 import dspy
@@ -54,7 +55,7 @@ class LLMDeduplicate:
             # Always rebuild BM25 from tokens
             self.edge_bm25 = BM25Okapi(self.edge_bm25_tokenized)
 
-        dspy.configure(lm=lm)
+        dspy.configure(lm=lm, track_usage=True)
 
     def get_relevant_items(
         self, query: str, top_k: int = 50, type: str = "node"
@@ -217,7 +218,7 @@ class LLMDeduplicate:
                 item: str = dspy.InputField()
                 set: list[str] = dspy.InputField()
                 duplicates: list[str] = dspy.OutputField(
-                    description="Exact matches to items in {plural_type} set"
+                    description=f"Exact matches to items in {plural_type} set"
                 )
                 alias: str = dspy.OutputField(
                     description=f"Best {singular_type} name to represent the duplicates, ideally from the {plural_type} set"
@@ -249,7 +250,7 @@ class LLMDeduplicate:
                 self.logger.debug(
                     "  ✗ No duplicates found for '%s', keeping as is", item
                 )
-                item_clusters[item] = {item}
+                # item_clusters[item] = {item}
 
         self.logger.debug(
             "Deduplication complete: %s unique %s from original %s",
