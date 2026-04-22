@@ -7,9 +7,17 @@ from kg_gen.steps._2_get_relations import get_relations_typed
 from kg_gen.steps._3_deduplicate import run_deduplication, DeduplicateMethod
 from kg_gen.utils.chunk_text import chunk_text
 from kg_gen.utils.visualize_kg import visualize as visualize_kg
-from kg_gen.models import Graph, Relation, KGGenStats, StepStats, LMUsage
+from kg_gen.models import (
+    Graph,
+    Relation,
+    KGGenStats,
+    StepStats,
+    LMUsage,
+    Entity,
+    EntityType,
+    TypedEntity,
+)
 import dspy
-import json
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import networkx as nx
@@ -21,9 +29,6 @@ import numpy as np
 import logging
 
 logger = logging.getLogger(__name__)
-
-# dspy_logger = logging.getLogger("dspy")
-# dspy_logger.setLevel(logging.CRITICAL)
 
 
 class KGGen:
@@ -131,7 +136,6 @@ class KGGen:
                 max_tokens=self.max_tokens,
                 api_base=self.api_base,
                 cache=not self.disable_cache,
-                # model_type="responses" if self.model.startswith("openai/") else "chat",
                 model_type="chat",
             )
         else:
@@ -144,15 +148,12 @@ class KGGen:
                 if self.reasoning_effort
                 else None,
                 cache=not self.disable_cache,
-                # model_type="responses" if self.model.startswith("openai/") else "chat",
                 model_type="chat",
             )
 
     @staticmethod
     def from_file(file_path: str) -> Graph:
-        with open(file_path, "r") as f:
-            graph = Graph(**json.load(f))
-        return graph
+        return Graph.from_file(file_path)
 
     @staticmethod
     def from_dict(graph_dict: dict) -> Graph:
@@ -163,7 +164,7 @@ class KGGen:
         input_data: str,
         entity_context: str = "",
         terms: Optional[list[str]] = None,
-        types: Optional[list[str]] = None,
+        types: Optional[list[EntityType] | str] = None,
         relation_context: str = "",
         dedup_context: str = "",
         chunk_size: Optional[int] = None,
@@ -171,27 +172,12 @@ class KGGen:
         temperature: float = None,
         output_folder: Optional[str] = None,
     ) -> tuple[Graph, KGGenStats]:
-        """Generate a knowledge graph from input text or messages.
-
-        Args:
-            input_data: Text string or list of message dicts
-            model: Name of OpenAI model to use
-            api_key (str): OpenAI API key for making model calls
-            chunk_size: Max size of text chunks in characters to process
-            context: Description of data context
-            output_folder: Path to save partial progress
-
-        Returns:
-            tuple[Graph, KGGenStats]: Generated knowledge graph and generation statistics
-        """
         processed_input: str = input_data
         all_chunk_stats = []
 
         def _process(content, lm):
             with dspy.context(lm=lm):
-                step_stats = {}  # Stats for this chunk processing
-
-                # Step 1: Get Entities
+                step_stats = {}
                 self.reset_token_usage()
                 start_time = time.time()
                 if not terms:
@@ -199,40 +185,31 @@ class KGGen:
                         content,
                         context=entity_context,
                         types=types,
-                        temperature=temperature
-                        if temperature is not None
-                        else self.temperature,
+                        temperature=temperature or self.temperature,
                     )
                     step_stats["get_entities"] = StepStats(
                         lm_usage=LMUsage(**self.extract_token_usage_from_history()),
                         execution_time=time.time() - start_time,
                     )
                 else:
-                    entities = terms
+                    entities = [Entity(surface_form=t) for t in terms]
                     step_stats["get_entities"] = StepStats(
-                        lm_usage=LMUsage(
-                            prompt_tokens=0, completion_tokens=0, total_tokens=0
-                        ),
-                        execution_time=0.0,
+                        lm_usage=LMUsage(), execution_time=0.0
                     )
 
-                # Step 2: Type Terms
                 self.reset_token_usage()
                 start_time = time.time()
                 typed_entities = type_terms(
                     input_data=content,
-                    terms=entities,
+                    terms=[e.surface_form for e in entities],
                     types=types,
-                    temperature=temperature
-                    if temperature is not None
-                    else self.temperature,
+                    temperature=temperature or self.temperature,
                 )
                 step_stats["type_terms"] = StepStats(
                     lm_usage=LMUsage(**self.extract_token_usage_from_history()),
                     execution_time=time.time() - start_time,
                 )
 
-                # Step 3: Get Relations
                 self.reset_token_usage()
                 start_time = time.time()
                 relations = get_relations_typed(
@@ -240,9 +217,7 @@ class KGGen:
                     typed_entities=typed_entities,
                     predicate_domain_range=None,
                     context=relation_context,
-                    temperature=temperature
-                    if temperature is not None
-                    else self.temperature,
+                    temperature=temperature or self.temperature,
                 )
                 step_stats["get_relations_typed"] = StepStats(
                     lm_usage=LMUsage(**self.extract_token_usage_from_history()),
@@ -282,7 +257,6 @@ class KGGen:
                     relations.extend(chunk_relations)
                     all_chunk_stats.append(chunk_stats)
 
-        # Aggregate stats
         aggregated_stats = {
             "get_entities": StepStats(lm_usage=LMUsage(), execution_time=0.0),
             "type_terms": StepStats(lm_usage=LMUsage(), execution_time=0.0),
@@ -291,26 +265,13 @@ class KGGen:
 
         for chunk_stats in all_chunk_stats:
             for step_name, step_stat in chunk_stats.items():
-                aggregated_stats[step_name].execution_time += step_stat.execution_time
-                aggregated_stats[
-                    step_name
-                ].lm_usage.prompt_tokens += step_stat.lm_usage.prompt_tokens
-                aggregated_stats[
-                    step_name
-                ].lm_usage.completion_tokens += step_stat.lm_usage.completion_tokens
-                aggregated_stats[
-                    step_name
-                ].lm_usage.total_tokens += step_stat.lm_usage.total_tokens
+                aggregated_stats[step_name] += step_stat
 
         kg_gen_stats = KGGenStats(**aggregated_stats)
 
-        entities = {e.entity for e in typed_entities} | {
-            e.type for e in typed_entities if e.type
-        }
         graph = Graph(
-            entities=entities,
-            relations=relations,
-            edges={relation.predicate for relation in relations},
+            typed_entities=set(typed_entities),
+            relations_wo_class_assertions=relations,
         )
 
         if deduplication_method:
@@ -322,7 +283,6 @@ class KGGen:
         if output_folder:
             self.export_graph(graph, os.path.join(output_folder, "graph.json"))
 
-        # Return the graph and the statistics
         return graph, kg_gen_stats
 
     @deprecated("Use KGGen.deduplicate() method instead")
@@ -330,21 +290,20 @@ class KGGen:
         self,
         graph: Graph,
         **kwargs,
-    ) -> Graph:
+    ) -> tuple[Graph, StepStats]:
         return self.deduplicate(graph, **kwargs)
 
     def deduplicate(
         self,
         graph: Graph,
         method: DeduplicateMethod = DeduplicateMethod.FULL,
-        semhash_similarity_threshold: float = 0.95,  # recommended to keep at 0.95
+        semhash_similarity_threshold: float = 0.95,
         model: str = None,
         temperature: float = None,
         api_key: str = None,
         api_base: str = None,
-        context: str = "",  # TODO: implement context
+        context: str = "",
     ) -> tuple[Graph, StepStats]:
-        # Reinitialize dspy with new parameters if any are provided
         if any([model, temperature, api_key, api_base]):
             self.init_model(
                 model=model or self.model,
@@ -369,17 +328,13 @@ class KGGen:
         return graph, stats
 
     def aggregate(self, graphs: list[Graph]) -> Graph:
-        # Initialize empty sets for combined graph
-        all_entities = set()
+        all_typed_entities = set()
         all_relations: list[Relation] = []
-        all_edges = set()
-        all_entity_metadata: dict[str, set[str]] = {}
+        all_entity_metadata: dict[TypedEntity, set[str]] = {}
 
-        # Combine all graphs
         for graph in graphs:
-            all_entities.update(graph.entities)
-            all_relations.extend(graph.relations)
-            all_edges.update(graph.edges)
+            all_typed_entities.update(graph.typed_entities)
+            all_relations.extend(graph.relations_wo_class_assertions)
             if graph.entity_metadata:
                 for entity, metadata_set in graph.entity_metadata.items():
                     if entity in all_entity_metadata:
@@ -387,19 +342,15 @@ class KGGen:
                     else:
                         all_entity_metadata[entity] = metadata_set.copy()
 
-        # Create and return aggregated graph
         return Graph(
-            entities=all_entities,
-            relations=all_relations,
-            edges=all_edges,
+            typed_entities=all_typed_entities,
+            relations_wo_class_assertions=all_relations,
             entity_metadata=all_entity_metadata if all_entity_metadata else None,
         )
 
     @staticmethod
     def visualize(graph: Graph, output_path: str, open_in_browser: bool = False):
         visualize_kg(graph, output_path, open_in_browser=open_in_browser)
-
-    # ====== Retrieval Methods ======
 
     def _parse_embedding_model(
         self, model: Optional[SentenceTransformer] = None
@@ -424,15 +375,16 @@ class KGGen:
         self,
         graph: Union[Graph, nx.DiGraph],
         model: Optional[SentenceTransformer] = None,
-    ) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
+    ) -> tuple[dict[TypedEntity, np.ndarray], dict[Entity, np.ndarray]]:
         model = self._parse_embedding_model(model)
         if isinstance(graph, Graph):
             graph = self.to_nx(graph)
 
-        node_embeddings = {node: model.encode(node).tolist() for node in graph.nodes}
+        node_embeddings = {
+            node: model.encode(str(node)).tolist() for node in graph.nodes
+        }
         relation_embeddings = {
-            rel: model.encode(rel).tolist()
-            # TODO: this is triggering index out of range error
+            rel: model.encode(str(rel)).tolist()
             for rel in set(edge[2]["relation"] for edge in graph.edges(data=True))
         }
         return node_embeddings, relation_embeddings
@@ -440,12 +392,12 @@ class KGGen:
     def retrieve(
         self,
         query: str,
-        node_embeddings: dict[str, np.ndarray],
+        node_embeddings: dict[TypedEntity, np.ndarray],
         graph: nx.DiGraph,
         model: Optional[SentenceTransformer] = None,
         k: int = 8,
         verbose: bool = False,
-    ) -> tuple[list[tuple[str, float]], set[str], str]:
+    ) -> tuple[list[tuple[TypedEntity, float]], set[str], str]:
         model = self._parse_embedding_model(model)
         top_nodes = self.retrieve_relevant_nodes(query, node_embeddings, model, k)
         context = set()
@@ -462,10 +414,10 @@ class KGGen:
     @staticmethod
     def retrieve_relevant_nodes(
         query: str,
-        node_embeddings: dict[str, np.ndarray],
+        node_embeddings: dict[TypedEntity, np.ndarray],
         model: SentenceTransformer,
         k: int = 8,
-    ) -> list[tuple[str, float]]:
+    ) -> list[tuple[TypedEntity, float]]:
         query_embedding = model.encode(query).reshape(1, -1)
         similarities = []
         for node, embed in node_embeddings.items():
@@ -476,18 +428,18 @@ class KGGen:
         return similarities[:k]
 
     @staticmethod
-    def retrieve_context(node: str, graph: nx.DiGraph, depth: int = 2) -> list[str]:
+    def retrieve_context(
+        node: TypedEntity, graph: nx.DiGraph, depth: int = 2
+    ) -> list[str]:
         context = set()
 
         def explore_neighbors(current_node, current_depth):
             if current_depth > depth:
                 return
-            # Outgoing edges
             for neighbor in graph.neighbors(current_node):
                 rel = graph[current_node][neighbor]["relation"]
                 context.add(f"{current_node} {rel} {neighbor}.")
                 explore_neighbors(neighbor, current_depth + 1)
-            # Incoming edges
             for neighbor in graph.predecessors(current_node):
                 rel = graph[neighbor][current_node]["relation"]
                 context.add(f"{neighbor} {rel} {current_node}.")
@@ -499,36 +451,18 @@ class KGGen:
     @staticmethod
     def export_graph(graph: Graph, output_path: str):
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        graph_dict = {
-            "entities": list(graph.entities),
-            "relations": [r.model_dump() for r in graph.relations],
-            "edges": list(graph.edges),
-            "entity_clusters": {k: list(v) for k, v in graph.entity_clusters.items()}
-            if graph.entity_clusters
-            else None,
-            "edge_clusters": {k: list(v) for k, v in graph.edge_clusters.items()}
-            if graph.edge_clusters
-            else None,
-            "entity_metadata": graph.entity_metadata,
-        }
+        graph.to_file(output_path)
 
-        with open(output_path, "w") as f:
-            json.dump(graph_dict, f, indent=2)
-
-    # ====== Token Usage ======
     def reset_token_usage(self):
         self.lm.history = []
 
     def extract_token_usage_from_history(self) -> Dict[str, int]:
-        """Extract token usage from dspy LM history."""
-
         total_prompt_tokens = 0
         total_completion_tokens = 0
         total_tokens = 0
 
         for entry in self.lm.history:
             if isinstance(entry, dict):
-                # Check for usage information in various possible locations
                 usage = entry.get("usage") or entry.get("response", {}).get("usage")
 
                 if usage:

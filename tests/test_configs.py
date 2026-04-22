@@ -1,6 +1,6 @@
-from src.kg_gen import KGGen
-import pytest
+from kg_gen.kg_gen import KGGen
 from kg_gen.config import settings
+import pytest
 
 
 @pytest.mark.skipif(not settings.llm_api_key, reason="LLM API key not set")

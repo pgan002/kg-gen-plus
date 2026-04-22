@@ -3,8 +3,13 @@ from pathlib import Path
 import dspy
 import litellm
 
-
-from kg_gen.models import TextEntities, EntitiesResponse, TypedEntity, TypedEntities
+from kg_gen.models import (
+    TextEntities,
+    EntitiesResponse,
+    TypedEntity,
+    TypedEntities,
+    EntityType,
+)
 
 
 def _load_entities_prompt() -> str:
@@ -64,7 +69,7 @@ Here is the text to extract entities from:
 def get_entities(
     input_data: str,
     temperature: float = 0.0,
-    types: list[str] = None,
+    types: list[EntityType] | str = None,
     context: str = None,
 ) -> list[str]:
     extract = dspy.Predict(TextEntities, temperature=temperature)
@@ -80,7 +85,7 @@ def get_entities(
 def type_terms(
     input_data: str,
     terms: list[str],
-    types: Optional[list[str]] = None,
+    types: Optional[list[EntityType] | str] = None,
     temperature: float = 0.0,
     context: Optional[str] = None,
 ) -> list[TypedEntity]:
