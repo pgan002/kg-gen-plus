@@ -1,17 +1,46 @@
 import logging
+import io
+import requests
+import zipfile
 from pathlib import Path
 
-import dspy
 
 from benchmarks.evaluator import EvalGraph, EvalTriple, EvalEntity, GraphEvaluator
 from benchmarks.synthie_utils import iter_synthie_jsonl
 from kg_gen.kg_gen import KGGen
 
+
+def extract_terms_for_text(text: str, item_id: str) -> list[str]:
+    """Extracts terms for a single piece of text by sending an in-memory zip file to the external service."""
+    url = "http://dsx-gws-rai-docker-dmo-apl-n-01:8089/extract"
+    headers = {"accept": "application/json"}
+    data = {
+        "categories": "",
+        "questions": "",
+        "model": "gpt-mini-4o",
+        "window_size": "24000",
+        "window_overlap_size": "1000",
+    }
+
+    # Create an in-memory zip file
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
+        zipf.writestr(f"{item_id}.txt", text.encode("utf-8"))
+
+    zip_buffer.seek(0)
+
+    files = {"zip_file_docs": (f"{item_id}.zip", zip_buffer, "application/zip")}
+    response = requests.post(url, headers=headers, files=files, data=data)
+
+    response.raise_for_status()
+    return [item["term"] for item in response.json() if "term" in item]
+
+
 if __name__ == "__main__":
-    dspy.configure_cache(
-        enable_disk_cache=False,
-        enable_memory_cache=False,
-    )
+    # dspy.configure_cache(
+    #     enable_disk_cache=False,
+    #     enable_memory_cache=False,
+    # )
     logging.basicConfig(level=logging.INFO)
 
     synthie_base_data_path = Path(__file__).parent / "data" / "synthie"
@@ -28,27 +57,39 @@ if __name__ == "__main__":
         retrieval_model="sentence-transformers/all-mpnet-base-v2",
     )
 
+    i_start = 1
+    i_end = 100
+
     gs = []
-    prev_usage = None
+    total_usage = None
     evaluator = GraphEvaluator()
     for i, item in enumerate(iter_synthie_jsonl(davinci2_test_small_path), start=1):
-        print(f"\n\n{i = }, {item.id_ = }, {len(item.triplets) = }\n{item.text = }")
-        item_entities = [e.surfaceform for e in item.entities]
+        if i < i_start:
+            continue
+        if i > i_end:
+            break
+        logging.debug(
+            f"\n\n{i = }, {item.id_ = }, {len(item.triplets) = }\n{item.text = }"
+        )
+
+        logging.info(f"Extracting terms for item {item.id_}...")
+        extracted_terms = extract_terms_for_text(item.text, str(item.id_))
+        logging.info(f"Extracted {len(extracted_terms)} terms.")
+
         g, usage = kg.generate(
             input_data=item.text,
             relation_context="Use predicates from Wikidata for the extracted relations. "
             "Provide the Wikidata identifiers for the extracted relations, "
             'for example, "{surface_form: operator, uri: P137}".',
-            terms=item_entities,
+            terms=extracted_terms,
             types="Pick the types from Wikidata.",
             output_folder=str(synthie_base_data_path),
             deduplication_method=None,
         )
-        if prev_usage is not None:
-            prev_usage += usage
+        if total_usage is not None:
+            total_usage += usage
         else:
-            prev_usage = usage
-        print(f"{usage = }\n")
+            total_usage = usage
         ### Evaluate
 
         # Convert generated graph to EvalGraph
@@ -88,17 +129,17 @@ if __name__ == "__main__":
         metrics = evaluator.evaluate(
             generated_graph=generated_eval_graph, gold_graph=gold_eval_graph
         )
-        print(
+        logging.info(
+            f"{i = }, {item.id_ = }, {len(item.triplets) = }\n"
             f"Precision: {metrics['precision']}\n"
             f"Recall: {metrics['recall']}\n"
             f"F1: {metrics['f1_score']}\n"
             f"False positives: {metrics['false_positive_triples']}\n"
             f"False negatives: {metrics['false_negative_triples']}\n"
         )
+        logging.info(f"{usage = }\n")
         gs.append(g)
-        if i >= 100:
-            break
-    print(f"{prev_usage = }")
+    logging.info(f"Total usage: {total_usage}")
 
     agg_results = evaluator.get_aggregated_results()
     if agg_results:

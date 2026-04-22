@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from kg_gen.config import settings
-from src.kg_gen import KGGen
+from kg_gen.kg_gen import KGGen
 
 
 @pytest.mark.skipif(not settings.llm_api_key, reason="LLM API key not set")
@@ -12,7 +12,7 @@ def test_chunked(kg: KGGen):
     with txt_path.open() as f:
         text = f.read()
 
-    graph = kg.generate(
+    graph, _ = kg.generate(
         input_data=text,
     )
     print("Without chunking:")
@@ -21,7 +21,7 @@ def test_chunked(kg: KGGen):
     print("Relations:", graph.relations)
 
     # Generate graph from wiki text with chunking
-    graph_chunked = kg.generate(
+    graph_chunked, _ = kg.generate(
         input_data=text,
         chunk_size=1000,
     )
@@ -45,11 +45,11 @@ def test_chunked(kg: KGGen):
     )
     print(
         "Relationships found only in chunked graph:",
-        graph_chunked.relations - graph.relations,
+        set(graph_chunked.relations) - set(graph.relations),
     )
     print(
         "Relationships found only in non-chunked graph:",
-        graph.relations - graph_chunked.relations,
+        set(graph.relations) - set(graph_chunked.relations),
     )
 
 
@@ -61,11 +61,11 @@ def test_chunk_and_cluster(kg: KGGen):
         text = f.read()
 
     # # Generate graph from wiki text with chunking
-    graph = kg.generate(
+    graph, _ = kg.generate(
         input_data=text,
         chunk_size=5000,
-        cluster=True,
     )
+    graph, _ = kg.deduplicate(graph)
     print("Entities:", graph.entities)
     print("Edges:", graph.edges)
     print("Relations:", graph.relations)

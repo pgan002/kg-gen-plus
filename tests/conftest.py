@@ -4,10 +4,10 @@ import dspy
 import pytest
 
 from kg_gen.config import settings
-from src.kg_gen import KGGen
+from kg_gen.kg_gen import KGGen
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def kg():
     assert not settings.llm_api_key, (
         f"LLM_API_KEY environment variable is set. {settings.llm_api_key = }"
@@ -29,15 +29,17 @@ class MockLM(dspy.LM):
         prompt = kwargs["messages"][0]["content"]
         # Simulate different responses based on the prompt content
         if "Extract key entities" in prompt:
-            response_content = (
-                '[[ ## entities ## ]]\n["entity1", "entity2"]\n[[ ## completed ## ]]'
-            )
+            response_content = '[[ ## entities ## ]]\n[{"surface_form": "entity1", "uri": "Q1"}, {"surface_form": "entity2", "uri": "Q2"}]\n[[ ## completed ## ]]'
             usage = {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30}
         elif "predict their type/class" in prompt:
-            response_content = '[[ ## typed_entities ## ]]\n[{"entity": "entity1", "type": "type1"}, {"entity": "entity2", "type": "type2"}]\n[[ ## completed ## ]]'
+            response_content = (
+                "[[ ## typed_entities ## ]]\n"
+                '[{"surface_form": "entity1", "uri": "Q1", "type": {"label": "type1", "uri": "U1"}}, '
+                '{"surface_form": "entity2", "uri": "Q2", "type": {"label": "type2", "uri": "U2"}}]\n[[ ## completed ## ]]'
+            )
             usage = {"prompt_tokens": 15, "completion_tokens": 25, "total_tokens": 40}
         elif "Extract subject-predicate-object triples" in prompt:
-            response_content = '[[ ## relations ## ]]\n[{"subject": "entity1", "predicate": "related_to", "object": "entity2"}]\n[[ ## completed ## ]]'
+            response_content = '[[ ## relations ## ]]\n[{"subject": {"surface_form": "entity1", "uri": "Q1"}, "predicate": {"surface_form": "related_to", "uri": "P1"}, "object": {"surface_form": "entity2", "uri": "Q2"}}]\n[[ ## completed ## ]]'
             usage = {"prompt_tokens": 20, "completion_tokens": 30, "total_tokens": 50}
         else:
             response_content = "{}"
@@ -60,7 +62,7 @@ class MockLM(dspy.LM):
         return [{"text": response_content}]
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def mock_kg_gen():
     with patch("dspy.LM", new=MockLM):
         dspy.settings.configure(track_usage=True)

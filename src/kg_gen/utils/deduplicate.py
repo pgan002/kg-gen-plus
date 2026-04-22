@@ -1,5 +1,6 @@
 import unicodedata
-from kg_gen.models import Graph, Relation
+from collections import defaultdict
+from kg_gen.models import Graph, Relation, Entity, TypedEntity, EntityOrSubclass
 from semhash import SemHash
 import inflect
 
@@ -8,6 +9,7 @@ class DeduplicateList:
     inflect_engine: inflect.engine
     original_map: dict[str, str]
     items_map: dict[str, str]
+    surface_form2entity_map: dict[str, TypedEntity]
     duplicates: dict[str, str]
     deduplicated: list[str]
 
@@ -22,6 +24,7 @@ class DeduplicateList:
         self.inflect_engine = inflect.engine()
         self.original_map = {}
         self.items_map = {}
+        self.surface_form2entity_map = {}
         self.duplicates = {}
         self.deduplicated = []
 
@@ -42,53 +45,78 @@ class DeduplicateList:
             tokens.append(sing if isinstance(sing, str) and sing else tok)
         return " ".join(tokens).strip()
 
-    def deduplicate(self, items: list[str]) -> list[str]:
+    def deduplicate(self, items: list[TypedEntity] | list[Entity]):
         """
         Deduplicate a list of items using semantic hashing.
         Before deduplication, items are normalized and singularized.
 
         Args:
             items: List of items to deduplicate
-
-        Returns:
-            List of deduplicated items
         """
         self.total_items = len(items)
 
-        if items:
-            # Normalize and singularize each string
-            normalized_items = set()
-            for item in items:
-                normalized = self.normalize(item)
-                singular = self.singularize(normalized)
-                self.original_map[item] = singular
-                self.items_map[singular] = item
-                normalized_items.add(singular)
+        if not items:
+            return
 
-            # Deduplicate the normalized strings
-            semhash = SemHash.from_records(records=list(normalized_items))
-            deduplication_result = semhash.self_deduplicate(threshold=self.threshold)
+        # 1. Normalize and singularize each item's surface form
+        normalized_items = set()
+        for item in items:
+            normalized = self.normalize(item.surface_form)
+            singular = self.singularize(normalized)
+            self.original_map[item.surface_form] = singular
+            self.items_map[singular] = item.surface_form
+            normalized_items.add(singular)
+            self.surface_form2entity_map[item.surface_form] = item
 
-            self.deduplicated_items = len(deduplication_result.selected)
-            self.duplicate_items = len(deduplication_result.duplicates)
-            self.reduction = (self.duplicate_items / self.total_items) * 100
+        # 2. Run semantic hashing
+        semhash = SemHash.from_records(records=list(normalized_items))
+        deduplication_result = semhash.self_deduplicate(threshold=self.threshold)
 
-            # Map back to original strings
-            duplicates = deduplication_result.duplicates
-            for duplicate in duplicates:
-                original = duplicate.record
-                # Check if duplicates list is not empty before accessing
-                if (
-                    duplicate.duplicates
-                    and len(duplicate.duplicates) > 0
-                    and len(duplicate.duplicates[0]) > 0
-                ):
-                    duplicate_value = duplicate.duplicates[0][0]
-                    self.items_map[original] = self.items_map[duplicate_value]
-                    if original not in self.duplicates:
-                        self.duplicates[original] = duplicate_value
+        self.deduplicated_items = len(deduplication_result.selected)
+        self.duplicate_items = len(deduplication_result.duplicates)
+        self.reduction = (
+            (self.duplicate_items / self.total_items) * 100
+            if self.total_items > 0
+            else 0
+        )
 
-            self.deduplicated = deduplication_result.selected
+        # 3. Build a graph of duplicate relationships
+        adj = defaultdict(set)
+        for duplicate in deduplication_result.duplicates:
+            record = duplicate.record
+            for dup_item, _ in duplicate.duplicates:
+                adj[record].add(dup_item)
+                adj[dup_item].add(record)
+
+        # 4. Find connected components (clusters of duplicates)
+        clusters = []
+        visited = set()
+        for node in adj:
+            if node not in visited:
+                component = []
+                q = [node]
+                visited.add(node)
+                while q:
+                    curr = q.pop(0)
+                    component.append(curr)
+                    for neighbor in adj[curr]:
+                        if neighbor not in visited:
+                            visited.add(neighbor)
+                            q.append(neighbor)
+                clusters.append(component)
+
+        # 5. Elect a representative for each cluster and update the mapping
+        for cluster in clusters:
+            # Deterministically elect a representative (e.g., the first one alphabetically)
+            cluster.sort()
+            representative_singular = cluster[0]
+            canonical_surface_form = self.items_map[representative_singular]
+
+            # Map all members of the cluster to the canonical surface form
+            for member_singular in cluster:
+                self.items_map[member_singular] = canonical_surface_form
+
+        self.deduplicated = deduplication_result.selected
 
     def stats(self) -> str:
         return f"Total items: {self.total_items}; Deduplicated items: {self.deduplicated_items}; Duplicate items: {self.duplicate_items}; Reduction: {self.reduction:.1f}"
@@ -103,63 +131,46 @@ def run_semhash_deduplication(
     """
     # Deduplicate each graph components
     entities_dedup = DeduplicateList(similarity_threshold)
-    entities_dedup.deduplicate(graph.entities)
+    entities_dedup.deduplicate(list(graph.typed_entities))
     edges_dedup = DeduplicateList(similarity_threshold)
-    edges_dedup.deduplicate(graph.edges)
+    edges_dedup.deduplicate(list(graph.edges))
+
+    def get_canonical_entity(
+        entity: EntityOrSubclass, dedup_list: DeduplicateList
+    ) -> EntityOrSubclass:
+        surface_form = entity.surface_form
+        if surface_form not in dedup_list.original_map:
+            return entity
+
+        singular_sf = dedup_list.original_map[surface_form]
+        canonical_original_sf = dedup_list.items_map[singular_sf]
+
+        return dedup_list.surface_form2entity_map[canonical_original_sf]
 
     def _get_relation(relation: Relation) -> Relation:
         """
         Get the transformed relation.
         """
-        # Handle case where entity might not be in original_map due to normalization
-        first_entity_original = relation.subject
-        if first_entity_original in entities_dedup.original_map:
-            first_entity = entities_dedup.items_map[
-                entities_dedup.original_map[first_entity_original]
-            ]
-        else:
-            # If not found, use the original entity (it might have been normalized differently)
-            first_entity = first_entity_original
-
-        second_entity_original = relation.object
-        if second_entity_original in entities_dedup.original_map:
-            second_entity = entities_dedup.items_map[
-                entities_dedup.original_map[second_entity_original]
-            ]
-        else:
-            # If not found, use the original entity
-            second_entity = second_entity_original
-
-        edge_original = relation.predicate
-        if edge_original in edges_dedup.original_map:
-            edge = edges_dedup.items_map[edges_dedup.original_map[edge_original]]
-        else:
-            # If not found, use the original edge
-            edge = edge_original
-
-        return Relation(subject=first_entity, predicate=edge, object=second_entity)
+        new_subject = get_canonical_entity(relation.subject, entities_dedup)
+        new_object = get_canonical_entity(relation.object, entities_dedup)
+        new_predicate = get_canonical_entity(relation.predicate, edges_dedup)
+        return Relation(subject=new_subject, predicate=new_predicate, object=new_object)
 
     # Deduplicate the graph
-    new_entities = [
-        entities_dedup.items_map[item] for item in entities_dedup.deduplicated
-    ]
-    new_edges = [edges_dedup.items_map[item] for item in edges_dedup.deduplicated]
+    new_entities = {
+        get_canonical_entity(entity, entities_dedup) for entity in graph.entities
+    }
     new_relations = [_get_relation(relation) for relation in graph.relations]
 
     # Remove duplicate relations
     new_relations = list(set(new_relations))
 
     # Update entity_metadata keys to match deduplicated entity names
-    new_entity_metadata: dict[str, set[str]] | None = None
+    new_entity_metadata: dict[TypedEntity, set[str]] | None = None
     if graph.entity_metadata:
         new_entity_metadata = {}
         for original_entity, metadata_set in graph.entity_metadata.items():
-            if original_entity in entities_dedup.original_map:
-                deduped_entity = entities_dedup.items_map[
-                    entities_dedup.original_map[original_entity]
-                ]
-            else:
-                deduped_entity = original_entity
+            deduped_entity = get_canonical_entity(original_entity, entities_dedup)
             # Merge metadata sets when entities are deduplicated together
             if deduped_entity in new_entity_metadata:
                 new_entity_metadata[deduped_entity].update(metadata_set)
@@ -167,8 +178,7 @@ def run_semhash_deduplication(
                 new_entity_metadata[deduped_entity] = metadata_set.copy()
 
     return Graph(
-        entities=new_entities,
-        edges=new_edges,
-        relations=new_relations,
+        typed_entities=new_entities,
+        relations_wo_class_assertions=new_relations,
         entity_metadata=new_entity_metadata,
     )

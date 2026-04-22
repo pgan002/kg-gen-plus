@@ -1,5 +1,3 @@
-import logging
-
 from kg_gen.models import Graph
 
 
@@ -9,14 +7,12 @@ def test_generate_with_stats(mock_kg_gen):
 
     # Check the generated graph
     assert isinstance(graph, Graph)
-    assert "entity1" in graph.entities
-    assert "entity2" in graph.entities
-    assert len(graph.relations) == 1
-    assert graph.relations[0].subject == "entity1"
+    assert "entity1" in str(graph.entities)
+    assert "entity2" in str(graph.entities)
+    assert len(graph.relations) == 3
+    assert graph.relations[0].subject.surface_form == "entity1"
 
     # Check the statistics
-    logging.warning(f"{stats = }")
-
     assert stats.get_entities
     assert stats.get_entities.lm_usage.total_tokens == 30
     assert stats.get_entities.execution_time > 0

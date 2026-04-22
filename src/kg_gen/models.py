@@ -2,7 +2,89 @@ import json
 
 import dspy
 from pydantic import BaseModel, Field, computed_field
-from typing import Optional, List
+from typing import Optional, List, Set
+
+from typing_extensions import TypeVar
+
+
+class Entity(BaseModel):
+    surface_form: str = Field(..., description="The surface form of the entity")
+    uri: Optional[str] = Field(
+        default=None, description="Optional identifier or URI for the entity"
+    )
+
+    def __hash__(self):
+        return hash((self.surface_form, self.uri))
+
+    def __eq__(self, other):
+        if not isinstance(other, Entity):
+            return NotImplemented
+        return self.surface_form == other.surface_form and self.uri == other.uri
+
+    def __str__(self):
+        return self.surface_form
+
+    def __repr__(self):
+        return f"Entity(surface_form='{self.surface_form}', uri='{self.uri}')"
+
+
+class EntityType(BaseModel):
+    label: str = Field(..., description="Label or name of the entity type")
+    uri: Optional[str] = Field(
+        default=None, description="Identifier or URI for the entity type"
+    )
+
+    def __hash__(self):
+        return hash((self.label, self.uri))
+
+
+class TypedEntity(Entity):
+    """Structured response for entity typing."""
+
+    type: Optional[EntityType] = Field(
+        None,
+        description="Type of the entity, e.g., 'Person', 'Location', 'Organization', etc, and the URI of the type. "
+        "If no type is suitable, leave empty or put None.",
+    )
+
+    def __hash__(self):
+        return hash((self.surface_form, self.uri, self.type))
+
+    def __eq__(self, other):
+        if not isinstance(other, TypedEntity):
+            return NotImplemented
+        return (
+            self.surface_form == other.surface_form
+            and self.uri == other.uri
+            and self.type == other.type
+        )
+
+    def __repr__(self):
+        return f"TypedEntity(surface_form='{self.surface_form}', uri='{self.uri}', type={self.type!r})"
+
+    @property
+    def type_entity(self) -> Entity | None:
+        type_entity = (
+            Entity(surface_form=self.type.label, uri=self.type.uri)
+            if self.type
+            else None
+        )
+        return type_entity
+
+    @property
+    def class_assertion(
+        self, assertion_predicate: Entity = Entity(surface_form="is a", uri="rdf:type")
+    ) -> Optional["Relation"]:
+        if self.type_entity is not None:
+            assertion = Relation(
+                subject=self, predicate=assertion_predicate, object=self.type_entity
+            )
+        else:
+            assertion = None
+        return assertion
+
+
+EntityOrSubclass = TypeVar("EntityOrSubclass", bound="Entity")
 
 
 class TextEntities(dspy.Signature):
@@ -14,11 +96,11 @@ class TextEntities(dspy.Signature):
         default=None,
         desc="Optional context. If provided, consider it when extracting entities.",
     )
-    types_to_extract: list[str] = dspy.InputField(
-        default=["Person", "Location", "Organization"],
-        desc="List of entity types to extract. If empty, all entity types are extracted.",
+    types_to_extract: list[EntityType] | str | None = dspy.InputField(
+        default=None,
+        desc="List of entity types or string describing the types to extract. If empty, all entity types are extracted.",
     )
-    entities: list[str] = dspy.OutputField(desc="THOROUGH list of key entities")
+    entities: list[Entity] = dspy.OutputField(desc="THOROUGH list of key entities")
 
 
 class ConversationEntities(dspy.Signature):
@@ -27,23 +109,13 @@ class ConversationEntities(dspy.Signature):
     This is for an extraction task, please be THOROUGH and accurate."""
 
     source_text: str = dspy.InputField()
-    entities: list[str] = dspy.OutputField(desc="THOROUGH list of key entities")
+    entities: list[Entity] = dspy.OutputField(desc="THOROUGH list of key entities")
 
 
 class EntitiesResponse(BaseModel):
     """Structured response for entity extraction."""
 
-    entities: List[str]
-
-
-class TypedEntity(BaseModel):
-    """Structured response for entity typing."""
-
-    entity: str
-    type: str | None = Field(
-        None,
-        description="Type of the entity, e.g., 'Person', 'Location', 'Organization', etc. If no type is suitable, leave empty or put None.",
-    )
+    entities: List[Entity]
 
 
 class TypedEntities(dspy.Signature):
@@ -53,14 +125,14 @@ class TypedEntities(dspy.Signature):
     predict your own types.
     """
 
-    entities: List[str] = dspy.InputField()
+    entities: list[str] = dspy.InputField()
     context: Optional[str] = dspy.InputField(
         default=None,
         desc="Optional context. If provided, consider it when extracting entities.",
     )
-    types: Optional[list[str]] = dspy.InputField(
-        default=["Person", "Location", "Organization"],
-        desc="List of entity types to extract. If empty, all entity types are extracted.",
+    types: list[EntityType] | str | None = dspy.InputField(
+        default=None,
+        desc="List of entity types or string describing the types to extract. If empty, all entity types are extracted.",
     )
     source_text: str = dspy.InputField()
     typed_entities: list[TypedEntity] = dspy.OutputField(
@@ -71,9 +143,9 @@ class TypedEntities(dspy.Signature):
 class Relation(BaseModel):
     """Knowledge graph subject-predicate-object tuple."""
 
-    subject: str = dspy.InputField(desc="Subject entity", examples=["Kevin"])
-    predicate: str = dspy.InputField(desc="Predicate", examples=["is brother of"])
-    object: str = dspy.InputField(desc="Object entity", examples=["Vicky"])
+    subject: Entity = dspy.InputField(desc="Subject entity")
+    predicate: Entity = dspy.InputField(desc="Predicate")
+    object: Entity = dspy.InputField(desc="Object entity")
 
     def __hash__(self):
         return (
@@ -116,50 +188,100 @@ class ExtractTextRelations(dspy.Signature):
         desc="Optional context. If provided, consider it when extracting relations.",
     )
     relations: list[Relation] = dspy.OutputField(
-        desc="List of subject-predicate-object tuples. Be thorough. For each entity also add a relation to its type"
+        desc="List of subject-predicate-object tuples. Be thorough."
     )
 
 
 class Graph(BaseModel):
-    entities: set[str] = Field(
+    typed_entities: Set[TypedEntity] = Field(
         ..., description="All entities including additional ones from response"
     )
-    edges: set[str] = Field(..., description="All edges")
-    relations: list[Relation] = Field(
+    relations_wo_class_assertions: List[Relation] = Field(
         ..., description="List of (subject, predicate, object) triples"
     )
-    entity_clusters: Optional[dict[str, set[str]]] = None
-    edge_clusters: Optional[dict[str, set[str]]] = None
+    entity_clusters: Optional[dict[str, Set[TypedEntity | Entity]]] = None
+    edge_clusters: Optional[dict[str, Set[str]]] = None
 
-    entity_metadata: dict[str, set[str]] | None = None
+    entity_metadata: dict[TypedEntity, Set[str]] | None = None
 
-    @staticmethod
-    def from_file(file_path: str) -> "Graph":
-        """
-        Load the graph from a file.
-        Fix graph entities and edges for missing ones defined in relations.
-        """
-        with open(file_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            graph = Graph.model_validate(data)
+    @computed_field
+    @property
+    def entities(self) -> set[Entity]:
+        out = {
+            Entity(surface_form=te.surface_form, uri=te.uri)
+            for te in self.typed_entities
+        }
+        out |= {te.type_entity for te in self.typed_entities if te.type_entity}
+        return out
 
-        # Fix graph entities and edges
-        for relation in graph.relations:
-            if relation.subject not in graph.entities:
-                graph.entities.add(relation.subject)
-            if relation.predicate not in graph.edges:
-                graph.edges.add(relation.predicate)
-            if relation.object not in graph.entities:
-                graph.entities.add(relation.object)
+    @computed_field
+    @property
+    def relations(self) -> list[Relation]:
+        out = self.relations_wo_class_assertions + [
+            te.class_assertion for te in self.typed_entities if te.type_entity
+        ]
+        return out
 
-        return graph
+    @computed_field
+    @property
+    def edges(self) -> set[Entity]:
+        out = {relation.predicate for relation in self.relations}
+        return out
+
+    # @staticmethod
+    # def from_file(file_path: str) -> "Graph":
+    #     """
+    #     Load the graph from a file.
+    #     Fix graph entities and edges for missing ones defined in relations.
+    #     """
+    #     with open(file_path, "r", encoding="utf-8") as f:
+    #         data = json.load(f)
+    #         # Convert entity strings to TypedEntity objects during loading
+    #         if "typed_entities" in data and isinstance(data["typed_entities"], list):
+    #             data["typed_entities"] = [
+    #                 TypedEntity(**e) if isinstance(e, dict) else TypedEntity(surface_form=e)
+    #                 for e in data["typed_entities"]
+    #             ]
+    #         if "relations_wo_class_assertions" in data and isinstance(data["relations_wo_class_assertions"], list):
+    #             new_relations = []
+    #             for r in data["relations_wo_class_assertions"]:
+    #                 if isinstance(r, dict):
+    #                     subject = TypedEntity(**r["subject"]) if isinstance(r["subject"], dict) else TypedEntity(surface_form=r["subject"])
+    #                     predicate = Entity(**r["predicate"]) if isinstance(r["predicate"], dict) else Entity(surface_form=r["predicate"])
+    #                     object_ = TypedEntity(**r["object"]) if isinstance(r["object"], dict) else TypedEntity(surface_form=r["object"])
+    #                     new_relations.append(Relation(subject=subject, predicate=predicate, object=object_))
+    #             data["relations_wo_class_assertions"] = new_relations
+    #
+    #         if "entity_metadata" in data and isinstance(data["entity_metadata"], dict):
+    #             new_metadata = {}
+    #             for k_str, v in data["entity_metadata"].items():
+    #                 try:
+    #                     k_dict = json.loads(k_str)
+    #                     key_obj = TypedEntity(**k_dict)
+    #                     new_metadata[key_obj] = set(v)
+    #                 except (json.JSONDecodeError, TypeError):
+    #                     new_metadata[TypedEntity(surface_form=k_str)] = set(v)
+    #             data["entity_metadata"] = new_metadata
+    #
+    #         graph = Graph.model_validate(data)
+    #
+    #     # Fix graph entities and edges
+    #     for relation in graph.relations:
+    #         if relation.subject not in graph.entities:
+    #             graph.entities.add(relation.subject)
+    #         if relation.predicate not in graph.edges:
+    #             graph.edges.add(relation.predicate)
+    #         if relation.object not in graph.entities:
+    #             graph.entities.add(relation.object)
+    #
+    #     return graph
 
     def to_file(self, file_path: str):
         """
         Save the graph to a file.
         """
         with open(file_path, "w", encoding="utf-8") as f:
-            f.write(self.model_dump_json(indent=2))
+            json.dump(self.model_dump(mode="json"), f, indent=2)
 
     def stats(self, name: Optional[str] = None):
         """
