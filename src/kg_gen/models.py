@@ -153,7 +153,18 @@ class Relation(BaseModel):
         )
 
 
-class OntologyPredicate(BaseModel):
+class OntologyPredicate(EntityType):
+    description: Optional[str] = None
+    domain: Set[EntityType] = Field(default_factory=set)
+    range: Set[EntityType] = Field(default_factory=set)
+
+
+class Ontology(BaseModel):
+    classes: Set[EntityType] = Field(default_factory=set)
+    predicates: Set[OntologyPredicate] = Field(default_factory=set)
+
+
+class OntologyPredicateExtraction(BaseModel):
     predicate_label: str = dspy.InputField(
         desc="Predicate label", examples=["is_brother_of"]
     )
@@ -179,9 +190,11 @@ class ExtractTextRelations(dspy.Signature):
 
     source_text: str = dspy.InputField()
     typed_entities: list[TypedEntity] = dspy.InputField()
-    predicate_domain_range: Optional[list[OntologyPredicate]] = dspy.InputField(
-        default=None,
-        desc="List of predicate specification with domains and ranges. If not provided, use any predicates.",
+    predicate_domain_range: Optional[list[OntologyPredicateExtraction]] = (
+        dspy.InputField(
+            default=None,
+            desc="List of predicate specification with domains and ranges. If not provided, use any predicates.",
+        )
     )
     context: Optional[str] = dspy.InputField(
         default=None,
@@ -204,6 +217,8 @@ class Graph(BaseModel):
 
     entity_metadata: dict[TypedEntity, Set[str]] | None = None
 
+    output_class_assertions: bool = True
+
     @computed_field
     @property
     def entities(self) -> set[Entity]:
@@ -217,10 +232,13 @@ class Graph(BaseModel):
     @computed_field
     @property
     def relations(self) -> list[Relation]:
-        out = self.relations_wo_class_assertions + [
-            te.class_assertion for te in self.typed_entities if te.type_entity
-        ]
-        return out
+        if self.output_class_assertions:
+            out = self.relations_wo_class_assertions + [
+                te.class_assertion for te in self.typed_entities if te.type_entity
+            ]
+            return out
+        else:
+            return self.relations_wo_class_assertions
 
     @computed_field
     @property

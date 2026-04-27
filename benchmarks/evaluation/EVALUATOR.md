@@ -38,7 +38,7 @@ Represents an entire Knowledge Graph.
 1. **Text Normalization**: Before comparison, all `surface_form` strings are normalized. HTML entities are unescaped, URLs are unquoted, underscores are replaced with spaces, and Unicode is standardized to NFKC. Everything is lowercased and stripped.
 2. **Predicate Evaluation**:
     - **By URI**: If both the generated and gold predicates contain a `uri`, they **must** match exactly.
-    - **By Text (Fuzzy)**: If URIs are missing, predicates are compared using fuzzy string matching via `rapidfuzz`.
+    - **By Text (Fuzzy)**: If URIs are missing or do not match, predicates are compared using fuzzy string matching via `rapidfuzz`.
     - **Class/Type Fallback**: Special predicates (`instance of`, `is a`, `type`, `has type`, `class`) are treated as identical to one another.
 3. **Subject/Object Evaluation**: Subjects and Objects are compared using fuzzy string matching.
 4. **Thresholding**: For a generated triple to "match" a gold triple, the Subject, Predicate, and Object similarity scores must *all* meet or exceed the `match_threshold` (default is `90.0` out of 100).

@@ -16,6 +16,7 @@ from kg_gen.models import (
     Entity,
     EntityType,
     TypedEntity,
+    OntologyPredicate,
 )
 import dspy
 import os
@@ -164,8 +165,9 @@ class KGGen:
         input_data: str,
         entity_context: str = "",
         terms: Optional[list[str]] = None,
-        types: Optional[list[EntityType] | str] = None,
+        types: Optional[list[EntityType]] = None,
         relation_context: str = "",
+        predicate_domain_range: Optional[list[OntologyPredicate]] = None,
         dedup_context: str = "",
         chunk_size: Optional[int] = None,
         deduplication_method: DeduplicateMethod | None = DeduplicateMethod.SEMHASH,
@@ -215,7 +217,7 @@ class KGGen:
                 relations = get_relations_typed(
                     content,
                     typed_entities=typed_entities,
-                    predicate_domain_range=None,
+                    predicate_domain_range=predicate_domain_range,
                     context=relation_context,
                     temperature=temperature or self.temperature,
                 )
