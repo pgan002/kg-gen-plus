@@ -1,38 +1,46 @@
 import logging
-from pathlib import Path
 
-import dspy
-
-from benchmarks.evaluator import EvalGraph, EvalTriple, EvalEntity, GraphEvaluator
-from benchmarks.synthie_utils import iter_synthie_jsonl
+from benchmarks.evaluation.evaluator import (
+    EvalGraph,
+    EvalTriple,
+    EvalEntity,
+    GraphEvaluator,
+)
+from benchmarks.synthie.config import (
+    llm_model,
+    retrieval_model,
+    test_path,
+    synthie_base_data_path,
+    i_start,
+    i_end,
+)
+from benchmarks.synthie.synthie_utils import iter_synthie_jsonl
 from kg_gen.kg_gen import KGGen
+from kg_gen.models import Graph
 
 if __name__ == "__main__":
-    dspy.configure_cache(
-        enable_disk_cache=False,
-        enable_memory_cache=False,
-    )
-    logging.basicConfig(level=logging.INFO)
-
-    synthie_base_data_path = Path(__file__).parent / "data" / "synthie"
-    davinci2_test_small_path = synthie_base_data_path / "test_small_ordered.jsonl"
-
     # keycloak_token = get_keycloak_token()
     kg = KGGen(
         # Use 'openai/' prefix to force standard HTTP client with Bearer token auth
         # model="openai/gpt-oss:120b",
-        model="openai/gpt-5.4-mini",
+        model=llm_model,
         temperature=1.0,
         # api_base="https://ollama.dev.memorise.sdu.dk/v1",
         # api_key=keycloak_token
-        retrieval_model="sentence-transformers/all-mpnet-base-v2",
+        retrieval_model=retrieval_model,
     )
 
-    gs = []
+    gs: list[Graph] = []  # to aggregate the output graphs
     prev_usage = None
     evaluator = GraphEvaluator()
-    for i, item in enumerate(iter_synthie_jsonl(davinci2_test_small_path), start=1):
-        print(f"\n\n{i = }, {item.id_ = }, {len(item.triplets) = }\n{item.text = }")
+    for i, item in enumerate(iter_synthie_jsonl(test_path), start=1):
+        if i < i_start:
+            continue
+        if i > i_end:
+            break
+        logging.info(
+            f"\n\n{i = }, {item.id_ = }, {len(item.triplets) = }\n{item.text = }"
+        )
         item_entities = [e.surfaceform for e in item.entities]
         g, usage = kg.generate(
             input_data=item.text,
@@ -40,7 +48,7 @@ if __name__ == "__main__":
             "Provide the Wikidata identifiers for the extracted relations, "
             'for example, "{surface_form: operator, uri: P137}".',
             terms=item_entities,
-            types="Pick the types from Wikidata.",
+            entity_context="Pick the types from Wikidata.",
             output_folder=str(synthie_base_data_path),
             deduplication_method=None,
         )
@@ -48,7 +56,7 @@ if __name__ == "__main__":
             prev_usage += usage
         else:
             prev_usage = usage
-        print(f"{usage = }\n")
+        logging.info(f"{usage = }\n")
         ### Evaluate
 
         # Convert generated graph to EvalGraph
@@ -88,7 +96,7 @@ if __name__ == "__main__":
         metrics = evaluator.evaluate(
             generated_graph=generated_eval_graph, gold_graph=gold_eval_graph
         )
-        print(
+        logging.info(
             f"Precision: {metrics['precision']}\n"
             f"Recall: {metrics['recall']}\n"
             f"F1: {metrics['f1_score']}\n"
@@ -96,9 +104,7 @@ if __name__ == "__main__":
             f"False negatives: {metrics['false_negative_triples']}\n"
         )
         gs.append(g)
-        if i >= 100:
-            break
-    print(f"{prev_usage = }")
+    logging.info(f"{prev_usage = }")
 
     agg_results = evaluator.get_aggregated_results()
     if agg_results:
@@ -119,6 +125,6 @@ if __name__ == "__main__":
     #     # semhash_similarity_threshold=0.5
     #     # method=DeduplicateMethod.LM_BASED,
     # )
-    # print(f"{dedup_stats = }")
+    # logging.info(f"{dedup_stats = }")
     # kg.export_graph(graph=agg_g, output_path=str(synthie_base_data_path / "graph.json"))
     # kg.visualize(agg_g, str(synthie_base_data_path / "graph.html"), True)

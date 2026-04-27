@@ -2,12 +2,25 @@ import logging
 import io
 import requests
 import zipfile
-from pathlib import Path
 
 
-from benchmarks.evaluator import EvalGraph, EvalTriple, EvalEntity, GraphEvaluator
-from benchmarks.synthie_utils import iter_synthie_jsonl
+from benchmarks.evaluation.evaluator import (
+    EvalGraph,
+    EvalTriple,
+    EvalEntity,
+    GraphEvaluator,
+)
+from benchmarks.synthie.config import (
+    test_path,
+    synthie_base_data_path,
+    llm_model,
+    retrieval_model,
+    i_start,
+    i_end,
+)
+from benchmarks.synthie.synthie_utils import iter_synthie_jsonl
 from kg_gen.kg_gen import KGGen
+from kg_gen.models import Graph
 
 
 def extract_terms_for_text(text: str, item_id: str) -> list[str]:
@@ -37,33 +50,21 @@ def extract_terms_for_text(text: str, item_id: str) -> list[str]:
 
 
 if __name__ == "__main__":
-    # dspy.configure_cache(
-    #     enable_disk_cache=False,
-    #     enable_memory_cache=False,
-    # )
-    logging.basicConfig(level=logging.INFO)
-
-    synthie_base_data_path = Path(__file__).parent / "data" / "synthie"
-    davinci2_test_small_path = synthie_base_data_path / "test_small_ordered.jsonl"
-
     # keycloak_token = get_keycloak_token()
     kg = KGGen(
         # Use 'openai/' prefix to force standard HTTP client with Bearer token auth
         # model="openai/gpt-oss:120b",
-        model="openai/gpt-5.4-mini",
+        model=llm_model,
         temperature=1.0,
         # api_base="https://ollama.dev.memorise.sdu.dk/v1",
         # api_key=keycloak_token
-        retrieval_model="sentence-transformers/all-mpnet-base-v2",
+        retrieval_model=retrieval_model,
     )
 
-    i_start = 1
-    i_end = 100
-
-    gs = []
+    gs: list[Graph] = []  # to aggregate the output graphs
     total_usage = None
     evaluator = GraphEvaluator()
-    for i, item in enumerate(iter_synthie_jsonl(davinci2_test_small_path), start=1):
+    for i, item in enumerate(iter_synthie_jsonl(test_path), start=1):
         if i < i_start:
             continue
         if i > i_end:
@@ -82,7 +83,7 @@ if __name__ == "__main__":
             "Provide the Wikidata identifiers for the extracted relations, "
             'for example, "{surface_form: operator, uri: P137}".',
             terms=extracted_terms,
-            types="Pick the types from Wikidata.",
+            entity_context="Pick the types from Wikidata.",
             output_folder=str(synthie_base_data_path),
             deduplication_method=None,
         )
