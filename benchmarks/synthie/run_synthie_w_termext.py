@@ -20,7 +20,7 @@ from benchmarks.synthie.config import (
 )
 from benchmarks.synthie.synthie_utils import iter_synthie_jsonl
 from kg_gen.kg_gen import KGGen
-from kg_gen.models import Graph
+from kg_gen.models import Graph, InputData
 
 
 def extract_terms_for_text(text: str, item_id: str) -> list[str]:
@@ -78,7 +78,7 @@ if __name__ == "__main__":
         logging.info(f"Extracted {len(extracted_terms)} terms.")
 
         g, usage = kg.generate(
-            input_data=item.text,
+            input_data=InputData(text=item.text, id=str(item.id_)),
             relation_context="Use predicates from Wikidata for the extracted relations. "
             "Provide the Wikidata identifiers for the extracted relations, "
             'for example, "{surface_form: operator, uri: P137}".',

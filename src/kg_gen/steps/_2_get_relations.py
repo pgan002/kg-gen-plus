@@ -229,6 +229,7 @@ def get_relations_typed(
     context: str = "",
     temperature: float = 0.0,
     n_retries=3,
+    provenance_ids: Optional[List[str]] = None,
 ) -> list[Relation]:
     latest_exception = None
     assert n_retries > 0, "n_retries must be greater than 0"
@@ -241,6 +242,8 @@ def get_relations_typed(
                 context=context,
                 predicate_domain_range=predicate_domain_range,
             )
+            for relation in result.relations:
+                relation.provenance_ids = provenance_ids or []
             return result.relations
         except Exception as e:
             latest_exception = e

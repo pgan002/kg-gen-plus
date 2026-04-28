@@ -7,6 +7,11 @@ from typing import Optional, List, Set
 from typing_extensions import TypeVar
 
 
+class InputData(BaseModel):
+    text: str
+    id: str
+
+
 class Entity(BaseModel):
     surface_form: str = Field(..., description="The surface form of the entity")
     uri: Optional[str] = Field(
@@ -46,9 +51,15 @@ class TypedEntity(Entity):
         description="Type of the entity, e.g., 'Person', 'Location', 'Organization', etc, and the URI of the type. "
         "If no type is suitable, leave empty or put None.",
     )
+    provenance_ids: List[str] = Field(
+        default_factory=list,
+        description="Identifier of the source of the entity typing",
+    )
 
     def __hash__(self):
-        return hash((self.surface_form, self.uri, self.type))
+        return hash(
+            (self.surface_form, self.uri, self.type, tuple(self.provenance_ids))
+        )
 
     def __eq__(self, other):
         if not isinstance(other, TypedEntity):
@@ -57,6 +68,7 @@ class TypedEntity(Entity):
             self.surface_form == other.surface_form
             and self.uri == other.uri
             and self.type == other.type
+            and self.provenance_ids == other.provenance_ids
         )
 
     def __repr__(self):
@@ -77,7 +89,10 @@ class TypedEntity(Entity):
     ) -> Optional["Relation"]:
         if self.type_entity is not None:
             assertion = Relation(
-                subject=self, predicate=assertion_predicate, object=self.type_entity
+                subject=self,
+                predicate=assertion_predicate,
+                object=self.type_entity,
+                provenance_ids=self.provenance_ids,
             )
         else:
             assertion = None
@@ -146,10 +161,16 @@ class Relation(BaseModel):
     subject: Entity = dspy.InputField(desc="Subject entity")
     predicate: Entity = dspy.InputField(desc="Predicate")
     object: Entity = dspy.InputField(desc="Object entity")
+    provenance_ids: List[str] = Field(
+        default_factory=list, description="Identifier of the source of the triple"
+    )
 
     def __hash__(self):
         return (
-            self.subject.__hash__() ^ self.predicate.__hash__() ^ self.object.__hash__()
+            self.subject.__hash__()
+            ^ self.predicate.__hash__()
+            ^ self.object.__hash__()
+            ^ hash(tuple(self.provenance_ids))
         )
 
 
@@ -279,7 +300,8 @@ class Graph(BaseModel):
     #                     new_metadata[key_obj] = set(v)
     #                 except (json.JSONDecodeError, TypeError):
     #                     new_metadata[TypedEntity(surface_form=k_str)] = set(v)
-    #             data["entity_metadata"] = new_metadata
+    #             data["entity_metadata"].pop(k_str)
+    #             data["entity_metadata"][key_obj] = v
     #
     #         graph = Graph.model_validate(data)
     #
