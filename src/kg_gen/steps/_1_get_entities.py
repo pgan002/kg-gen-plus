@@ -88,9 +88,12 @@ def type_terms(
     types: Optional[list[EntityType] | str] = None,
     temperature: float = 0.0,
     context: Optional[str] = None,
+    provenance_ids: Optional[List[str]] = None,
 ) -> list[TypedEntity]:
     predict_type = dspy.Predict(TypedEntities, temperature=temperature)
     result = predict_type(
         entities=terms, types=types, source_text=input_data, context=context
     )
+    for entity in result.typed_entities:
+        entity.provenance_ids = provenance_ids or []
     return result.typed_entities

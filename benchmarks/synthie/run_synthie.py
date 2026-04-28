@@ -16,7 +16,7 @@ from benchmarks.synthie.config import (
 )
 from benchmarks.synthie.synthie_utils import iter_synthie_jsonl
 from kg_gen.kg_gen import KGGen
-from kg_gen.models import Graph
+from kg_gen.models import Graph, InputData
 
 if __name__ == "__main__":
     # keycloak_token = get_keycloak_token()
@@ -43,7 +43,7 @@ if __name__ == "__main__":
         )
         item_entities = [e.surfaceform for e in item.entities]
         g, usage = kg.generate(
-            input_data=item.text,
+            input_data=InputData(text=item.text, id=str(item.id_)),
             relation_context="Use predicates from Wikidata for the extracted relations. "
             "Provide the Wikidata identifiers for the extracted relations, "
             'for example, "{surface_form: operator, uri: P137}".',

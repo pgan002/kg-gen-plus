@@ -1,9 +1,11 @@
-from kg_gen.models import Graph
+from kg_gen.models import Graph, InputData
 
 
 def test_generate_with_stats(mock_kg_gen):
     input_data = "This is a test."
-    graph, stats = mock_kg_gen.generate(input_data, deduplication_method=None)
+    graph, stats = mock_kg_gen.generate(
+        InputData(text=input_data, id="test"), deduplication_method=None
+    )
 
     # Check the generated graph
     assert isinstance(graph, Graph)

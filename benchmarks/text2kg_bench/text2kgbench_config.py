@@ -3,7 +3,7 @@ from pathlib import Path
 
 import dspy
 
-text2kgbench_base_data_path = Path(__file__).parent / "data" / "wikidata_tekgen"
+text2kgbench_base_data_path = Path(__file__).parent / "data" / "dbpedia_webnlg"
 ground_truth_dir = text2kgbench_base_data_path / "ground_truth"
 ontologies_dir = text2kgbench_base_data_path / "ontologies" / "owl"
 llm_model = "openai/gpt-5.4-mini"

@@ -17,6 +17,7 @@ from kg_gen.models import (
     EntityType,
     TypedEntity,
     OntologyPredicate,
+    InputData,
 )
 import dspy
 import os
@@ -162,7 +163,7 @@ class KGGen:
 
     def generate(
         self,
-        input_data: str,
+        input_data: InputData,
         entity_context: str = "",
         terms: Optional[list[str]] = None,
         types: Optional[list[EntityType]] = None,
@@ -174,7 +175,7 @@ class KGGen:
         temperature: float = None,
         output_folder: Optional[str] = None,
     ) -> tuple[Graph, KGGenStats]:
-        processed_input: str = input_data
+        processed_input: str = input_data.text
         all_chunk_stats = []
 
         def _process(content, lm):
@@ -206,6 +207,7 @@ class KGGen:
                     terms=[e.surface_form for e in entities],
                     types=types,
                     temperature=temperature or self.temperature,
+                    provenance_ids=[input_data.id],
                 )
                 step_stats["type_terms"] = StepStats(
                     lm_usage=LMUsage(**self.extract_token_usage_from_history()),
@@ -220,6 +222,7 @@ class KGGen:
                     predicate_domain_range=predicate_domain_range,
                     context=relation_context,
                     temperature=temperature or self.temperature,
+                    provenance_ids=[input_data.id],
                 )
                 step_stats["get_relations_typed"] = StepStats(
                     lm_usage=LMUsage(**self.extract_token_usage_from_history()),
@@ -330,13 +333,30 @@ class KGGen:
         return graph, stats
 
     def aggregate(self, graphs: list[Graph]) -> Graph:
-        all_typed_entities = set()
-        all_relations: list[Relation] = []
+        all_typed_entities: dict[str, TypedEntity] = {}
+        all_relations: dict[str, Relation] = {}
         all_entity_metadata: dict[TypedEntity, set[str]] = {}
 
         for graph in graphs:
-            all_typed_entities.update(graph.typed_entities)
-            all_relations.extend(graph.relations_wo_class_assertions)
+            for entity in graph.typed_entities:
+                if entity.surface_form in all_typed_entities:
+                    existing_entity = all_typed_entities[entity.surface_form]
+                    existing_entity.provenance_ids.extend(entity.provenance_ids)
+                else:
+                    all_typed_entities[entity.surface_form] = entity
+
+            for relation in graph.relations_wo_class_assertions:
+                relation_key = (
+                    f"{relation.subject.surface_form}-"
+                    f"{relation.predicate.surface_form}-"
+                    f"{relation.object.surface_form}"
+                )
+                if relation_key in all_relations:
+                    existing_relation = all_relations[relation_key]
+                    existing_relation.provenance_ids.extend(relation.provenance_ids)
+                else:
+                    all_relations[relation_key] = relation
+
             if graph.entity_metadata:
                 for entity, metadata_set in graph.entity_metadata.items():
                     if entity in all_entity_metadata:
@@ -345,8 +365,8 @@ class KGGen:
                         all_entity_metadata[entity] = metadata_set.copy()
 
         return Graph(
-            typed_entities=all_typed_entities,
-            relations_wo_class_assertions=all_relations,
+            typed_entities=set(all_typed_entities.values()),
+            relations_wo_class_assertions=list(all_relations.values()),
             entity_metadata=all_entity_metadata if all_entity_metadata else None,
         )
 
