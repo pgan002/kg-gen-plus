@@ -222,7 +222,7 @@ def _filter_entities(entities: List[str]) -> List[str]:
     return [e for e in entities if '"' not in e]  # not received by oai api
 
 
-def get_relations_typed(
+async def get_relations_typed(
     input_text: str,
     typed_entities: list[TypedEntity],
     predicate_domain_range: list[OntologyPredicate] = None,
@@ -236,7 +236,7 @@ def get_relations_typed(
     for _ in range(n_retries):
         try:
             extract = dspy.Predict(ExtractTextRelations, temperature=temperature)
-            result = extract(
+            result = await extract.acall(
                 source_text=input_text,
                 typed_entities=typed_entities,
                 context=context,

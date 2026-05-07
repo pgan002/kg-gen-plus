@@ -5,7 +5,6 @@ import time  # Import time module
 from kg_gen.steps._1_get_entities import get_entities, type_terms
 from kg_gen.steps._2_get_relations import get_relations_typed
 from kg_gen.steps._3_deduplicate import run_deduplication, DeduplicateMethod
-from kg_gen.utils.chunk_text import chunk_text
 from kg_gen.utils.visualize_kg import visualize as visualize_kg
 from kg_gen.models import (
     Graph,
@@ -21,13 +20,11 @@ from kg_gen.models import (
 )
 import dspy
 import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import networkx as nx
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
-# Configure dspy logging to only show errors
 import logging
 
 logger = logging.getLogger(__name__)
@@ -161,7 +158,7 @@ class KGGen:
     def from_dict(graph_dict: dict) -> Graph:
         return Graph(**graph_dict)
 
-    def generate(
+    async def generate(
         self,
         input_data: InputData,
         entity_context: str = "",
@@ -178,13 +175,13 @@ class KGGen:
         processed_input: str = input_data.text
         all_chunk_stats = []
 
-        def _process(content, lm):
+        async def _process(content, lm):
             with dspy.context(lm=lm):
                 step_stats = {}
                 self.reset_token_usage()
                 start_time = time.time()
                 if not terms:
-                    entities = get_entities(
+                    entities = await get_entities(
                         content,
                         context=entity_context,
                         types=types,
@@ -202,7 +199,7 @@ class KGGen:
 
                 self.reset_token_usage()
                 start_time = time.time()
-                typed_entities = type_terms(
+                typed_entities = await type_terms(
                     input_data=content,
                     terms=[e.surface_form for e in entities],
                     types=types,
@@ -216,7 +213,7 @@ class KGGen:
 
                 self.reset_token_usage()
                 start_time = time.time()
-                relations = get_relations_typed(
+                relations = await get_relations_typed(
                     content,
                     typed_entities=typed_entities,
                     predicate_domain_range=predicate_domain_range,
@@ -231,36 +228,41 @@ class KGGen:
 
                 return typed_entities, relations, step_stats
 
-        if not chunk_size:
-            try:
-                typed_entities, relations, chunk_stats = _process(
-                    processed_input, self.lm
-                )
-                all_chunk_stats.append(chunk_stats)
-            except Exception as e:
-                if "context length" in str(e).lower():
-                    logger.warning(
-                        f"Context length error: {e}. Chunking text with chunk size 16384."
-                    )
-                    chunk_size = 16384
-                else:
-                    raise e
+        typed_entities, relations, chunk_stats = await _process(
+            processed_input, self.lm
+        )
+        all_chunk_stats.append(chunk_stats)
 
-        if chunk_size:
-            chunks = chunk_text(processed_input, chunk_size)
-            typed_entities = set()
-            relations: list[Relation] = []
-
-            with ThreadPoolExecutor() as executor:
-                future_to_chunk = {
-                    executor.submit(_process, chunk, self.lm): chunk for chunk in chunks
-                }
-
-                for i, future in enumerate(as_completed(future_to_chunk)):
-                    chunk_typed_entities, chunk_relations, chunk_stats = future.result()
-                    typed_entities.update(chunk_typed_entities)
-                    relations.extend(chunk_relations)
-                    all_chunk_stats.append(chunk_stats)
+        # if not chunk_size:
+        #     try:
+        #         typed_entities, relations, chunk_stats = await _process(
+        #             processed_input, self.lm
+        #         )
+        #         all_chunk_stats.append(chunk_stats)
+        #     except Exception as e:
+        #         if "context length" in str(e).lower():
+        #             logger.warning(
+        #                 f"Context length error: {e}. Chunking text with chunk size 16384."
+        #             )
+        #             chunk_size = 16384
+        #         else:
+        #             raise e
+        #
+        # if chunk_size:
+        #     chunks = chunk_text(processed_input, chunk_size)
+        #     typed_entities = set()
+        #     relations: list[Relation] = []
+        #
+        #     with ThreadPoolExecutor() as executor:
+        #         future_to_chunk = {
+        #             executor.submit(_process, chunk, self.lm): chunk for chunk in chunks
+        #         }
+        #
+        #         for i, future in enumerate(as_completed(future_to_chunk)):
+        #             chunk_typed_entities, chunk_relations, chunk_stats = future.result()
+        #             typed_entities.update(chunk_typed_entities)
+        #             relations.extend(chunk_relations)
+        #             all_chunk_stats.append(chunk_stats)
 
         aggregated_stats = {
             "get_entities": StepStats(lm_usage=LMUsage(), execution_time=0.0),
