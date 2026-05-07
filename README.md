@@ -8,12 +8,12 @@ The SynthIE data should be placed inside `./benchmarks/data/synthie`. The data c
 
 # kg-gen: Knowledge Graph Generation from Any Text
 
-Welcome! `kg-gen` helps you extract knowledge graphs from any plain text using AI. It can process both small and large text inputs, and it can also handle messages in a conversation format.
+Welcome! `kg-gen` helps you extract knowledge graphs from any plain text using AI. It can process both small and large text inputs.
 
 Why generate knowledge graphs? `kg-gen` is great if you want to:
 - Create a graph to assist with RAG (Retrieval-Augmented Generation)
 - Create graph synthetic data for model training and testing
-- Structure any text into a graph 
+- Structure any text into a graph
 - Analyze the relationships between concepts in your source text
 
 We support API-based and local model providers via [LiteLLM](https://docs.litellm.ai/docs/providers), including OpenAI, Ollama, Anthropic, Gemini, Deepseek, and others. We also use [DSPy](https://dspy.ai/) for structured output generation.
@@ -92,13 +92,13 @@ Place your data to `./memo/data/sample_items.json`. Next, run `python3 ./memo/ru
 
 ### How to use
 
-Then import and use `kg-gen`. You can provide your text input in one of two formats:
-1. A single string  
-2. A list of Message objects (each with a role and content)
+Then import and use `kg-gen`. You can provide your text input as a string.
 
 Below are some example snippets:
 ```python
 from kg_gen import KGGen
+from kg_gen.models import InputData
+from kg_gen.steps import DeduplicateMethod
 
 # Initialize KGGen with optional configuration
 kg = KGGen(
@@ -109,15 +109,15 @@ kg = KGGen(
 
 # EXAMPLE 1: Single string with context
 text_input = "Linda is Josh's mother. Ben is Josh's brother. Andrew is Josh's father."
-graph_1 = kg.generate(
-  input_data=text_input,
-  context="Family relationships"
+graph_1, stats_1 = kg.generate(
+  input_data=InputData(text=text_input, id="text_1"),
+  entity_context="Family relationships"
 )
-# Output: 
-# entities={'Linda', 'Ben', 'Andrew', 'Josh'} 
-# edges={'is brother of', 'is father of', 'is mother of'} 
-# relations={('Ben', 'is brother of', 'Josh'), 
-#           ('Andrew', 'is father of', 'Josh'), 
+# Output:
+# entities={'Linda', 'Ben', 'Andrew', 'Josh'}
+# edges={'is brother of', 'is father of', 'is mother of'}
+# relations={('Ben', 'is brother of', 'Josh'),
+#           ('Andrew', 'is father of', 'Josh'),
 #           ('Linda', 'is mother of', 'Josh')}
 ```
 
@@ -126,13 +126,13 @@ graph_1 = kg.generate(
 KGGen.visualize(graph, output_path, open_in_browser=True)
 ```
 
-### More Examples - chunking, clustering, passing in a messages array 
+### More Examples - chunking, deduplication
 
 ```python
-# EXAMPLE 2: Large text with chunking and clustering
+# EXAMPLE 2: Large text with chunking and deduplication
 with open('large_text.txt', 'r') as f:
   large_text = f.read()
-  
+
 # Example input text:
 # """
 # Neural networks are a type of machine learning model. Deep learning is a subset of machine learning
@@ -144,15 +144,15 @@ with open('large_text.txt', 'r') as f:
 # ...
 # """
 
-graph_2 = kg.generate(
-  input_data=large_text,
+graph_2, stats_2 = kg.generate(
+  input_data=InputData(text=large_text, id="large_text_1"),
   chunk_size=5000,  # Process text in chunks of 5000 chars
-  cluster=True      # Cluster similar entities and relations
+  deduplication_method=DeduplicateMethod.FULL # Deduplicate similar entities and relations
 )
 # Output:
-# entities={'neural networks', 'deep learning', 'machine learning', 'AI', 'artificial intelligence', 
-#          'supervised learning', 'unsupervised learning', 'training data', ...} 
-# edges={'is type of', 'requires', 'is subset of', 'uses', 'is related to', ...} 
+# entities={'neural networks', 'deep learning', 'machine learning', 'AI', 'artificial intelligence',
+#          'supervised learning', 'unsupervised learning', 'training data', ...}
+# edges={'is type of', 'requires', 'is subset of', 'uses', 'is related to', ...}
 # relations={('neural networks', 'is type of', 'machine learning'),
 #           ('deep learning', 'is subset of', 'machine learning'),
 #           ('supervised learning', 'requires', 'training data'),
@@ -170,37 +170,26 @@ graph_2 = kg.generate(
 #  ...}
 # }
 
-# EXAMPLE 3: Messages array
-messages = [
-  {"role": "user", "content": "What is the capital of France?"}, 
-  {"role": "assistant", "content": "The capital of France is Paris."}
-]
-graph_3 = kg.generate(input_data=messages)
-# Output: 
-# entities={'Paris', 'France'} 
-# edges={'has capital'} 
-# relations={('France', 'has capital', 'Paris')}
-
-# EXAMPLE 4: Combining multiple graphs
+# EXAMPLE 3: Combining multiple graphs
 text1 = "Linda is Joe's mother. Ben is Joe's brother."
 
 # Input text 2: also goes by Joe."
 text2 = "Andrew is Joseph's father. Judy is Andrew's sister. Joseph also goes by Joe."
 
-graph4_a = kg.generate(input_data=text1)
-graph4_b = kg.generate(input_data=text2)
+graph3_a, _ = kg.generate(input_data=InputData(text=text1, id="text_a"))
+graph3_b, _ = kg.generate(input_data=InputData(text=text2, id="text_b"))
 
 # Combine the graphs
-combined_graph = kg.aggregate([graph4_a, graph4_b])
+combined_graph = kg.aggregate([graph3_a, graph3_b])
 
-# Optionally cluster the combined graph
-clustered_graph = kg.cluster(
+# Optionally deduplicate the combined graph
+deduplicated_graph, dedup_stats = kg.deduplicate(
   combined_graph,
   context="Family relationships"
 )
 # Output:
-# entities={'Linda', 'Ben', 'Andrew', 'Joe', 'Joseph', 'Judy'} 
-# edges={'is mother of', 'is father of', 'is brother of', 'is sister of'} 
+# entities={'Linda', 'Ben', 'Andrew', 'Joe', 'Joseph', 'Judy'}
+# edges={'is mother of', 'is father of', 'is brother of', 'is sister of'}
 # relations={('Linda', 'is mother of', 'Joe'),
 #           ('Ben', 'is brother of', 'Joe'),
 #           ('Andrew', 'is father of', 'Joe'),

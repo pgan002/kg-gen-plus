@@ -1,9 +1,12 @@
+import pytest
+
 from kg_gen.models import Graph, InputData
 
 
-def test_generate_with_stats(mock_kg_gen):
+@pytest.mark.asyncio
+async def test_generate_with_stats(mock_kg_gen):
     input_data = "This is a test."
-    graph, stats = mock_kg_gen.generate(
+    graph, stats = await mock_kg_gen.generate(
         InputData(text=input_data, id="test"), deduplication_method=None
     )
 

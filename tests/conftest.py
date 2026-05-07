@@ -61,6 +61,9 @@ class MockLM(dspy.LM):
         )
         return [{"text": response_content}]
 
+    async def acall(self, **kwargs):
+        return self(**kwargs)
+
 
 @pytest.fixture(scope="session")
 def mock_kg_gen():

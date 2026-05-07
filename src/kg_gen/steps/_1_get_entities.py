@@ -66,7 +66,7 @@ Here is the text to extract entities from:
     return parsed.entities
 
 
-def get_entities(
+async def get_entities(
     input_data: str,
     temperature: float = 0.0,
     types: list[EntityType] | str = None,
@@ -74,15 +74,15 @@ def get_entities(
 ) -> list[str]:
     extract = dspy.Predict(TextEntities, temperature=temperature)
     if types is None:
-        result = extract(source_text=input_data, context=context)
+        result = await extract.acall(source_text=input_data, context=context)
     else:
-        result = extract(
+        result = await extract.acall(
             source_text=input_data, context=context, types_to_extract=types
         )
     return result.entities
 
 
-def type_terms(
+async def type_terms(
     input_data: str,
     terms: list[str],
     types: Optional[list[EntityType] | str] = None,
@@ -91,7 +91,7 @@ def type_terms(
     provenance_ids: Optional[List[str]] = None,
 ) -> list[TypedEntity]:
     predict_type = dspy.Predict(TypedEntities, temperature=temperature)
-    result = predict_type(
+    result = await predict_type.acall(
         entities=terms, types=types, source_text=input_data, context=context
     )
     for entity in result.typed_entities:

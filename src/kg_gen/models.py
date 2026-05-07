@@ -111,8 +111,8 @@ class TextEntities(dspy.Signature):
         default=None,
         desc="Optional context. If provided, consider it when extracting entities.",
     )
-    types_to_extract: list[EntityType] | str | None = dspy.InputField(
-        default=None,
+    types_to_extract: Optional[list[EntityType] | str] = dspy.InputField(
+        default_factory=list,
         desc="List of entity types or string describing the types to extract. If empty, all entity types are extracted.",
     )
     entities: list[Entity] = dspy.OutputField(desc="THOROUGH list of key entities")
@@ -327,9 +327,7 @@ class Graph(BaseModel):
         """
         Print the stats of the graph.
         """
-        print(
-            f"{name or 'Graph'} with:\n\t{len(self.entities)} entities\n\t{len(self.edges)} edges\n\t{len(self.relations)} relations"
-        )
+        return f"{name or 'Graph'} with:\n\t{len(self.entities)} entities\n\t{len(self.edges)} edges\n\t{len(self.relations)} relations"
 
 
 class LMUsage(BaseModel):
@@ -339,8 +337,8 @@ class LMUsage(BaseModel):
 
 
 class StepStats(BaseModel):
-    lm_usage: LMUsage
-    execution_time: float
+    lm_usage: Optional[LMUsage] = LMUsage()
+    execution_time: Optional[float] = 0
 
     def __add__(self, other: "StepStats") -> "StepStats":
         new_lm_usage = LMUsage(
@@ -357,9 +355,9 @@ class StepStats(BaseModel):
 
 
 class KGGenStats(BaseModel):
-    get_entities: StepStats
-    type_terms: StepStats
-    get_relations_typed: StepStats
+    get_entities: Optional[StepStats] = StepStats()
+    type_terms: Optional[StepStats] = StepStats()
+    get_relations_typed: Optional[StepStats] = StepStats()
     deduplicate: Optional[StepStats] = None
 
     @computed_field
