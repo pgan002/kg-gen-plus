@@ -1,6 +1,5 @@
 from kg_gen.models import Graph
 from kg_gen.utils.deduplicate import run_semhash_deduplication
-from kg_gen.utils.llm_deduplicate import LLMDeduplicate
 from sentence_transformers import SentenceTransformer
 import dspy
 import enum
@@ -28,19 +27,19 @@ def run_deduplication(
 
     if method == DeduplicateMethod.SEMHASH:
         deduplicated_graph = run_semhash_deduplication(
-            graph, semhash_similarity_threshold
+            graph, semhash_similarity_threshold, model=retrieval_model
         )
-    elif method == DeduplicateMethod.LM_BASED:
-        llm_deduplicate = LLMDeduplicate(retrieval_model, lm, graph)
-        llm_deduplicate.cluster()
-        deduplicated_graph = llm_deduplicate.deduplicate()
-    elif method == DeduplicateMethod.FULL:
-        deduplicated_graph = run_semhash_deduplication(
-            graph, semhash_similarity_threshold
-        )
-        llm_deduplicate = LLMDeduplicate(retrieval_model, lm, deduplicated_graph)
-        llm_deduplicate.cluster()
-        deduplicated_graph = llm_deduplicate.deduplicate()
+    # elif method == DeduplicateMethod.LM_BASED:
+    #     llm_deduplicate = LLMDeduplicate(retrieval_model, lm, graph)
+    #     llm_deduplicate.cluster()
+    #     deduplicated_graph = llm_deduplicate.deduplicate()
+    # elif method == DeduplicateMethod.FULL:
+    #     deduplicated_graph = run_semhash_deduplication(
+    #         graph, semhash_similarity_threshold, model=retrieval_model
+    #     )
+    #     llm_deduplicate = LLMDeduplicate(retrieval_model, lm, deduplicated_graph)
+    #     llm_deduplicate.cluster()
+    #     deduplicated_graph = llm_deduplicate.deduplicate()
     else:
         raise ValueError(f"Invalid deduplication method: {method}")
 
