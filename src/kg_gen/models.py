@@ -17,6 +17,9 @@ class Entity(BaseModel):
     uri: Optional[str] = Field(
         default=None, description="Optional identifier or URI for the entity"
     )
+    description: Optional[str] = Field(
+        default=None, description="A short description of the entity"
+    )
 
     def __hash__(self):
         return hash((self.surface_form, self.uri))
@@ -38,6 +41,9 @@ class EntityType(BaseModel):
     uri: Optional[str] = Field(
         default=None, description="Identifier or URI for the entity type"
     )
+    description: Optional[str] = Field(
+        default=None, description="A short description of the entity type"
+    )
 
     def __hash__(self):
         return hash((self.label, self.uri))
@@ -57,9 +63,7 @@ class TypedEntity(Entity):
     )
 
     def __hash__(self):
-        return hash(
-            (self.surface_form, self.uri, self.type, tuple(self.provenance_ids))
-        )
+        return hash((self.surface_form, self.uri, self.type))
 
     def __eq__(self, other):
         if not isinstance(other, TypedEntity):
@@ -68,35 +72,29 @@ class TypedEntity(Entity):
             self.surface_form == other.surface_form
             and self.uri == other.uri
             and self.type == other.type
-            and self.provenance_ids == other.provenance_ids
         )
 
     def __repr__(self):
-        return f"TypedEntity(surface_form='{self.surface_form}', uri='{self.uri}', type={self.type!r})"
+        return f"TypedEntity(surface_form='{self.surface_form}', uri='{self.uri}', type={self.type!r}, provenance={self.provenance_ids})"
 
     @property
     def type_entity(self) -> Entity | None:
-        type_entity = (
-            Entity(surface_form=self.type.label, uri=self.type.uri)
-            if self.type
-            else None
-        )
-        return type_entity
+        if self.type is not None:
+            return Entity(surface_form=self.type.label, uri=self.type.uri)
+        return None
 
     @property
     def class_assertion(
         self, assertion_predicate: Entity = Entity(surface_form="is a", uri="rdf:type")
     ) -> Optional["Relation"]:
         if self.type_entity is not None:
-            assertion = Relation(
+            return Relation(
                 subject=self,
                 predicate=assertion_predicate,
                 object=self.type_entity,
                 provenance_ids=self.provenance_ids,
             )
-        else:
-            assertion = None
-        return assertion
+        return None
 
 
 EntityOrSubclass = TypeVar("EntityOrSubclass", bound="Entity")
@@ -167,10 +165,7 @@ class Relation(BaseModel):
 
     def __hash__(self):
         return (
-            self.subject.__hash__()
-            ^ self.predicate.__hash__()
-            ^ self.object.__hash__()
-            ^ hash(tuple(self.provenance_ids))
+            self.subject.__hash__() ^ self.predicate.__hash__() ^ self.object.__hash__()
         )
 
 
@@ -227,16 +222,18 @@ class ExtractTextRelations(dspy.Signature):
 
 
 class Graph(BaseModel):
-    typed_entities: Set[TypedEntity] = Field(
+    typed_entities: set[TypedEntity] = Field(
         ..., description="All entities including additional ones from response"
     )
-    relations_wo_class_assertions: List[Relation] = Field(
+    relations_wo_class_assertions: list[Relation] = Field(
         ..., description="List of (subject, predicate, object) triples"
     )
-    entity_clusters: Optional[dict[str, Set[TypedEntity | Entity]]] = None
-    edge_clusters: Optional[dict[str, Set[str]]] = None
+    entity_clusters: Optional[
+        dict[TypedEntity | Entity, list[TypedEntity | Entity]]
+    ] = None
+    edge_clusters: Optional[dict[Entity, list[Entity]]] = None
 
-    entity_metadata: dict[TypedEntity, Set[str]] | None = None
+    entity_metadata: dict[TypedEntity, set[str]] | None = None
 
     output_class_assertions: bool = True
 
@@ -247,16 +244,21 @@ class Graph(BaseModel):
             Entity(surface_form=te.surface_form, uri=te.uri)
             for te in self.typed_entities
         }
-        out |= {te.type_entity for te in self.typed_entities if te.type_entity}
+        out |= {
+            te.type_entity for te in self.typed_entities if te.type_entity is not None
+        }
         return out
 
     @computed_field
     @property
     def relations(self) -> list[Relation]:
         if self.output_class_assertions:
-            out = self.relations_wo_class_assertions + [
-                te.class_assertion for te in self.typed_entities if te.type_entity
+            class_assertions = [
+                te.class_assertion
+                for te in self.typed_entities
+                if te.class_assertion is not None
             ]
+            out = self.relations_wo_class_assertions + class_assertions
             return out
         else:
             return self.relations_wo_class_assertions
@@ -337,8 +339,8 @@ class LMUsage(BaseModel):
 
 
 class StepStats(BaseModel):
-    lm_usage: Optional[LMUsage] = LMUsage()
-    execution_time: Optional[float] = 0
+    lm_usage: LMUsage = Field(default_factory=LMUsage)
+    execution_time: float = 0.0
 
     def __add__(self, other: "StepStats") -> "StepStats":
         new_lm_usage = LMUsage(
@@ -355,9 +357,9 @@ class StepStats(BaseModel):
 
 
 class KGGenStats(BaseModel):
-    get_entities: Optional[StepStats] = StepStats()
-    type_terms: Optional[StepStats] = StepStats()
-    get_relations_typed: Optional[StepStats] = StepStats()
+    get_entities: StepStats = Field(default_factory=StepStats)
+    type_terms: StepStats = Field(default_factory=StepStats)
+    get_relations_typed: StepStats = Field(default_factory=StepStats)
     deduplicate: Optional[StepStats] = None
 
     @computed_field

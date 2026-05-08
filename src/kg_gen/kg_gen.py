@@ -1,10 +1,9 @@
 from typing import Union, Dict, Optional
-from typing_extensions import deprecated
 import time  # Import time module
 
 from kg_gen.steps._1_get_entities import get_entities, type_terms
 from kg_gen.steps._2_get_relations import get_relations_typed
-from kg_gen.steps._3_deduplicate import run_deduplication, DeduplicateMethod
+from kg_gen.utils.deduplicate import run_semhash_deduplication
 from kg_gen.utils.visualize_kg import visualize as visualize_kg
 from kg_gen.models import (
     Graph,
@@ -39,7 +38,7 @@ class KGGen:
         reasoning_effort: str = None,
         api_key: str = None,
         api_base: str = None,
-        retrieval_model: Optional[str] = None,
+        retrieval_model: Optional[str] = "sentence-transformers/all-mpnet-base-v2",
         disable_cache: bool = False,
     ):
         """Initialize KGGen with optional model configuration
@@ -168,7 +167,8 @@ class KGGen:
         predicate_domain_range: Optional[list[OntologyPredicate]] = None,
         dedup_context: str = "",
         chunk_size: Optional[int] = None,
-        deduplication_method: DeduplicateMethod | None = DeduplicateMethod.SEMHASH,
+        # deduplication_method: DeduplicateMethod | None = DeduplicateMethod.SEMHASH,
+        deduplicate: bool = False,
         temperature: float = None,
         output_folder: Optional[str] = None,
     ) -> tuple[Graph, KGGenStats]:
@@ -281,10 +281,8 @@ class KGGen:
             relations_wo_class_assertions=relations,
         )
 
-        if deduplication_method:
-            graph, dedup_stats = self.deduplicate(
-                graph, method=deduplication_method, context=dedup_context
-            )
+        if deduplicate:
+            graph, dedup_stats = self.deduplicate(graph, context=dedup_context)
             kg_gen_stats.deduplicate = dedup_stats
 
         if output_folder:
@@ -292,47 +290,22 @@ class KGGen:
 
         return graph, kg_gen_stats
 
-    @deprecated("Use KGGen.deduplicate() method instead")
-    def cluster(
-        self,
-        graph: Graph,
-        **kwargs,
-    ) -> tuple[Graph, StepStats]:
-        return self.deduplicate(graph, **kwargs)
-
     def deduplicate(
         self,
         graph: Graph,
-        method: DeduplicateMethod = DeduplicateMethod.FULL,
-        semhash_similarity_threshold: float = 0.95,
-        model: str = None,
-        temperature: float = None,
-        api_key: str = None,
-        api_base: str = None,
+        semhash_similarity_threshold: float = 0.9,
         context: str = "",
     ) -> tuple[Graph, StepStats]:
-        if any([model, temperature, api_key, api_base]):
-            self.init_model(
-                model=model or self.model,
-                temperature=temperature or self.temperature,
-                api_key=api_key or self.api_key,
-                api_base=api_base or self.api_base,
-            )
-
-        self.reset_token_usage()
         start_time = time.time()
-        graph = run_deduplication(
-            lm=self.lm,
-            graph=graph,
-            method=method,
-            retrieval_model=self.retrieval_model,
-            semhash_similarity_threshold=semhash_similarity_threshold,
+        if not graph.entities and not graph.edges:
+            return graph, StepStats(execution_time=0.0)
+        deduplicated_graph = run_semhash_deduplication(
+            graph, semhash_similarity_threshold, model=self.retrieval_model
         )
         stats = StepStats(
-            lm_usage=LMUsage(**self.extract_token_usage_from_history()),
             execution_time=time.time() - start_time,
         )
-        return graph, stats
+        return deduplicated_graph, stats
 
     def aggregate(self, graphs: list[Graph]) -> Graph:
         all_typed_entities: dict[str, TypedEntity] = {}
