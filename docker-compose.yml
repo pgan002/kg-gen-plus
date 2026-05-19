@@ -4,9 +4,7 @@ services:
     container_name: kg-gen-server
     command: --port 8000
     volumes:
-      - ./src:/workspace/src
-      - ./app:/workspace/app
-      - ./logs:/workspace/logs
+      - kggen-logs:/workspace/logs:rw
       - kggen-hf-cache:/workspace/cache:rw
     ports:
       - ${PORT:-5000}:8000
@@ -18,3 +16,4 @@ services:
 
 volumes:
   kggen-hf-cache:
+  kggen-logs:
