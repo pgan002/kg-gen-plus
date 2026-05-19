@@ -12,17 +12,17 @@ class Modal {
             selector: null,
             ...options
         };
-        
+
         this.modalContainer = null;
         this.dialog = null;
         this.cleanup = null;
         this.isOpen = false;
-        
+
         // If selector is provided, get content from HTML
         if (this.options.selector) {
             this.loadContentFromSelector();
         }
-        
+
         this.init();
     }
 
@@ -37,7 +37,7 @@ class Modal {
         if (!this.title || this.title === 'Modal') {
             this.title = element.dataset.title || element.dataset.modalTitle || 'Modal';
         }
-        
+
         // Extract width from data attributes if not provided in options
         if (!this.options.width || this.options.width === '500px') {
             this.options.width = element.dataset.width || '500px';
@@ -55,7 +55,7 @@ class Modal {
             // Clone regular element content
             this.content = element.cloneNode(true);
         }
-        
+
         // Remove the original element from DOM if data-remove is true
         if (element.dataset.remove === 'true') {
             element.remove();
@@ -72,13 +72,13 @@ class Modal {
 
         // Extract title from element's data-title attribute or use a default
         const title = element.dataset.title || element.dataset.modalTitle || 'Modal';
-        
+
         // Extract width from data attributes
         const width = element.dataset.width || options.width || '500px';
-        
+
         // Clone the element content to avoid removing it from DOM
         const content = element.cloneNode(true);
-        
+
         // Remove the original element from DOM if data-remove is true
         if (element.dataset.remove === 'true') {
             element.remove();
@@ -132,7 +132,7 @@ class Modal {
         this.dialog.setAttribute('role', 'dialog');
         this.dialog.setAttribute('aria-labelledby', `${this.id}-title`);
         this.dialog.setAttribute('aria-modal', 'true');
-        
+
         // Set dimensions
         this.dialog.style.width = this.options.width;
         if (this.options.height !== 'auto') {
@@ -177,12 +177,12 @@ class Modal {
                 container.appendChild(rendered);
             }
         }
-        
+
         // Call external function to re-attach event handlers if it exists
         if (window.reattachModalEventHandlers && typeof window.reattachModalEventHandlers === 'function') {
             window.reattachModalEventHandlers(container);
         }
-        
+
         // Re-setup tab trap after content is inserted and event handlers are re-attached
         if (this.isOpen) {
             // Use setTimeout to ensure DOM is fully updated
@@ -246,13 +246,13 @@ class Modal {
             'textarea:not([disabled])',
             '[tabindex]:not([tabindex="-1"]):not([disabled])'
         ].join(', ');
-        
+
         return Array.from(this.dialog.querySelectorAll(focusableSelectors))
             .filter(element => {
                 // Additional checks for visibility
                 const style = window.getComputedStyle(element);
-                return style.display !== 'none' && 
-                       style.visibility !== 'hidden' && 
+                return style.display !== 'none' &&
+                       style.visibility !== 'hidden' &&
                        !element.hasAttribute('aria-hidden');
             });
     }
@@ -266,7 +266,7 @@ class Modal {
         this.tabTrapHandler = (e) => {
             if (e.key === 'Tab' && this.isOpen) {
                 const focusableElements = this.getFocusableElements();
-                
+
                 if (focusableElements.length === 0) {
                     // No focusable elements, prevent default tab behavior
                     e.preventDefault();
@@ -299,7 +299,7 @@ class Modal {
 
     show() {
         if (this.isOpen) return;
-        
+
         this.modalContainer.hidden = false;
         this.modalContainer.setAttribute('aria-hidden', 'false');
         this.isOpen = true;
@@ -356,7 +356,7 @@ class Modal {
         if (contentContainer) {
             contentContainer.innerHTML = '';
             this.insertContent(contentContainer);
-            
+
             // Re-setup tab trap after content update
             if (this.isOpen) {
                 this.setupTabTrap();

@@ -1,0 +1,5966 @@
+{
+  "typed_entities": [
+    {
+      "surface_form": "flexibility in graduation age",
+      "uri": null,
+      "description": "The allowance for students to graduate at different ages based on their development and interests.",
+      "type": null,
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "surface_form": "effective rate",
+      "uri": null,
+      "description": "The actual rate of tax paid after accounting for deductions and exemptions.",
+      "type": null,
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "surface_form": "Silvercup Studios",
+      "uri": null,
+      "description": "A film and television production facility located in Long Island City, New York.",
+      "type": {
+        "label": "Commercial Organization",
+        "uri": "http://example.org/ontology#CommercialOrganization",
+        "description": "Business entities. Includes NLP terms: RecordLabel, FinancialServicesGroup, Company, Subsidiary, IndustrialEnterprise, OperatingEntity."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "surface_form": "National Insurance number",
+      "uri": null,
+      "description": "A number used in the UK for National Insurance and social security system administration.",
+      "type": null,
+      "provenance_ids": [
+        "3785_0000",
+        "3783_0000"
+      ]
+    },
+    {
+      "surface_form": "African-American",
+      "uri": null,
+      "description": "Refers to the ethnic identity of Macon 'Milkman' Dead III.",
+      "type": null,
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "surface_form": "RPM Country Tracks chart",
+      "uri": null,
+      "description": "A music chart that ranks the top-performing country music songs in Canada.",
+      "type": {
+        "label": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": "Intellectual creations. Includes NLP terms: Song, Opera, Book, Story, Translation, Chart, Catalog, MusicAlbum, Movie, Film, MusicalComposition."
+      },
+      "provenance_ids": [
+        "3780_0000",
+        "3787_0000",
+        "3787_0000",
+        "3787_0000"
+      ]
+    },
+    {
+      "surface_form": "album",
+      "uri": null,
+      "description": "A collection of music tracks, including the single 'A Woman Always Knows'.",
+      "type": {
+        "label": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": "Audio-based creations. Includes NLP terms: Song, Opera, MusicAlbum, StudioAlbum, EP, MusicRecording, Duet, MusicalComposition."
+      },
+      "provenance_ids": [
+        "3787_0000"
+      ]
+    },
+    {
+      "surface_form": "secondary education stage",
+      "uri": null,
+      "description": "A phase in education where students typically specialize in certain subjects.",
+      "type": null,
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "surface_form": "Ronnie Milsap",
+      "uri": null,
+      "description": "American country music singer.",
+      "type": {
+        "label": "Person",
+        "uri": "http://schema.org/Person",
+        "description": "Represents human beings. Consolidation of NLP terms: Actors, Characters, Writers, Directors, Producers, Composers, Painters, Professors, Students, Musicians, and Singers."
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "surface_form": "Sharon Higgins",
+      "uri": null,
+      "description": "The writer of the single 'Woman of the World (Leave My World Alone)'.",
+      "type": {
+        "label": "Person",
+        "uri": "http://schema.org/Person",
+        "description": "Represents human beings. Consolidation of NLP terms: Actors, Characters, Writers, Directors, Producers, Composers, Painters, Professors, Students, Musicians, and Singers."
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "surface_form": "manual skills",
+      "uri": null,
+      "description": "Skills involving the use of hands or physical activity.",
+      "type": null,
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "surface_form": "Steiner Studios",
+      "uri": null,
+      "description": "A film and television production facility located in Brooklyn, New York.",
+      "type": {
+        "label": "Commercial Organization",
+        "uri": "http://example.org/ontology#CommercialOrganization",
+        "description": "Business entities. Includes NLP terms: RecordLabel, FinancialServicesGroup, Company, Subsidiary, IndustrialEnterprise, OperatingEntity."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "surface_form": "multiple endings",
+      "uri": null,
+      "description": "Different possible conclusions to a story or film, often used to maintain suspense or secrecy.",
+      "type": {
+        "label": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": "Intellectual creations. Includes NLP terms: Song, Opera, Book, Story, Translation, Chart, Catalog, MusicAlbum, Movie, Film, MusicalComposition."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "surface_form": "transitional stage",
+      "uri": null,
+      "description": "A phase of transition in education where students move from general to specialized learning.",
+      "type": null,
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "surface_form": "A Woman Always Knows",
+      "uri": null,
+      "description": "A single by American country music artist David Houston.",
+      "type": {
+        "label": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": "Audio-based creations. Includes NLP terms: Song, Opera, MusicAlbum, StudioAlbum, EP, MusicRecording, Duet, MusicalComposition."
+      },
+      "provenance_ids": [
+        "3787_0000"
+      ]
+    },
+    {
+      "surface_form": "A Woman in Love",
+      "uri": null,
+      "description": "A song written by Curtis Wright and Doug Millett, recorded by Ronnie Milsap.",
+      "type": {
+        "label": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": "Audio-based creations. Includes NLP terms: Song, Opera, MusicAlbum, StudioAlbum, EP, MusicRecording, Duet, MusicalComposition."
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "surface_form": "country charts",
+      "uri": null,
+      "description": "The chart where 'Woman of the World (Leave My World Alone)' reached number one.",
+      "type": {
+        "label": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": "Intellectual creations. Includes NLP terms: Song, Opera, Book, Story, Translation, Chart, Catalog, MusicAlbum, Movie, Film, MusicalComposition."
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "surface_form": "Macon 'Milkman' Dead III",
+      "uri": null,
+      "description": "A fictional character in the novel Song of Solomon.",
+      "type": {
+        "label": "Fictional Entity",
+        "uri": "http://example.org/ontology#FictionalEntity",
+        "description": "Characters in fictional narratives. Includes NLP terms: Character, FictionalCharacter."
+      },
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "surface_form": "Ibn Sīnā",
+      "uri": null,
+      "description": "A historical figure known for his contributions to various fields such as medicine and philosophy.",
+      "type": {
+        "label": "Person",
+        "uri": "http://schema.org/Person",
+        "description": "Represents human beings. Consolidation of NLP terms: Actors, Characters, Writers, Directors, Producers, Composers, Painters, Professors, Students, Musicians, and Singers."
+      },
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "surface_form": "personal account number",
+      "uri": null,
+      "description": "A number used to identify an individual's account for administrative purposes.",
+      "type": null,
+      "provenance_ids": [
+        "3785_0000",
+        "3783_0000"
+      ]
+    },
+    {
+      "surface_form": "Doug Millett",
+      "uri": null,
+      "description": "Songwriter of 'A Woman in Love'.",
+      "type": {
+        "label": "Person",
+        "uri": "http://schema.org/Person",
+        "description": "Represents human beings. Consolidation of NLP terms: Actors, Characters, Writers, Directors, Producers, Composers, Painters, Professors, Students, Musicians, and Singers."
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "surface_form": "United Kingdom",
+      "uri": null,
+      "description": "A country in Europe.",
+      "type": {
+        "label": "Location",
+        "uri": "http://schema.org/Location",
+        "description": "Administrative or geographic divisions. Includes NLP terms: Country, State, Province, City, Town, Village, District, Region."
+      },
+      "provenance_ids": [
+        "3785_0000",
+        "3783_0000"
+      ]
+    },
+    {
+      "surface_form": "Punjab Social Security Hospital",
+      "uri": null,
+      "description": "A 610 bed teaching hospital in Lahore, Pakistan.",
+      "type": {
+        "label": "Infrastructure",
+        "uri": "http://example.org/ontology#Infrastructure",
+        "description": "Constructed spatial entities. Includes NLP terms: Building, Castle, Port."
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "surface_form": "public sector department",
+      "uri": null,
+      "description": "A department within the government sector.",
+      "type": {
+        "label": "Government Organization",
+        "uri": "http://example.org/ontology#GovernmentOrganization",
+        "description": "Public bodies. Includes NLP terms: GovernmentOffice, Authority, PublicInstitution."
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "surface_form": "maktab schooling",
+      "uri": null,
+      "description": "A traditional Islamic elementary school.",
+      "type": {
+        "label": "Educational Organization",
+        "uri": "http://example.org/ontology#EducationalOrganization",
+        "description": "Educational institutions. Includes NLP terms: University."
+      },
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "surface_form": "UK tax system",
+      "uri": null,
+      "description": "The system for collecting taxes in the United Kingdom.",
+      "type": null,
+      "provenance_ids": [
+        "3785_0000",
+        "3783_0000"
+      ]
+    },
+    {
+      "surface_form": "Where Love Used to Live/My Woman's Good to Me",
+      "uri": null,
+      "description": "An album by David Houston.",
+      "type": {
+        "label": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": "Audio-based creations. Includes NLP terms: Song, Opera, MusicAlbum, StudioAlbum, EP, MusicRecording, Duet, MusicalComposition."
+      },
+      "provenance_ids": [
+        "3780_0000",
+        "3787_0000",
+        "3787_0000",
+        "3787_0000"
+      ]
+    },
+    {
+      "surface_form": "Stranger Things Have Happened",
+      "uri": null,
+      "description": "An album by Ronnie Milsap.",
+      "type": {
+        "label": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": "Audio-based creations. Includes NLP terms: Song, Opera, MusicAlbum, StudioAlbum, EP, MusicRecording, Duet, MusicalComposition."
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "surface_form": "industrial units",
+      "uri": null,
+      "description": "Business entities in Punjab.",
+      "type": {
+        "label": "Commercial Organization",
+        "uri": "http://example.org/ontology#CommercialOrganization",
+        "description": "Business entities. Includes NLP terms: RecordLabel, FinancialServicesGroup, Company, Subsidiary, IndustrialEnterprise, OperatingEntity."
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "surface_form": "LP Woman of the World / To Make a Man",
+      "uri": null,
+      "description": "The album containing the single 'Woman of the World (Leave My World Alone)'.",
+      "type": {
+        "label": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": "Audio-based creations. Includes NLP terms: Song, Opera, MusicAlbum, StudioAlbum, EP, MusicRecording, Duet, MusicalComposition."
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "surface_form": "Michigan",
+      "uri": null,
+      "description": "The U.S. state where Macon 'Milkman' Dead III lives.",
+      "type": {
+        "label": "Location",
+        "uri": "http://schema.org/Location",
+        "description": "Administrative or geographic divisions. Includes NLP terms: Country, State, Province, City, Town, Village, District, Region."
+      },
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "surface_form": "Social Security tax rate",
+      "uri": null,
+      "description": "The percentage of income that is taxed for Social Security.",
+      "type": null,
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "surface_form": "December 1970",
+      "uri": null,
+      "description": "The release date of the single 'A Woman Always Knows'.",
+      "type": null,
+      "provenance_ids": [
+        "3787_0000"
+      ]
+    },
+    {
+      "surface_form": "Social Security tax",
+      "uri": null,
+      "description": "The tax levied on income to fund the Social Security program.",
+      "type": null,
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "surface_form": "dream sequences",
+      "uri": null,
+      "description": "A narrative device used in films and literature to depict a dream or fantasy.",
+      "type": {
+        "label": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": "Intellectual creations. Includes NLP terms: Song, Opera, Book, Story, Translation, Chart, Catalog, MusicAlbum, Movie, Film, MusicalComposition."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "surface_form": "Loretta Lynn",
+      "uri": null,
+      "description": "A singer who recorded 'Woman of the World (Leave My World Alone)'.",
+      "type": {
+        "label": "Person",
+        "uri": "http://schema.org/Person",
+        "description": "Represents human beings. Consolidation of NLP terms: Actors, Characters, Writers, Directors, Producers, Composers, Painters, Professors, Students, Musicians, and Singers."
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "surface_form": "New York",
+      "uri": null,
+      "description": "A major city in the United States, known for its significant cultural and economic influence.",
+      "type": {
+        "label": "Location",
+        "uri": "http://schema.org/Location",
+        "description": "Administrative or geographic divisions. Includes NLP terms: Country, State, Province, City, Town, Village, District, Region."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "surface_form": "Multan Road",
+      "uri": null,
+      "description": "A road in the south western part of Lahore.",
+      "type": {
+        "label": "Place",
+        "uri": "http://schema.org/Place",
+        "description": "Geographical and spatial entities."
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "surface_form": "Punjab Employees Social Security Institution",
+      "uri": null,
+      "description": "A public sector department that runs the hospital.",
+      "type": {
+        "label": "Government Organization",
+        "uri": "http://example.org/ontology#GovernmentOrganization",
+        "description": "Public bodies. Includes NLP terms: GovernmentOffice, Authority, PublicInstitution."
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "surface_form": "Lahore",
+      "uri": null,
+      "description": "A city in Pakistan.",
+      "type": {
+        "label": "Location",
+        "uri": "http://schema.org/Location",
+        "description": "Administrative or geographic divisions. Includes NLP terms: Country, State, Province, City, Town, Village, District, Region."
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "surface_form": "David Houston",
+      "uri": null,
+      "description": "American country music artist.",
+      "type": {
+        "label": "Person",
+        "uri": "http://schema.org/Person",
+        "description": "Represents human beings. Consolidation of NLP terms: Actors, Characters, Writers, Directors, Producers, Composers, Painters, Professors, Students, Musicians, and Singers."
+      },
+      "provenance_ids": [
+        "3780_0000",
+        "3787_0000",
+        "3787_0000",
+        "3787_0000"
+      ]
+    },
+    {
+      "surface_form": "Social Security Wage Base",
+      "uri": null,
+      "description": "The maximum amount of earnings subject to Social Security tax.",
+      "type": null,
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "surface_form": "employer matching",
+      "uri": null,
+      "description": "The contribution made by employers to match the employee's Social Security tax.",
+      "type": null,
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "surface_form": "Billboard Hot Country Singles chart",
+      "uri": null,
+      "description": "A music chart that ranks the top-performing country music songs in the United States.",
+      "type": {
+        "label": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": "Intellectual creations. Includes NLP terms: Song, Opera, Book, Story, Translation, Chart, Catalog, MusicAlbum, Movie, Film, MusicalComposition."
+      },
+      "provenance_ids": [
+        "3780_0000",
+        "3787_0000",
+        "3787_0000",
+        "3787_0000"
+      ]
+    },
+    {
+      "surface_form": "Curtis Wright",
+      "uri": null,
+      "description": "Songwriter of 'A Woman in Love'.",
+      "type": {
+        "label": "Person",
+        "uri": "http://schema.org/Person",
+        "description": "Represents human beings. Consolidation of NLP terms: Actors, Characters, Writers, Directors, Producers, Composers, Painters, Professors, Students, Musicians, and Singers."
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "surface_form": "Manhattan",
+      "uri": null,
+      "description": "A borough of New York City, known for its iconic skyline and cultural landmarks.",
+      "type": {
+        "label": "Location",
+        "uri": "http://schema.org/Location",
+        "description": "Administrative or geographic divisions. Includes NLP terms: Country, State, Province, City, Town, Village, District, Region."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "surface_form": "Where Love Used to Live",
+      "uri": null,
+      "description": "A single by American country music artist David Houston.",
+      "type": {
+        "label": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": "Audio-based creations. Includes NLP terms: Song, Opera, MusicAlbum, StudioAlbum, EP, MusicRecording, Duet, MusicalComposition."
+      },
+      "provenance_ids": [
+        "3780_0000",
+        "3787_0000",
+        "3787_0000",
+        "3787_0000"
+      ]
+    },
+    {
+      "surface_form": "gross income",
+      "uri": null,
+      "description": "Total income before any deductions or taxes.",
+      "type": null,
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "surface_form": "teaching hospital",
+      "uri": null,
+      "description": "A hospital that provides education and training.",
+      "type": {
+        "label": "Educational Organization",
+        "uri": "http://example.org/ontology#EducationalOrganization",
+        "description": "Educational institutions. Includes NLP terms: University."
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "surface_form": "Song of Solomon",
+      "uri": null,
+      "description": "A 1977 novel by American author Toni Morrison.",
+      "type": {
+        "label": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": "Intellectual creations. Includes NLP terms: Song, Opera, Book, Story, Translation, Chart, Catalog, MusicAlbum, Movie, Film, MusicalComposition."
+      },
+      "provenance_ids": [
+        "3789_0000",
+        "3789_0000",
+        "3789_0000"
+      ]
+    },
+    {
+      "surface_form": "paparazzi",
+      "uri": null,
+      "description": "Photographers who take pictures of celebrities, often in an intrusive manner.",
+      "type": {
+        "label": "Person",
+        "uri": "http://schema.org/Person",
+        "description": "Represents human beings. Consolidation of NLP terms: Actors, Characters, Writers, Directors, Producers, Composers, Painters, Professors, Students, Musicians, and Singers."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "surface_form": "emotional development",
+      "uri": null,
+      "description": "The process of developing the ability to experience, express, and manage emotions.",
+      "type": null,
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "surface_form": "employees and families",
+      "uri": null,
+      "description": "Individuals and their families who are provided care by the hospital.",
+      "type": null,
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "surface_form": "Woman of the World (Leave My World Alone)",
+      "uri": null,
+      "description": "A 1969 single written by Sharon Higgins and recorded by Loretta Lynn.",
+      "type": {
+        "label": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": "Audio-based creations. Includes NLP terms: Song, Opera, MusicAlbum, StudioAlbum, EP, MusicRecording, Duet, MusicalComposition."
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "surface_form": "U.S. country singles chart",
+      "uri": null,
+      "description": "A chart ranking country music singles in the United States.",
+      "type": {
+        "label": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": "Intellectual creations. Includes NLP terms: Song, Opera, Book, Story, Translation, Chart, Catalog, MusicAlbum, Movie, Film, MusicalComposition."
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "surface_form": "subjects of interest",
+      "uri": null,
+      "description": "Subjects that students are particularly interested in and wish to pursue.",
+      "type": null,
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "surface_form": "social security system",
+      "uri": null,
+      "description": "A system for providing social insurance and welfare services.",
+      "type": null,
+      "provenance_ids": [
+        "3785_0000",
+        "3783_0000"
+      ]
+    }
+  ],
+  "relations_wo_class_assertions": [
+    {
+      "subject": {
+        "surface_form": "A Woman in Love",
+        "uri": null,
+        "description": "A song written by Curtis Wright and Doug Millett, recorded by Ronnie Milsap."
+      },
+      "predicate": {
+        "surface_form": "recorded by",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Ronnie Milsap",
+        "uri": null,
+        "description": "American country music singer."
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Woman of the World (Leave My World Alone)",
+        "uri": null,
+        "description": "A 1969 single written by Sharon Higgins and recorded by Loretta Lynn."
+      },
+      "predicate": {
+        "surface_form": "recorded by",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Loretta Lynn",
+        "uri": null,
+        "description": "A singer who recorded 'Woman of the World (Leave My World Alone)'."
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Michigan",
+        "uri": null,
+        "description": "The U.S. state where Macon 'Milkman' Dead III lives."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Location",
+        "uri": "http://schema.org/Location",
+        "description": null
+      },
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "gross income",
+        "uri": null,
+        "description": "Total income before any deductions or taxes."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "$130,000",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "scenes",
+        "uri": null,
+        "description": null
+      },
+      "predicate": {
+        "surface_form": "termed as",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "dream sequences",
+        "uri": null,
+        "description": "A narrative device used in films and literature to depict a dream or fantasy."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Social Security Wage Base",
+        "uri": null,
+        "description": "The maximum amount of earnings subject to Social Security tax."
+      },
+      "predicate": {
+        "surface_form": "has value",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "$128,400",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Stranger Things Have Happened",
+        "uri": null,
+        "description": "An album by Ronnie Milsap."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "LP Woman of the World / To Make a Man",
+        "uri": null,
+        "description": "The album containing the single 'Woman of the World (Leave My World Alone)'."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Punjab Social Security Hospital",
+        "uri": null,
+        "description": "A 610 bed teaching hospital in Lahore, Pakistan."
+      },
+      "predicate": {
+        "surface_form": "provides care for",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "industrial units",
+        "uri": null,
+        "description": "Business entities in Punjab."
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "dream sequences",
+        "uri": null,
+        "description": "A narrative device used in films and literature to depict a dream or fantasy."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "National Insurance number",
+        "uri": null,
+        "description": "A number used in the UK for National Insurance and social security system administration."
+      },
+      "predicate": {
+        "surface_form": "described as",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "personal account number",
+        "uri": null,
+        "description": "A number used to identify an individual's account for administrative purposes."
+      },
+      "provenance_ids": [
+        "3785_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Curtis Wright",
+        "uri": null,
+        "description": "Songwriter of 'A Woman in Love'."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Social Security tax",
+        "uri": null,
+        "description": "The tax levied on income to fund the Social Security program."
+      },
+      "predicate": {
+        "surface_form": "paid",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "$7,886.40",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Where Love Used to Live/My Woman's Good to Me",
+        "uri": null,
+        "description": "An album by David Houston."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000",
+        "3787_0000",
+        "3787_0000",
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman in Love",
+        "uri": null,
+        "description": "A song written by Curtis Wright and Doug Millett, recorded by Ronnie Milsap."
+      },
+      "predicate": {
+        "surface_form": "writes",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Curtis Wright",
+        "uri": null,
+        "description": "Songwriter of 'A Woman in Love'."
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "paparazzi",
+        "uri": null,
+        "description": "Photographers who take pictures of celebrities, often in an intrusive manner."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman in Love",
+        "uri": null,
+        "description": "A song written by Curtis Wright and Doug Millett, recorded by Ronnie Milsap."
+      },
+      "predicate": {
+        "surface_form": "released",
+        "uri": "http://schema.org/datePublished",
+        "description": null
+      },
+      "object": {
+        "surface_form": "September 1989",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman in Love",
+        "uri": null,
+        "description": "A song written by Curtis Wright and Doug Millett, recorded by Ronnie Milsap."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Woman of the World (Leave My World Alone)",
+        "uri": null,
+        "description": "A 1969 single written by Sharon Higgins and recorded by Loretta Lynn."
+      },
+      "predicate": {
+        "surface_form": "reached",
+        "uri": "http://schema.org/rank",
+        "description": null
+      },
+      "object": {
+        "surface_form": "country charts",
+        "uri": null,
+        "description": "The chart where 'Woman of the World (Leave My World Alone)' reached number one."
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Multan Road",
+        "uri": null,
+        "description": "A road in the south western part of Lahore."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Place",
+        "uri": "http://schema.org/Place",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Billboard Hot Country Singles chart",
+        "uri": null,
+        "description": "A music chart that ranks the top-performing country music songs in the United States."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000",
+        "3787_0000",
+        "3787_0000",
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "secondary education stage",
+        "uri": null,
+        "description": "A phase in education where students typically specialize in certain subjects."
+      },
+      "predicate": {
+        "surface_form": "includes",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "manual skills",
+        "uri": null,
+        "description": "Skills involving the use of hands or physical activity."
+      },
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "effective rate",
+        "uri": null,
+        "description": "The actual rate of tax paid after accounting for deductions and exemptions."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "0.79%",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Loretta Lynn",
+        "uri": null,
+        "description": "A singer who recorded 'Woman of the World (Leave My World Alone)'."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Ibn Sīnā",
+        "uri": null,
+        "description": "A historical figure known for his contributions to various fields such as medicine and philosophy."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "The film",
+        "uri": null,
+        "description": null
+      },
+      "predicate": {
+        "surface_form": "includes",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "multiple endings",
+        "uri": null,
+        "description": "Different possible conclusions to a story or film, often used to maintain suspense or secrecy."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Steiner Studios",
+        "uri": null,
+        "description": "A film and television production facility located in Brooklyn, New York."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Commercial Organization",
+        "uri": "http://example.org/ontology#CommercialOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Where Love Used to Live",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000",
+        "3787_0000",
+        "3787_0000",
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Where Love Used to Live",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "chart",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "RPM Country Tracks chart",
+        "uri": null,
+        "description": "A music chart that ranks the top-performing country music songs in Canada."
+      },
+      "provenance_ids": [
+        "3780_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Ibn Sīnā",
+        "uri": null,
+        "description": "A historical figure known for his contributions to various fields such as medicine and philosophy."
+      },
+      "predicate": {
+        "surface_form": "writes",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "flexibility in graduation age",
+        "uri": null,
+        "description": "The allowance for students to graduate at different ages based on their development and interests."
+      },
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "multiple endings",
+        "uri": null,
+        "description": "Different possible conclusions to a story or film, often used to maintain suspense or secrecy."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Punjab Employees Social Security Institution",
+        "uri": null,
+        "description": "A public sector department that runs the hospital."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Government Organization",
+        "uri": "http://example.org/ontology#GovernmentOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman in Love",
+        "uri": null,
+        "description": "A song written by Curtis Wright and Doug Millett, recorded by Ronnie Milsap."
+      },
+      "predicate": {
+        "surface_form": "reached",
+        "uri": "http://schema.org/rank",
+        "description": null
+      },
+      "object": {
+        "surface_form": "U.S. country singles chart",
+        "uri": null,
+        "description": "A chart ranking country music singles in the United States."
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Ronnie Milsap",
+        "uri": null,
+        "description": "American country music singer."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman Always Knows",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "peaked at",
+        "uri": "http://schema.org/rank",
+        "description": null
+      },
+      "object": {
+        "surface_form": "number 2 on the Billboard Hot Country Singles chart",
+        "uri": null,
+        "description": "A music chart that ranks the top-performing country music songs."
+      },
+      "provenance_ids": [
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Where Love Used to Live",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "artist",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "David Houston",
+        "uri": null,
+        "description": "American country music artist."
+      },
+      "provenance_ids": [
+        "3780_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Macon 'Milkman' Dead III",
+        "uri": null,
+        "description": "A fictional character in the novel Song of Solomon."
+      },
+      "predicate": {
+        "surface_form": "ethnicity",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "African-American",
+        "uri": null,
+        "description": "Refers to the ethnic identity of Macon 'Milkman' Dead III."
+      },
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "United Kingdom",
+        "uri": null,
+        "description": "A country in Europe."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Location",
+        "uri": "http://schema.org/Location",
+        "description": null
+      },
+      "provenance_ids": [
+        "3785_0000",
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "The film",
+        "uri": null,
+        "description": null
+      },
+      "predicate": {
+        "surface_form": "shot in",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Silvercup Studios",
+        "uri": null,
+        "description": "A film and television production facility located in Long Island City, New York."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman Always Knows",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "reached",
+        "uri": "http://schema.org/rank",
+        "description": null
+      },
+      "object": {
+        "surface_form": "number 1 on the RPM Country Tracks chart",
+        "uri": null,
+        "description": "A Canadian music chart that ranks the top-performing country music songs."
+      },
+      "provenance_ids": [
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Woman of the World (Leave My World Alone)",
+        "uri": null,
+        "description": "A 1969 single written by Sharon Higgins and recorded by Loretta Lynn."
+      },
+      "predicate": {
+        "surface_form": "album",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "LP Woman of the World / To Make a Man",
+        "uri": null,
+        "description": "The album containing the single 'Woman of the World (Leave My World Alone)'."
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Punjab Social Security Hospital",
+        "uri": null,
+        "description": "A 610 bed teaching hospital in Lahore, Pakistan."
+      },
+      "predicate": {
+        "surface_form": "location",
+        "uri": "http://schema.org/location",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Multan Road",
+        "uri": null,
+        "description": "A road in the south western part of Lahore."
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Macon 'Milkman' Dead III",
+        "uri": null,
+        "description": "A fictional character in the novel Song of Solomon."
+      },
+      "predicate": {
+        "surface_form": "location",
+        "uri": "http://schema.org/location",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Michigan",
+        "uri": null,
+        "description": "The U.S. state where Macon 'Milkman' Dead III lives."
+      },
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Social Security tax",
+        "uri": null,
+        "description": "The tax levied on income to fund the Social Security program."
+      },
+      "predicate": {
+        "surface_form": "withheld",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "$620.00",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "National Insurance number",
+        "uri": null,
+        "description": "A number used in the UK for National Insurance and social security system administration."
+      },
+      "predicate": {
+        "surface_form": "used for",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "United Kingdom",
+        "uri": null,
+        "description": "A country in Europe."
+      },
+      "provenance_ids": [
+        "3785_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "country charts",
+        "uri": null,
+        "description": "The chart where 'Woman of the World (Leave My World Alone)' reached number one."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "teaching hospital",
+        "uri": null,
+        "description": "A hospital that provides education and training."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Educational Organization",
+        "uri": "http://example.org/ontology#EducationalOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Woman of the World (Leave My World Alone)",
+        "uri": null,
+        "description": "A 1969 single written by Sharon Higgins and recorded by Loretta Lynn."
+      },
+      "predicate": {
+        "surface_form": "writes",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Sharon Higgins",
+        "uri": null,
+        "description": "The writer of the single 'Woman of the World (Leave My World Alone)'."
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "National Insurance number",
+        "uri": null,
+        "description": "A number used in the UK for National Insurance and social security system administration."
+      },
+      "predicate": {
+        "surface_form": "used for",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "UK tax system",
+        "uri": null,
+        "description": "The system for collecting taxes in the United Kingdom."
+      },
+      "provenance_ids": [
+        "3785_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "album",
+        "uri": null,
+        "description": "A collection of music tracks, including the single 'A Woman Always Knows'."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Song of Solomon",
+        "uri": null,
+        "description": "A 1977 novel by American author Toni Morrison."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Professional",
+        "uri": "http://example.org/ontology#CreativeProfessional",
+        "description": null
+      },
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman in Love",
+        "uri": null,
+        "description": "A song written by Curtis Wright and Doug Millett, recorded by Ronnie Milsap."
+      },
+      "predicate": {
+        "surface_form": "writes",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Doug Millett",
+        "uri": null,
+        "description": "Songwriter of 'A Woman in Love'."
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Punjab Social Security Hospital",
+        "uri": null,
+        "description": "A 610 bed teaching hospital in Lahore, Pakistan."
+      },
+      "predicate": {
+        "surface_form": "provides care for",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "employees and families",
+        "uri": null,
+        "description": "Individuals and their families who are provided care by the hospital."
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "The film",
+        "uri": null,
+        "description": null
+      },
+      "predicate": {
+        "surface_form": "shot in",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "New York",
+        "uri": null,
+        "description": "A major city in the United States, known for its significant cultural and economic influence."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman Always Knows",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "artist",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "David Houston",
+        "uri": null,
+        "description": "American country music artist."
+      },
+      "provenance_ids": [
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Where Love Used to Live",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "chart",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "number 2",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Woman of the World (Leave My World Alone)",
+        "uri": null,
+        "description": "A 1969 single written by Sharon Higgins and recorded by Loretta Lynn."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Doug Millett",
+        "uri": null,
+        "description": "Songwriter of 'A Woman in Love'."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "The film",
+        "uri": null,
+        "description": null
+      },
+      "predicate": {
+        "surface_form": "shot in",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Manhattan",
+        "uri": null,
+        "description": "A borough of New York City, known for its iconic skyline and cultural landmarks."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Lahore",
+        "uri": null,
+        "description": "A city in Pakistan."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Location",
+        "uri": "http://schema.org/Location",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Where Love Used to Live",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "album",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Where Love Used to Live/My Woman's Good to Me",
+        "uri": null,
+        "description": "An album by David Houston."
+      },
+      "provenance_ids": [
+        "3780_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "maktab schooling",
+        "uri": null,
+        "description": "A traditional Islamic elementary school."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Educational Organization",
+        "uri": "http://example.org/ontology#EducationalOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Silvercup Studios",
+        "uri": null,
+        "description": "A film and television production facility located in Long Island City, New York."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Commercial Organization",
+        "uri": "http://example.org/ontology#CommercialOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Where Love Used to Live",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "chart",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Billboard Hot Country Singles chart",
+        "uri": null,
+        "description": "A music chart that ranks the top-performing country music songs in the United States."
+      },
+      "provenance_ids": [
+        "3780_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman Always Knows",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman Always Knows",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "released",
+        "uri": "http://schema.org/datePublished",
+        "description": null
+      },
+      "object": {
+        "surface_form": "December 1970",
+        "uri": null,
+        "description": "The release date of the single 'A Woman Always Knows'."
+      },
+      "provenance_ids": [
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "gross income",
+        "uri": null,
+        "description": "Total income before any deductions or taxes."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "$10,000",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "The film",
+        "uri": null,
+        "description": null
+      },
+      "predicate": {
+        "surface_form": "interrupted by",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "paparazzi",
+        "uri": null,
+        "description": "Photographers who take pictures of celebrities, often in an intrusive manner."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Social Security tax rate",
+        "uri": null,
+        "description": "The percentage of income that is taxed for Social Security."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "6.20%",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Where Love Used to Live",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "release date",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "September 1968",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "U.S. country singles chart",
+        "uri": null,
+        "description": "A chart ranking country music singles in the United States."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Song of Solomon",
+        "uri": null,
+        "description": "A 1977 novel by American author Toni Morrison."
+      },
+      "predicate": {
+        "surface_form": "author",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Song of Solomon",
+        "uri": null,
+        "description": "A 1977 novel by American author Toni Morrison."
+      },
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "David Houston",
+        "uri": null,
+        "description": "American country music artist."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000",
+        "3787_0000",
+        "3787_0000",
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "The film",
+        "uri": null,
+        "description": null
+      },
+      "predicate": {
+        "surface_form": "shot in",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Steiner Studios",
+        "uri": null,
+        "description": "A film and television production facility located in Brooklyn, New York."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Song of Solomon",
+        "uri": null,
+        "description": "A 1977 novel by American author Toni Morrison."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Manhattan",
+        "uri": null,
+        "description": "A borough of New York City, known for its iconic skyline and cultural landmarks."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Location",
+        "uri": "http://schema.org/Location",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman in Love",
+        "uri": null,
+        "description": "A song written by Curtis Wright and Doug Millett, recorded by Ronnie Milsap."
+      },
+      "predicate": {
+        "surface_form": "album",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Stranger Things Have Happened",
+        "uri": null,
+        "description": "An album by Ronnie Milsap."
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "RPM Country Tracks chart",
+        "uri": null,
+        "description": "A music chart that ranks the top-performing country music songs in Canada."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000",
+        "3787_0000",
+        "3787_0000",
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "employer matching",
+        "uri": null,
+        "description": "The contribution made by employers to match the employee's Social Security tax."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "$620.00",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "effective rate",
+        "uri": null,
+        "description": "The actual rate of tax paid after accounting for deductions and exemptions."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "6.07%",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Punjab Social Security Hospital",
+        "uri": null,
+        "description": "A 610 bed teaching hospital in Lahore, Pakistan."
+      },
+      "predicate": {
+        "surface_form": "run by",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Punjab Employees Social Security Institution",
+        "uri": null,
+        "description": "A public sector department that runs the hospital."
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "secondary education stage",
+        "uri": null,
+        "description": "A phase in education where students typically specialize in certain subjects."
+      },
+      "predicate": {
+        "surface_form": "involves",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "specialisation",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Sharon Higgins",
+        "uri": null,
+        "description": "The writer of the single 'Woman of the World (Leave My World Alone)'."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "New York",
+        "uri": null,
+        "description": "A major city in the United States, known for its significant cultural and economic influence."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Location",
+        "uri": "http://schema.org/Location",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "National Insurance number",
+        "uri": null,
+        "description": "A number used in the UK for National Insurance and social security system administration."
+      },
+      "predicate": {
+        "surface_form": "used for",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "social security system",
+        "uri": null,
+        "description": "A system for providing social insurance and welfare services."
+      },
+      "provenance_ids": [
+        "3785_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Macon 'Milkman' Dead III",
+        "uri": null,
+        "description": "A fictional character in the novel Song of Solomon."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Fictional Entity",
+        "uri": "http://example.org/ontology#FictionalEntity",
+        "description": null
+      },
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Punjab Social Security Hospital",
+        "uri": null,
+        "description": "A 610 bed teaching hospital in Lahore, Pakistan."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Infrastructure",
+        "uri": "http://example.org/ontology#Infrastructure",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Social Security tax",
+        "uri": null,
+        "description": "The tax levied on income to fund the Social Security program."
+      },
+      "predicate": {
+        "surface_form": "incurred",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "$7,886.40",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Where Love Used to Live",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "chart",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "number 1",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "public sector department",
+        "uri": null,
+        "description": "A department within the government sector."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Government Organization",
+        "uri": "http://example.org/ontology#GovernmentOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Song of Solomon",
+        "uri": null,
+        "description": "A 1977 novel by American author Toni Morrison."
+      },
+      "predicate": {
+        "surface_form": "publication date",
+        "uri": "http://schema.org/datePublished",
+        "description": null
+      },
+      "object": {
+        "surface_form": "1977",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Punjab Social Security Hospital",
+        "uri": null,
+        "description": "A 610 bed teaching hospital in Lahore, Pakistan."
+      },
+      "predicate": {
+        "surface_form": "location",
+        "uri": "http://schema.org/location",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Lahore",
+        "uri": null,
+        "description": "A city in Pakistan."
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "gross income",
+        "uri": null,
+        "description": "Total income before any deductions or taxes."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "$1,000,000",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "secondary education stage",
+        "uri": null,
+        "description": "A phase in education where students typically specialize in certain subjects."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "transitional stage",
+        "uri": null,
+        "description": "A phase of transition in education where students move from general to specialized learning."
+      },
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Ibn Sīnā",
+        "uri": null,
+        "description": "A historical figure known for his contributions to various fields such as medicine and philosophy."
+      },
+      "predicate": {
+        "surface_form": "refers to",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "secondary education stage",
+        "uri": null,
+        "description": "A phase in education where students typically specialize in certain subjects."
+      },
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "industrial units",
+        "uri": null,
+        "description": "Business entities in Punjab."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Commercial Organization",
+        "uri": "http://example.org/ontology#CommercialOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    }
+  ],
+  "entity_clusters": {
+    "Song of Solomon": [
+      {
+        "surface_form": "Toni Morrison",
+        "uri": null,
+        "description": "American author of the novel Song of Solomon.",
+        "type": {
+          "label": "Creative Professional",
+          "uri": "http://example.org/ontology#CreativeProfessional",
+          "description": "Individuals producing artistic works. Includes NLP terms: Writer, Director, Producer, Composer, Painter."
+        },
+        "provenance_ids": [
+          "3789_0000"
+        ]
+      },
+      {
+        "surface_form": "Song of Solomon",
+        "uri": null,
+        "description": "A 1977 novel by American author Toni Morrison.",
+        "type": {
+          "label": "Creative Work",
+          "uri": "http://schema.org/CreativeWork",
+          "description": "Intellectual creations. Includes NLP terms: Song, Opera, Book, Story, Translation, Chart, Catalog, MusicAlbum, Movie, Film, MusicalComposition."
+        },
+        "provenance_ids": [
+          "3789_0000",
+          "3789_0000",
+          "3789_0000"
+        ]
+      }
+    ]
+  },
+  "edge_clusters": {
+    "album": [
+      {
+        "surface_form": "from album",
+        "uri": null,
+        "description": null
+      },
+      {
+        "surface_form": "part of album",
+        "uri": null,
+        "description": null
+      },
+      {
+        "surface_form": "album",
+        "uri": null,
+        "description": null
+      }
+    ],
+    "released": [
+      {
+        "surface_form": "released",
+        "uri": "http://schema.org/datePublished",
+        "description": null
+      },
+      {
+        "surface_form": "released in",
+        "uri": null,
+        "description": null
+      }
+    ],
+    "used for": [
+      {
+        "surface_form": "used in",
+        "uri": null,
+        "description": null
+      },
+      {
+        "surface_form": "used for",
+        "uri": null,
+        "description": null
+      }
+    ],
+    "writes": [
+      {
+        "surface_form": "writes",
+        "uri": null,
+        "description": null
+      },
+      {
+        "surface_form": "written by",
+        "uri": null,
+        "description": null
+      }
+    ],
+    "chart": [
+      {
+        "surface_form": "chart",
+        "uri": null,
+        "description": null
+      },
+      {
+        "surface_form": "chart position",
+        "uri": null,
+        "description": null
+      }
+    ],
+    "artist": [
+      {
+        "surface_form": "artist",
+        "uri": "http://schema.org/creator",
+        "description": null
+      },
+      {
+        "surface_form": "artist",
+        "uri": null,
+        "description": null
+      }
+    ],
+    "is": [
+      {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      }
+    ],
+    "reached": [
+      {
+        "surface_form": "reached number one on",
+        "uri": null,
+        "description": null
+      },
+      {
+        "surface_form": "reached",
+        "uri": "http://schema.org/rank",
+        "description": null
+      }
+    ]
+  },
+  "entity_metadata": null,
+  "output_class_assertions": true,
+  "entities": [
+    {
+      "surface_form": "transitional stage",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "David Houston",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "RPM Country Tracks chart",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Social Security tax rate",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "subjects of interest",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "public sector department",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Ibn Sīnā",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Multan Road",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "paparazzi",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Where Love Used to Live/My Woman's Good to Me",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "industrial units",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Punjab Employees Social Security Institution",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Woman of the World (Leave My World Alone)",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "social security system",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Curtis Wright",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "employer matching",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "country charts",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "personal account number",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "December 1970",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "dream sequences",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Loretta Lynn",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Where Love Used to Live",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Punjab Social Security Hospital",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Lahore",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "employees and families",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Macon 'Milkman' Dead III",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Location",
+      "uri": "http://schema.org/Location",
+      "description": null
+    },
+    {
+      "surface_form": "Government Organization",
+      "uri": "http://example.org/ontology#GovernmentOrganization",
+      "description": null
+    },
+    {
+      "surface_form": "gross income",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Musical Work",
+      "uri": "http://example.org/ontology#MusicalWork",
+      "description": null
+    },
+    {
+      "surface_form": "Creative Work",
+      "uri": "http://schema.org/CreativeWork",
+      "description": null
+    },
+    {
+      "surface_form": "secondary education stage",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "United Kingdom",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Silvercup Studios",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "New York",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Social Security Wage Base",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Song of Solomon",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "manual skills",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "multiple endings",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "teaching hospital",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Educational Organization",
+      "uri": "http://example.org/ontology#EducationalOrganization",
+      "description": null
+    },
+    {
+      "surface_form": "effective rate",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "A Woman in Love",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Infrastructure",
+      "uri": "http://example.org/ontology#Infrastructure",
+      "description": null
+    },
+    {
+      "surface_form": "LP Woman of the World / To Make a Man",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "flexibility in graduation age",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "maktab schooling",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Billboard Hot Country Singles chart",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Fictional Entity",
+      "uri": "http://example.org/ontology#FictionalEntity",
+      "description": null
+    },
+    {
+      "surface_form": "Sharon Higgins",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "U.S. country singles chart",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Person",
+      "uri": "http://schema.org/Person",
+      "description": null
+    },
+    {
+      "surface_form": "Doug Millett",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "National Insurance number",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Ronnie Milsap",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Stranger Things Have Happened",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "African-American",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Social Security tax",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "emotional development",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "album",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Michigan",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Steiner Studios",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Commercial Organization",
+      "uri": "http://example.org/ontology#CommercialOrganization",
+      "description": null
+    },
+    {
+      "surface_form": "A Woman Always Knows",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Manhattan",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "UK tax system",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "Place",
+      "uri": "http://schema.org/Place",
+      "description": null
+    }
+  ],
+  "relations": [
+    {
+      "subject": {
+        "surface_form": "A Woman in Love",
+        "uri": null,
+        "description": "A song written by Curtis Wright and Doug Millett, recorded by Ronnie Milsap."
+      },
+      "predicate": {
+        "surface_form": "recorded by",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Ronnie Milsap",
+        "uri": null,
+        "description": "American country music singer."
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Woman of the World (Leave My World Alone)",
+        "uri": null,
+        "description": "A 1969 single written by Sharon Higgins and recorded by Loretta Lynn."
+      },
+      "predicate": {
+        "surface_form": "recorded by",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Loretta Lynn",
+        "uri": null,
+        "description": "A singer who recorded 'Woman of the World (Leave My World Alone)'."
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Michigan",
+        "uri": null,
+        "description": "The U.S. state where Macon 'Milkman' Dead III lives."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Location",
+        "uri": "http://schema.org/Location",
+        "description": null
+      },
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "gross income",
+        "uri": null,
+        "description": "Total income before any deductions or taxes."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "$130,000",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "scenes",
+        "uri": null,
+        "description": null
+      },
+      "predicate": {
+        "surface_form": "termed as",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "dream sequences",
+        "uri": null,
+        "description": "A narrative device used in films and literature to depict a dream or fantasy."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Social Security Wage Base",
+        "uri": null,
+        "description": "The maximum amount of earnings subject to Social Security tax."
+      },
+      "predicate": {
+        "surface_form": "has value",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "$128,400",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Stranger Things Have Happened",
+        "uri": null,
+        "description": "An album by Ronnie Milsap."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "LP Woman of the World / To Make a Man",
+        "uri": null,
+        "description": "The album containing the single 'Woman of the World (Leave My World Alone)'."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Punjab Social Security Hospital",
+        "uri": null,
+        "description": "A 610 bed teaching hospital in Lahore, Pakistan."
+      },
+      "predicate": {
+        "surface_form": "provides care for",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "industrial units",
+        "uri": null,
+        "description": "Business entities in Punjab."
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "dream sequences",
+        "uri": null,
+        "description": "A narrative device used in films and literature to depict a dream or fantasy."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "National Insurance number",
+        "uri": null,
+        "description": "A number used in the UK for National Insurance and social security system administration."
+      },
+      "predicate": {
+        "surface_form": "described as",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "personal account number",
+        "uri": null,
+        "description": "A number used to identify an individual's account for administrative purposes."
+      },
+      "provenance_ids": [
+        "3785_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Curtis Wright",
+        "uri": null,
+        "description": "Songwriter of 'A Woman in Love'."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Social Security tax",
+        "uri": null,
+        "description": "The tax levied on income to fund the Social Security program."
+      },
+      "predicate": {
+        "surface_form": "paid",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "$7,886.40",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Where Love Used to Live/My Woman's Good to Me",
+        "uri": null,
+        "description": "An album by David Houston."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000",
+        "3787_0000",
+        "3787_0000",
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman in Love",
+        "uri": null,
+        "description": "A song written by Curtis Wright and Doug Millett, recorded by Ronnie Milsap."
+      },
+      "predicate": {
+        "surface_form": "writes",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Curtis Wright",
+        "uri": null,
+        "description": "Songwriter of 'A Woman in Love'."
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "paparazzi",
+        "uri": null,
+        "description": "Photographers who take pictures of celebrities, often in an intrusive manner."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman in Love",
+        "uri": null,
+        "description": "A song written by Curtis Wright and Doug Millett, recorded by Ronnie Milsap."
+      },
+      "predicate": {
+        "surface_form": "released",
+        "uri": "http://schema.org/datePublished",
+        "description": null
+      },
+      "object": {
+        "surface_form": "September 1989",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman in Love",
+        "uri": null,
+        "description": "A song written by Curtis Wright and Doug Millett, recorded by Ronnie Milsap."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Woman of the World (Leave My World Alone)",
+        "uri": null,
+        "description": "A 1969 single written by Sharon Higgins and recorded by Loretta Lynn."
+      },
+      "predicate": {
+        "surface_form": "reached",
+        "uri": "http://schema.org/rank",
+        "description": null
+      },
+      "object": {
+        "surface_form": "country charts",
+        "uri": null,
+        "description": "The chart where 'Woman of the World (Leave My World Alone)' reached number one."
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Multan Road",
+        "uri": null,
+        "description": "A road in the south western part of Lahore."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Place",
+        "uri": "http://schema.org/Place",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Billboard Hot Country Singles chart",
+        "uri": null,
+        "description": "A music chart that ranks the top-performing country music songs in the United States."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000",
+        "3787_0000",
+        "3787_0000",
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "secondary education stage",
+        "uri": null,
+        "description": "A phase in education where students typically specialize in certain subjects."
+      },
+      "predicate": {
+        "surface_form": "includes",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "manual skills",
+        "uri": null,
+        "description": "Skills involving the use of hands or physical activity."
+      },
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "effective rate",
+        "uri": null,
+        "description": "The actual rate of tax paid after accounting for deductions and exemptions."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "0.79%",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Loretta Lynn",
+        "uri": null,
+        "description": "A singer who recorded 'Woman of the World (Leave My World Alone)'."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Ibn Sīnā",
+        "uri": null,
+        "description": "A historical figure known for his contributions to various fields such as medicine and philosophy."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "The film",
+        "uri": null,
+        "description": null
+      },
+      "predicate": {
+        "surface_form": "includes",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "multiple endings",
+        "uri": null,
+        "description": "Different possible conclusions to a story or film, often used to maintain suspense or secrecy."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Steiner Studios",
+        "uri": null,
+        "description": "A film and television production facility located in Brooklyn, New York."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Commercial Organization",
+        "uri": "http://example.org/ontology#CommercialOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Where Love Used to Live",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000",
+        "3787_0000",
+        "3787_0000",
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Where Love Used to Live",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "chart",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "RPM Country Tracks chart",
+        "uri": null,
+        "description": "A music chart that ranks the top-performing country music songs in Canada."
+      },
+      "provenance_ids": [
+        "3780_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Ibn Sīnā",
+        "uri": null,
+        "description": "A historical figure known for his contributions to various fields such as medicine and philosophy."
+      },
+      "predicate": {
+        "surface_form": "writes",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "flexibility in graduation age",
+        "uri": null,
+        "description": "The allowance for students to graduate at different ages based on their development and interests."
+      },
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "multiple endings",
+        "uri": null,
+        "description": "Different possible conclusions to a story or film, often used to maintain suspense or secrecy."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Punjab Employees Social Security Institution",
+        "uri": null,
+        "description": "A public sector department that runs the hospital."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Government Organization",
+        "uri": "http://example.org/ontology#GovernmentOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman in Love",
+        "uri": null,
+        "description": "A song written by Curtis Wright and Doug Millett, recorded by Ronnie Milsap."
+      },
+      "predicate": {
+        "surface_form": "reached",
+        "uri": "http://schema.org/rank",
+        "description": null
+      },
+      "object": {
+        "surface_form": "U.S. country singles chart",
+        "uri": null,
+        "description": "A chart ranking country music singles in the United States."
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Ronnie Milsap",
+        "uri": null,
+        "description": "American country music singer."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman Always Knows",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "peaked at",
+        "uri": "http://schema.org/rank",
+        "description": null
+      },
+      "object": {
+        "surface_form": "number 2 on the Billboard Hot Country Singles chart",
+        "uri": null,
+        "description": "A music chart that ranks the top-performing country music songs."
+      },
+      "provenance_ids": [
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Where Love Used to Live",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "artist",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "David Houston",
+        "uri": null,
+        "description": "American country music artist."
+      },
+      "provenance_ids": [
+        "3780_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Macon 'Milkman' Dead III",
+        "uri": null,
+        "description": "A fictional character in the novel Song of Solomon."
+      },
+      "predicate": {
+        "surface_form": "ethnicity",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "African-American",
+        "uri": null,
+        "description": "Refers to the ethnic identity of Macon 'Milkman' Dead III."
+      },
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "United Kingdom",
+        "uri": null,
+        "description": "A country in Europe."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Location",
+        "uri": "http://schema.org/Location",
+        "description": null
+      },
+      "provenance_ids": [
+        "3785_0000",
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "The film",
+        "uri": null,
+        "description": null
+      },
+      "predicate": {
+        "surface_form": "shot in",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Silvercup Studios",
+        "uri": null,
+        "description": "A film and television production facility located in Long Island City, New York."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman Always Knows",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "reached",
+        "uri": "http://schema.org/rank",
+        "description": null
+      },
+      "object": {
+        "surface_form": "number 1 on the RPM Country Tracks chart",
+        "uri": null,
+        "description": "A Canadian music chart that ranks the top-performing country music songs."
+      },
+      "provenance_ids": [
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Woman of the World (Leave My World Alone)",
+        "uri": null,
+        "description": "A 1969 single written by Sharon Higgins and recorded by Loretta Lynn."
+      },
+      "predicate": {
+        "surface_form": "album",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "LP Woman of the World / To Make a Man",
+        "uri": null,
+        "description": "The album containing the single 'Woman of the World (Leave My World Alone)'."
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Punjab Social Security Hospital",
+        "uri": null,
+        "description": "A 610 bed teaching hospital in Lahore, Pakistan."
+      },
+      "predicate": {
+        "surface_form": "location",
+        "uri": "http://schema.org/location",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Multan Road",
+        "uri": null,
+        "description": "A road in the south western part of Lahore."
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Macon 'Milkman' Dead III",
+        "uri": null,
+        "description": "A fictional character in the novel Song of Solomon."
+      },
+      "predicate": {
+        "surface_form": "location",
+        "uri": "http://schema.org/location",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Michigan",
+        "uri": null,
+        "description": "The U.S. state where Macon 'Milkman' Dead III lives."
+      },
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Social Security tax",
+        "uri": null,
+        "description": "The tax levied on income to fund the Social Security program."
+      },
+      "predicate": {
+        "surface_form": "withheld",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "$620.00",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "National Insurance number",
+        "uri": null,
+        "description": "A number used in the UK for National Insurance and social security system administration."
+      },
+      "predicate": {
+        "surface_form": "used for",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "United Kingdom",
+        "uri": null,
+        "description": "A country in Europe."
+      },
+      "provenance_ids": [
+        "3785_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "country charts",
+        "uri": null,
+        "description": "The chart where 'Woman of the World (Leave My World Alone)' reached number one."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "teaching hospital",
+        "uri": null,
+        "description": "A hospital that provides education and training."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Educational Organization",
+        "uri": "http://example.org/ontology#EducationalOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Woman of the World (Leave My World Alone)",
+        "uri": null,
+        "description": "A 1969 single written by Sharon Higgins and recorded by Loretta Lynn."
+      },
+      "predicate": {
+        "surface_form": "writes",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Sharon Higgins",
+        "uri": null,
+        "description": "The writer of the single 'Woman of the World (Leave My World Alone)'."
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "National Insurance number",
+        "uri": null,
+        "description": "A number used in the UK for National Insurance and social security system administration."
+      },
+      "predicate": {
+        "surface_form": "used for",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "UK tax system",
+        "uri": null,
+        "description": "The system for collecting taxes in the United Kingdom."
+      },
+      "provenance_ids": [
+        "3785_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "album",
+        "uri": null,
+        "description": "A collection of music tracks, including the single 'A Woman Always Knows'."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Song of Solomon",
+        "uri": null,
+        "description": "A 1977 novel by American author Toni Morrison."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Professional",
+        "uri": "http://example.org/ontology#CreativeProfessional",
+        "description": null
+      },
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman in Love",
+        "uri": null,
+        "description": "A song written by Curtis Wright and Doug Millett, recorded by Ronnie Milsap."
+      },
+      "predicate": {
+        "surface_form": "writes",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Doug Millett",
+        "uri": null,
+        "description": "Songwriter of 'A Woman in Love'."
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Punjab Social Security Hospital",
+        "uri": null,
+        "description": "A 610 bed teaching hospital in Lahore, Pakistan."
+      },
+      "predicate": {
+        "surface_form": "provides care for",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "employees and families",
+        "uri": null,
+        "description": "Individuals and their families who are provided care by the hospital."
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "The film",
+        "uri": null,
+        "description": null
+      },
+      "predicate": {
+        "surface_form": "shot in",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "New York",
+        "uri": null,
+        "description": "A major city in the United States, known for its significant cultural and economic influence."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman Always Knows",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "artist",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "David Houston",
+        "uri": null,
+        "description": "American country music artist."
+      },
+      "provenance_ids": [
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Where Love Used to Live",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "chart",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "number 2",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Woman of the World (Leave My World Alone)",
+        "uri": null,
+        "description": "A 1969 single written by Sharon Higgins and recorded by Loretta Lynn."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Doug Millett",
+        "uri": null,
+        "description": "Songwriter of 'A Woman in Love'."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "The film",
+        "uri": null,
+        "description": null
+      },
+      "predicate": {
+        "surface_form": "shot in",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Manhattan",
+        "uri": null,
+        "description": "A borough of New York City, known for its iconic skyline and cultural landmarks."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Lahore",
+        "uri": null,
+        "description": "A city in Pakistan."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Location",
+        "uri": "http://schema.org/Location",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Where Love Used to Live",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "album",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Where Love Used to Live/My Woman's Good to Me",
+        "uri": null,
+        "description": "An album by David Houston."
+      },
+      "provenance_ids": [
+        "3780_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "maktab schooling",
+        "uri": null,
+        "description": "A traditional Islamic elementary school."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Educational Organization",
+        "uri": "http://example.org/ontology#EducationalOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Silvercup Studios",
+        "uri": null,
+        "description": "A film and television production facility located in Long Island City, New York."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Commercial Organization",
+        "uri": "http://example.org/ontology#CommercialOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Where Love Used to Live",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "chart",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Billboard Hot Country Singles chart",
+        "uri": null,
+        "description": "A music chart that ranks the top-performing country music songs in the United States."
+      },
+      "provenance_ids": [
+        "3780_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman Always Knows",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman Always Knows",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "released",
+        "uri": "http://schema.org/datePublished",
+        "description": null
+      },
+      "object": {
+        "surface_form": "December 1970",
+        "uri": null,
+        "description": "The release date of the single 'A Woman Always Knows'."
+      },
+      "provenance_ids": [
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "gross income",
+        "uri": null,
+        "description": "Total income before any deductions or taxes."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "$10,000",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "The film",
+        "uri": null,
+        "description": null
+      },
+      "predicate": {
+        "surface_form": "interrupted by",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "paparazzi",
+        "uri": null,
+        "description": "Photographers who take pictures of celebrities, often in an intrusive manner."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Social Security tax rate",
+        "uri": null,
+        "description": "The percentage of income that is taxed for Social Security."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "6.20%",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Where Love Used to Live",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "release date",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "September 1968",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "U.S. country singles chart",
+        "uri": null,
+        "description": "A chart ranking country music singles in the United States."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Song of Solomon",
+        "uri": null,
+        "description": "A 1977 novel by American author Toni Morrison."
+      },
+      "predicate": {
+        "surface_form": "author",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Song of Solomon",
+        "uri": null,
+        "description": "A 1977 novel by American author Toni Morrison."
+      },
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "David Houston",
+        "uri": null,
+        "description": "American country music artist."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000",
+        "3787_0000",
+        "3787_0000",
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "The film",
+        "uri": null,
+        "description": null
+      },
+      "predicate": {
+        "surface_form": "shot in",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Steiner Studios",
+        "uri": null,
+        "description": "A film and television production facility located in Brooklyn, New York."
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Song of Solomon",
+        "uri": null,
+        "description": "A 1977 novel by American author Toni Morrison."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Manhattan",
+        "uri": null,
+        "description": "A borough of New York City, known for its iconic skyline and cultural landmarks."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Location",
+        "uri": "http://schema.org/Location",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman in Love",
+        "uri": null,
+        "description": "A song written by Curtis Wright and Doug Millett, recorded by Ronnie Milsap."
+      },
+      "predicate": {
+        "surface_form": "album",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Stranger Things Have Happened",
+        "uri": null,
+        "description": "An album by Ronnie Milsap."
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "RPM Country Tracks chart",
+        "uri": null,
+        "description": "A music chart that ranks the top-performing country music songs in Canada."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000",
+        "3787_0000",
+        "3787_0000",
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "employer matching",
+        "uri": null,
+        "description": "The contribution made by employers to match the employee's Social Security tax."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "$620.00",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "effective rate",
+        "uri": null,
+        "description": "The actual rate of tax paid after accounting for deductions and exemptions."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "6.07%",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Punjab Social Security Hospital",
+        "uri": null,
+        "description": "A 610 bed teaching hospital in Lahore, Pakistan."
+      },
+      "predicate": {
+        "surface_form": "run by",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Punjab Employees Social Security Institution",
+        "uri": null,
+        "description": "A public sector department that runs the hospital."
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "secondary education stage",
+        "uri": null,
+        "description": "A phase in education where students typically specialize in certain subjects."
+      },
+      "predicate": {
+        "surface_form": "involves",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "specialisation",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Sharon Higgins",
+        "uri": null,
+        "description": "The writer of the single 'Woman of the World (Leave My World Alone)'."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "New York",
+        "uri": null,
+        "description": "A major city in the United States, known for its significant cultural and economic influence."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Location",
+        "uri": "http://schema.org/Location",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "National Insurance number",
+        "uri": null,
+        "description": "A number used in the UK for National Insurance and social security system administration."
+      },
+      "predicate": {
+        "surface_form": "used for",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "social security system",
+        "uri": null,
+        "description": "A system for providing social insurance and welfare services."
+      },
+      "provenance_ids": [
+        "3785_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Macon 'Milkman' Dead III",
+        "uri": null,
+        "description": "A fictional character in the novel Song of Solomon."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Fictional Entity",
+        "uri": "http://example.org/ontology#FictionalEntity",
+        "description": null
+      },
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Punjab Social Security Hospital",
+        "uri": null,
+        "description": "A 610 bed teaching hospital in Lahore, Pakistan."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Infrastructure",
+        "uri": "http://example.org/ontology#Infrastructure",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Social Security tax",
+        "uri": null,
+        "description": "The tax levied on income to fund the Social Security program."
+      },
+      "predicate": {
+        "surface_form": "incurred",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "$7,886.40",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Where Love Used to Live",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "chart",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "number 1",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "public sector department",
+        "uri": null,
+        "description": "A department within the government sector."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Government Organization",
+        "uri": "http://example.org/ontology#GovernmentOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Song of Solomon",
+        "uri": null,
+        "description": "A 1977 novel by American author Toni Morrison."
+      },
+      "predicate": {
+        "surface_form": "publication date",
+        "uri": "http://schema.org/datePublished",
+        "description": null
+      },
+      "object": {
+        "surface_form": "1977",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Punjab Social Security Hospital",
+        "uri": null,
+        "description": "A 610 bed teaching hospital in Lahore, Pakistan."
+      },
+      "predicate": {
+        "surface_form": "location",
+        "uri": "http://schema.org/location",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Lahore",
+        "uri": null,
+        "description": "A city in Pakistan."
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "gross income",
+        "uri": null,
+        "description": "Total income before any deductions or taxes."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "$1,000,000",
+        "uri": null,
+        "description": null
+      },
+      "provenance_ids": [
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "secondary education stage",
+        "uri": null,
+        "description": "A phase in education where students typically specialize in certain subjects."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "transitional stage",
+        "uri": null,
+        "description": "A phase of transition in education where students move from general to specialized learning."
+      },
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Ibn Sīnā",
+        "uri": null,
+        "description": "A historical figure known for his contributions to various fields such as medicine and philosophy."
+      },
+      "predicate": {
+        "surface_form": "refers to",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "secondary education stage",
+        "uri": null,
+        "description": "A phase in education where students typically specialize in certain subjects."
+      },
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "industrial units",
+        "uri": null,
+        "description": "Business entities in Punjab."
+      },
+      "predicate": {
+        "surface_form": "is",
+        "uri": null,
+        "description": null
+      },
+      "object": {
+        "surface_form": "Commercial Organization",
+        "uri": "http://example.org/ontology#CommercialOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Silvercup Studios",
+        "uri": null,
+        "description": "A film and television production facility located in Long Island City, New York."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Commercial Organization",
+        "uri": "http://example.org/ontology#CommercialOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "RPM Country Tracks chart",
+        "uri": null,
+        "description": "A music chart that ranks the top-performing country music songs in Canada."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000",
+        "3787_0000",
+        "3787_0000",
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "album",
+        "uri": null,
+        "description": "A collection of music tracks, including the single 'A Woman Always Knows'."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Ronnie Milsap",
+        "uri": null,
+        "description": "American country music singer."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Sharon Higgins",
+        "uri": null,
+        "description": "The writer of the single 'Woman of the World (Leave My World Alone)'."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Steiner Studios",
+        "uri": null,
+        "description": "A film and television production facility located in Brooklyn, New York."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Commercial Organization",
+        "uri": "http://example.org/ontology#CommercialOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "multiple endings",
+        "uri": null,
+        "description": "Different possible conclusions to a story or film, often used to maintain suspense or secrecy."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman Always Knows",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "A Woman in Love",
+        "uri": null,
+        "description": "A song written by Curtis Wright and Doug Millett, recorded by Ronnie Milsap."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "country charts",
+        "uri": null,
+        "description": "The chart where 'Woman of the World (Leave My World Alone)' reached number one."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Macon 'Milkman' Dead III",
+        "uri": null,
+        "description": "A fictional character in the novel Song of Solomon."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Fictional Entity",
+        "uri": "http://example.org/ontology#FictionalEntity",
+        "description": null
+      },
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Ibn Sīnā",
+        "uri": null,
+        "description": "A historical figure known for his contributions to various fields such as medicine and philosophy."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Doug Millett",
+        "uri": null,
+        "description": "Songwriter of 'A Woman in Love'."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "United Kingdom",
+        "uri": null,
+        "description": "A country in Europe."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Location",
+        "uri": "http://schema.org/Location",
+        "description": null
+      },
+      "provenance_ids": [
+        "3785_0000",
+        "3783_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Punjab Social Security Hospital",
+        "uri": null,
+        "description": "A 610 bed teaching hospital in Lahore, Pakistan."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Infrastructure",
+        "uri": "http://example.org/ontology#Infrastructure",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "public sector department",
+        "uri": null,
+        "description": "A department within the government sector."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Government Organization",
+        "uri": "http://example.org/ontology#GovernmentOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "maktab schooling",
+        "uri": null,
+        "description": "A traditional Islamic elementary school."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Educational Organization",
+        "uri": "http://example.org/ontology#EducationalOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3782_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Where Love Used to Live/My Woman's Good to Me",
+        "uri": null,
+        "description": "An album by David Houston."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000",
+        "3787_0000",
+        "3787_0000",
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Stranger Things Have Happened",
+        "uri": null,
+        "description": "An album by Ronnie Milsap."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "industrial units",
+        "uri": null,
+        "description": "Business entities in Punjab."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Commercial Organization",
+        "uri": "http://example.org/ontology#CommercialOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "LP Woman of the World / To Make a Man",
+        "uri": null,
+        "description": "The album containing the single 'Woman of the World (Leave My World Alone)'."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Michigan",
+        "uri": null,
+        "description": "The U.S. state where Macon 'Milkman' Dead III lives."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Location",
+        "uri": "http://schema.org/Location",
+        "description": null
+      },
+      "provenance_ids": [
+        "3789_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "dream sequences",
+        "uri": null,
+        "description": "A narrative device used in films and literature to depict a dream or fantasy."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Loretta Lynn",
+        "uri": null,
+        "description": "A singer who recorded 'Woman of the World (Leave My World Alone)'."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "New York",
+        "uri": null,
+        "description": "A major city in the United States, known for its significant cultural and economic influence."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Location",
+        "uri": "http://schema.org/Location",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Multan Road",
+        "uri": null,
+        "description": "A road in the south western part of Lahore."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Place",
+        "uri": "http://schema.org/Place",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Punjab Employees Social Security Institution",
+        "uri": null,
+        "description": "A public sector department that runs the hospital."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Government Organization",
+        "uri": "http://example.org/ontology#GovernmentOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Lahore",
+        "uri": null,
+        "description": "A city in Pakistan."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Location",
+        "uri": "http://schema.org/Location",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "David Houston",
+        "uri": null,
+        "description": "American country music artist."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000",
+        "3787_0000",
+        "3787_0000",
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Billboard Hot Country Singles chart",
+        "uri": null,
+        "description": "A music chart that ranks the top-performing country music songs in the United States."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000",
+        "3787_0000",
+        "3787_0000",
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Curtis Wright",
+        "uri": null,
+        "description": "Songwriter of 'A Woman in Love'."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Manhattan",
+        "uri": null,
+        "description": "A borough of New York City, known for its iconic skyline and cultural landmarks."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Location",
+        "uri": "http://schema.org/Location",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Where Love Used to Live",
+        "uri": null,
+        "description": "A single by American country music artist David Houston."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3780_0000",
+        "3787_0000",
+        "3787_0000",
+        "3787_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "teaching hospital",
+        "uri": null,
+        "description": "A hospital that provides education and training."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Educational Organization",
+        "uri": "http://example.org/ontology#EducationalOrganization",
+        "description": null
+      },
+      "provenance_ids": [
+        "3788_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Song of Solomon",
+        "uri": null,
+        "description": "A 1977 novel by American author Toni Morrison."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3789_0000",
+        "3789_0000",
+        "3789_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "paparazzi",
+        "uri": null,
+        "description": "Photographers who take pictures of celebrities, often in an intrusive manner."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Person",
+        "uri": "http://schema.org/Person",
+        "description": null
+      },
+      "provenance_ids": [
+        "3786_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "Woman of the World (Leave My World Alone)",
+        "uri": null,
+        "description": "A 1969 single written by Sharon Higgins and recorded by Loretta Lynn."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Musical Work",
+        "uri": "http://example.org/ontology#MusicalWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3784_0000"
+      ]
+    },
+    {
+      "subject": {
+        "surface_form": "U.S. country singles chart",
+        "uri": null,
+        "description": "A chart ranking country music singles in the United States."
+      },
+      "predicate": {
+        "surface_form": "is a",
+        "uri": "rdf:type",
+        "description": null
+      },
+      "object": {
+        "surface_form": "Creative Work",
+        "uri": "http://schema.org/CreativeWork",
+        "description": null
+      },
+      "provenance_ids": [
+        "3781_0000"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "surface_form": "released",
+      "uri": "http://schema.org/datePublished",
+      "description": null
+    },
+    {
+      "surface_form": "withheld",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "release date",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "involves",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "paid",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "writes",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "incurred",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "peaked at",
+      "uri": "http://schema.org/rank",
+      "description": null
+    },
+    {
+      "surface_form": "includes",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "interrupted by",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "location",
+      "uri": "http://schema.org/location",
+      "description": null
+    },
+    {
+      "surface_form": "recorded by",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "used for",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "chart",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "run by",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "is",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "provides care for",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "refers to",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "has value",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "termed as",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "is a",
+      "uri": "rdf:type",
+      "description": null
+    },
+    {
+      "surface_form": "ethnicity",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "reached",
+      "uri": "http://schema.org/rank",
+      "description": null
+    },
+    {
+      "surface_form": "album",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "publication date",
+      "uri": "http://schema.org/datePublished",
+      "description": null
+    },
+    {
+      "surface_form": "described as",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "author",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "artist",
+      "uri": null,
+      "description": null
+    },
+    {
+      "surface_form": "shot in",
+      "uri": null,
+      "description": null
+    }
+  ]
+}

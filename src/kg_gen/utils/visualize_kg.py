@@ -52,7 +52,7 @@ def _build_view_model(graph: Graph) -> dict[str, Any]:
 
     for representative, members in entity_clusters.items():
         full_members = set(members)
-        full_members.add(Entity(surface_form=representative))
+        # full_members.add(representative)
         ordered_members = _sorted_ignore_case(full_members)
         color = _string_to_color(f"entity::{representative}")
         cluster_view.append(
@@ -79,20 +79,22 @@ def _build_view_model(graph: Graph) -> dict[str, Any]:
                 f"entity::{entity.surface_form}"
             )
 
-    edge_member_to_cluster: dict[str, str] = {}
-    edge_color_lookup: dict[str, str] = {}
+    edge_member_to_cluster: dict[Entity, str] = {}
+    edge_color_lookup: dict[Entity, str] = {}
     edge_cluster_view: list[dict[str, Any]] = []
 
     for representative, members in edge_clusters.items():
         full_members = set(members)
-        full_members.add(representative)
-        ordered_members = sorted(list(full_members), key=lambda x: x.lower())
+        # full_members.add(representative)
+        ordered_members = sorted(
+            list(full_members), key=lambda x: x.surface_form.lower()
+        )
         color = _string_to_color(f"edge::{representative}")
         edge_cluster_view.append(
             {
                 "id": representative,
                 "label": representative,
-                "members": ordered_members,
+                "members": [m.surface_form for m in ordered_members],
                 "size": len(ordered_members),
                 "color": color,
             }
@@ -131,10 +133,10 @@ def _build_view_model(graph: Graph) -> dict[str, Any]:
         node_neighbors[obj].add(subject)
 
         edge_id = f"e{index}"
-        color = edge_color_lookup.get(predicate.surface_form)
+        color = edge_color_lookup.get(predicate)
         if not color:
             color = _string_to_color(f"predicate::{predicate.surface_form}")
-            edge_color_lookup[predicate.surface_form] = color
+            edge_color_lookup[predicate] = color
 
         edges_view.append(
             {
@@ -142,7 +144,7 @@ def _build_view_model(graph: Graph) -> dict[str, Any]:
                 "source": subject.surface_form,
                 "target": obj.surface_form,
                 "predicate": predicate.surface_form,
-                "cluster": edge_member_to_cluster.get(predicate.surface_form),
+                "cluster": edge_member_to_cluster.get(predicate),
                 "color": color,
                 "tooltip": f"{subject.surface_form} —{predicate.surface_form}→ {obj.surface_form}",
             }
@@ -199,9 +201,7 @@ def _build_view_model(graph: Graph) -> dict[str, Any]:
                 "degree": degree[entity],
                 "indegree": indegree[entity],
                 "outdegree": outdegree[entity],
-                "isRepresentative": cluster_id == entity.surface_form
-                if cluster_id
-                else False,
+                "isRepresentative": cluster_id == entity if cluster_id else False,
                 "radius": radius,
                 "neighbors": [
                     n.surface_form
@@ -230,8 +230,8 @@ def _build_view_model(graph: Graph) -> dict[str, Any]:
             {
                 "predicate": predicate.surface_form,
                 "count": count,
-                "cluster": edge_member_to_cluster.get(predicate.surface_form),
-                "color": edge_color_lookup.get(predicate.surface_form, "#64748b"),
+                "cluster": edge_member_to_cluster.get(predicate),
+                "color": edge_color_lookup.get(predicate, "#64748b"),
             }
             for predicate, count in predicate_counts.items()
         ),

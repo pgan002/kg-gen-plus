@@ -21,7 +21,7 @@ from benchmarks.MuSiQue.musique_utils import (
     extract_terms_for_text,
 )
 from kg_gen.kg_gen import KGGen
-from kg_gen.models import Graph, InputData, Ontology, KGGenStats
+from kg_gen.models import Graph, InputData, Ontology, KGGenStats, TypedEntity
 
 
 async def _process_single_chunk(
@@ -45,18 +45,24 @@ async def _process_single_chunk(
         chunk_logger.info(f"Processing chunk {item.chunk_id}")
         chunk_logger.info(f"Extracting terms for item {item.chunk_id}...")
         start_time = time.time()
-        item_entities = await extract_terms_for_text(item.content, str(item.chunk_id))
+        item_entities = await extract_terms_for_text(item.content)
+        out_terms = []
+        for term in item_entities:
+            term_as_typed_ent = TypedEntity(
+                surface_form=term.term, uri=None, description=term.definition, type=None
+            )
+            out_terms.append(term_as_typed_ent)
+        item.terms = out_terms
 
         chunk_logger.info(
-            f"Extracted {len(item_entities)} terms for {item.chunk_id}. it took {time.time() - start_time:0.2f}s"
+            f"Extracted {len(item.terms)} terms for {item.chunk_id}. it took {time.time() - start_time:0.2f}s"
         )
 
         g, usage = await kg.generate(
             input_data=InputData(text=item.content, id=item.chunk_id),
-            terms=item_entities,
+            terms=item.terms,
             types=list(onto.classes),
             predicate_domain_range=list(onto.predicates),
-            deduplication_method=None,
         )
         chunk_logger.info(f"Graph generated for {item.chunk_id}. {g.stats()}")
         return g, usage, log_stream.getvalue()

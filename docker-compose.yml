@@ -1,19 +1,20 @@
-version: '3.8'
-
 services:
   server:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: kg-gen-dedup-demo
+    image: ${IMAGE_NAME}:0.0.1
     container_name: kg-gen-server
-    command: uvicorn app.server:app --reload --host 0.0.0.0 --port 8000
+    command: --port 8000
     volumes:
-      - .:/workspace
-      - ./output:/workspace/output
+      - ./src:/workspace/src
+      - ./app:/workspace/app
       - ./logs:/workspace/logs
+      - kggen-hf-cache:/workspace/cache:rw
     ports:
-      - "8000:8000"
+      - ${PORT:-5000}:8000
     env_file:
       - .env
+    environment:
+      - "DSPY_CACHEDIR=/workspace/cache/dspy_cache"
     restart: unless-stopped
+
+volumes:
+  kggen-hf-cache:

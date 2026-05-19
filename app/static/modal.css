@@ -33,7 +33,7 @@
     background-color: hsl(var(--background));
     border-radius: 0.5rem;
     border: 1px solid hsl(var(--border));
-    box-shadow: 
+    box-shadow:
         0 10px 15px -3px rgba(0, 0, 0, 0.1),
         0 4px 6px -2px rgba(0, 0, 0, 0.05),
         0 0 0 1px rgba(0, 0, 0, 0.05);
@@ -136,16 +136,16 @@
     .modal-container {
         padding: 0.5rem;
     }
-    
+
     .modal-dialog {
         max-width: 100%;
         margin: 0;
     }
-    
+
     .modal-header {
         padding: 1rem;
     }
-    
+
     .modal-body {
         padding: 1rem;
     }

@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     window.setMainPopoverContent = mainPopover.updateSelection;
-    
+
     const mobilePopover = createPopover({
         viewSelectionBtn: document.getElementById('viewSelectionBtnMobile'),
         selectionPopover: document.getElementById('selectionPopoverMobile'),

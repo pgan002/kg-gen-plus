@@ -27,7 +27,10 @@ def run_deduplication(
 
     if method == DeduplicateMethod.SEMHASH:
         deduplicated_graph = run_semhash_deduplication(
-            graph, semhash_similarity_threshold, model=retrieval_model
+            graph,
+            model=retrieval_model,
+            entity_similarity_threshold=semhash_similarity_threshold,
+            edge_similarity_threshold=semhash_similarity_threshold,
         )
     # elif method == DeduplicateMethod.LM_BASED:
     #     llm_deduplicate = LLMDeduplicate(retrieval_model, lm, graph)

@@ -83,7 +83,7 @@ def test_semhash_deduplication(kg: KGGen):
 
     deduplicated, stats = kg.deduplicate(
         graph=graph,
-        semhash_similarity_threshold=0.95,
+        entity_similarity_threshold=0.95,
     )
 
     # SEMHASH should merge plurals
@@ -181,8 +181,7 @@ def test_semhash_deduplication_lowthreshold_mpnet(kg: KGGen):
     )
 
     deduplicated, stats = kg.deduplicate(
-        graph=graph,
-        semhash_similarity_threshold=0.5,
+        graph=graph, entity_similarity_threshold=0.5, edge_similarity_threshold=0.25
     )
 
     # SEMHASH should merge case variations
@@ -250,8 +249,7 @@ def test_deduplication_preserves_provenance(kg: KGGen):
     )
 
     deduplicated, _ = kg.deduplicate(
-        graph=graph,
-        semhash_similarity_threshold=0.6,
+        graph=graph, entity_similarity_threshold=0.6, edge_similarity_threshold=0.6
     )
 
     # There should be 2 typed entities after merge: one for CEO/Chief Exec, one for employee
@@ -305,8 +303,7 @@ def test_deduplication_with_descriptions(kg: KGGen):
         relations_wo_class_assertions=[],
     )
     deduplicated, _ = kg.deduplicate(
-        graph=graph,
-        semhash_similarity_threshold=0.75,
+        graph=graph, entity_similarity_threshold=0.85, edge_similarity_threshold=0.75
     )
     # There should be 2 typed entities after merge: fruit and company
     assert len(deduplicated.typed_entities) == 2
@@ -319,8 +316,7 @@ def test_deduplication_with_descriptions(kg: KGGen):
         relations_wo_class_assertions=[],
     )
     deduplicated, _ = kg.deduplicate(
-        graph=graph,
-        semhash_similarity_threshold=0.75,
+        graph=graph, entity_similarity_threshold=0.75, edge_similarity_threshold=0.75
     )
     # There should be 2 typed entities after merge: apple
     assert len(deduplicated.typed_entities) == 1

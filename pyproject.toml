@@ -1,8 +1,8 @@
 [project]
 name = "kg-gen"
-version = "0.4.0"
+version = "0.4.1"
 authors = [{ name = "Belinda Mo", email = "justanexperimentpark@gmail.com" }]
-description = "Extract a knowledge graph using LLMs from any text or messages array"
+description = "Extract a knowledge graph using LLMs from any text"
 readme = "README.md"
 requires-python = ">=3.10, <4.0"
 classifiers = [
@@ -14,7 +14,6 @@ classifiers = [
 ]
 license = "MIT"
 dependencies = [
-    "nltk",
     "pydantic>=2.0.0",
     "pre-commit>=4.3.0",
     "ty>=0.0.1a21",
@@ -23,23 +22,23 @@ dependencies = [
     "tqdm>=4.67.1",
     "datasets>=4.4.1",
     "semhash>=0.3.2",
-    "inflect>=7.5.0",
-    "numpy>=1.24.0",
-    "scipy>=1.10.0",
-    "scikit-learn>=1.7.2",
     "rank-bm25>=0.2.2",
     "networkx>=3.0",
-    "python-dotenv>=1.0.0",
     "dspy-ai>=3.0.4",
     "pathlib2>=2.3.7",
     "typer>=0.17.4",
     "ruff>=0.14.2",
-    "neo4j>=5.0.0",
-    "oauthlib>=3.3.1",
     "requests-oauthlib>=2.0.0",
     "pydantic-settings>=2.11.0",
     "rapidfuzz>=3.14.5",
     "rdflib>=7.6.0",
+    "uvicorn[standard]>=0.37.0",
+    "fastapi>=0.121.3",
+    "python-multipart>=0.0.20",
+    "torch>=2.12.0",
+    "inflect>=7.5.0",
+    "pyyaml>=6.0.3",
+    "toml>=0.10.2",
 ]
 
 [dependency-groups]
@@ -56,20 +55,18 @@ dev = [
 ]
 mcp = ["fastmcp>=2.10.6", "mcp>=1.12.1"]
 
-[project.scripts]
-kggen = "kg_gen.cli:main"
-
-[project.urls]
-Homepage = "https://github.com/stair-lab/kg-gen"
-Issues = "https://github.com/stair-lab/kg-gen/issues"
-
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.package-data]
-"kg_gen.utils" = ["template.html"]
-"kg_gen.prompts" = ["*.txt"]
-
 [tool.pytest.ini_options]
 testpaths = ["tests", "mcp/tests"]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu" },
+]
+torchvision = [
+    { index = "pytorch-cpu" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

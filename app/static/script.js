@@ -254,27 +254,14 @@
         const entityClustersSource = rawGraph.entity_clusters ?? rawGraph.entityClusters ?? rawGraph.entityclusters ?? {};
         const edgeClustersSource = rawGraph.edge_clusters ?? rawGraph.edgeClusters ?? rawGraph.edgeclusters ?? {};
 
-        const normalizedEntityClusters = normalizeClusterObject(entityClustersSource);
-        const normalizedEdgeClusters = normalizeClusterObject(edgeClustersSource);
+        // const normalizedEntityClusters = normalizeClusterObject(entityClustersSource);
+        // const normalizedEdgeClusters = normalizeClusterObject(edgeClustersSource);
 
         const payload = {
             ...rawGraph,
-            entity_clusters: normalizedEntityClusters,
-            edge_clusters: normalizedEdgeClusters,
+            entity_clusters: entityClustersSource,
+            edge_clusters: edgeClustersSource,
         };
-
-        if ('entityClusters' in payload) {
-            payload.entityClusters = normalizedEntityClusters;
-        }
-        if ('entityclusters' in payload) {
-            payload.entityclusters = normalizedEntityClusters;
-        }
-        if ('edgeClusters' in payload) {
-            payload.edgeClusters = normalizedEdgeClusters;
-        }
-        if ('edgeclusters' in payload) {
-            payload.edgeclusters = normalizedEdgeClusters;
-        }
 
         return payload;
     }
@@ -1111,7 +1098,7 @@
         document.getElementById('errorGraphMessage').classList.remove('show');
         showFloatingActions();
         try {
-            const response = await fetch('/api/examples');
+            const response = await fetch('/ui/examples');
             const items = await response.json();
             if (!response.ok) {
                 throw new Error(Array.isArray(items?.detail) ? items.detail.join('; ') : items?.detail || 'Failed to load sample list');
@@ -1146,7 +1133,7 @@
                     resetViewer();
                 }
 
-                fetch(`/api/examples/${firstExample.slug}`)
+                fetch(`/ui/examples/${firstExample.slug}`)
                     .then(async response => {
                         let payload;
                         try {
@@ -1185,7 +1172,7 @@
             hideLoadingInViewer();
             resetViewer();
         }
-     
+
     }
 
     async function loadExamples() {
@@ -1201,10 +1188,10 @@
         loadingOption.textContent = 'Loading samples...';
         exampleSelect.appendChild(loadingOption);
         exampleStatus.textContent = 'Loading sample graphs...';
-        updateExampleLink(null);
+        // updateExampleLink(null);
 
         try {
-            const response = await fetch('/api/examples');
+            const response = await fetch('/ui/examples');
             const items = await response.json();
             if (!response.ok) {
                 throw new Error(Array.isArray(items?.detail) ? items.detail.join('; ') : items?.detail || 'Failed to load sample list');
@@ -1257,7 +1244,7 @@
                 exampleSelect.value = firstExample.slug;
                 // Automatically load the first example
                 const meta = exampleMetadata.get(firstExample.slug);
-                updateExampleLink(meta);
+                // updateExampleLink(meta);
                 const title = meta?.title || firstExample.slug;
                 exampleStatus.textContent = `Loaded ${title}.`;
                 setStatus(`Loading example graph: ${title}...`);
@@ -1295,7 +1282,7 @@
         }
         setStatus('Loading visualization template...');
         try {
-            const response = await fetch('/template');
+            const response = await fetch('/ui/template');
             if (!response.ok) {
                 throw new Error('Template fetch failed');
             }
@@ -1398,12 +1385,12 @@
         }
 
         setStatus('Preparing graph data...');
-        console.info('[kg-gen] Sending graph data to /api/graph/view');
+        console.info('[kg-gen] Sending graph data to /ui/graph/view');
 
         let remoteError = null;
         const backendPayload = sanitizeGraphForBackend(rawJson);
         try {
-            const response = await fetch('/api/graph/view', {
+            const response = await fetch('/ui/graph/view', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1529,7 +1516,7 @@
         const temperatureValue = temperatureInput.value.trim();
 
         if (!apiKey) {
-            const errorMessage = 'Enter your OpenAI API key to generate a graph.';      
+            const errorMessage = 'Enter your OpenAI API key to generate a graph.';
             setStatus(errorMessage, 'error');
             showGenerateError(errorMessage);
             return;
@@ -1645,21 +1632,21 @@
                     exampleStatus.textContent = exampleMetadata.size
                         ? 'Select an example to load it instantly.'
                         : exampleStatus.textContent;
-                    updateExampleLink(null);
+                    // updateExampleLink(null);
                     return;
                 }
-    
+
                 if (!confirmGraphReplacement('example loading')) {
                     exampleSelect.value = '';
                     return;
                 }
-    
+
                 const meta = exampleMetadata.get(slug) || null;
-                updateExampleLink(meta);
+                // updateExampleLink(meta);
                 const title = meta?.title || slug;
                 exampleStatus.textContent = `Loading ${title}...`;
                 setStatus(`Loading example graph: ${title}...`);
-    
+
                 // Hide mobile sidebar and show loading with proper timing
                 if (window.sidebarManager && window.sidebarManager.isMobile) {
                     window.sidebarManager.hideMobileSidebar();
@@ -1673,10 +1660,10 @@
                 if (!hasLoadedGraph) {
                     resetViewer();
                 }
-    
+
                 exampleSelect.disabled = true;
                 try {
-                    const response = await fetch(`/api/examples/${slug}`);
+                    const response = await fetch(`/ui/examples/${slug}`);
                     let payload;
                     try {
                         payload = await response.json();
@@ -1686,12 +1673,12 @@
                         }
                         throw new Error(`Request failed (${response.status})`);
                     }
-    
+
                     if (!response.ok) {
                         const message = payload?.detail || payload?.error || `Failed to load example (${response.status})`;
                         throw new Error(message);
                     }
-    
+
                     await handleGraphData(payload);
                     exampleStatus.textContent = `Loaded ${title}.`;
                 } catch (error) {
@@ -1826,7 +1813,7 @@
         graphFileInput = document.getElementById('graphFile');
         graphDropZone = document.getElementById('graphDropZone');
         exampleSelect = document.getElementById('exampleGraph');
-        exampleLink = document.getElementById('exampleLink');
+        // exampleLink = document.getElementById('exampleLink');
         exampleStatus = document.getElementById('exampleStatus');
 
         graphDropZone.addEventListener('click', event => {
@@ -1857,7 +1844,7 @@
      function showGenerateError(message) {
         const errorMessage = document.getElementById('generateErrorMessage');
         const errorText = document.getElementById('generateErrorText');
-        
+
         if (errorMessage && errorText) {
             errorText.textContent = message;
             errorMessage.style.display = 'flex';
@@ -1876,7 +1863,7 @@
         const dropZoneText = document.getElementById('dropZoneText');
         const dropZoneHint = document.getElementById('dropZoneHint');
         const fileRemoveBtn = document.getElementById('fileRemoveBtn');
-        
+
         if (dropZoneText && dropZoneHint && fileRemoveBtn) {
             if (filename) {
                 dropZoneText.textContent = `Loaded ${filename}`;
@@ -1895,7 +1882,7 @@
         const dropZone = document.getElementById('graphDropZoneText');
         const dropZoneDisabledMessage = document.getElementById('dropZoneDisabledMessage');
         const textFileInput = document.getElementById('textFile');
-        
+
         if (dropZone && dropZoneDisabledMessage) {
             if (hasText) {
                 // Disable drop zone
@@ -1903,7 +1890,7 @@
                 dropZone.setAttribute('tabindex', '-1');
                 dropZone.setAttribute('aria-disabled', 'true');
                 dropZoneDisabledMessage.style.display = 'block';
-                
+
                 // Clear any existing file
                 if (textFileInput) {
                     textFileInput.value = '';
@@ -1923,14 +1910,14 @@
     function toggleTextareaState(hasFile) {
         const textarea = document.getElementById('sourceText');
         const textareaDisabledMessage = document.getElementById('sourceTextDisabledMessage');
-        
+
         if (textarea && textareaDisabledMessage) {
             if (hasFile) {
                 // Disable textarea
                 textarea.disabled = true;
                 textarea.setAttribute('aria-disabled', 'true');
                 textareaDisabledMessage.style.display = 'block';
-                
+
                 // Clear any existing text
                 textarea.value = '';
             } else {
@@ -1964,12 +1951,12 @@
         textFileInput = document.getElementById('textFile');
         generateButton = document.getElementById('generateButton');
         clearTextButton = document.getElementById('clearTextButton');
-        
+
 
         onChangeGenerateButton()
         onChangeClearTextButton()
 
-       
+
 
         // Function to remove selected file
         function removeSelectedFile() {
@@ -1984,7 +1971,7 @@
         // Initialize text file drop zone
         const graphDropZoneText = document.getElementById('graphDropZoneText');
         const fileRemoveBtn = document.getElementById('fileRemoveBtn');
-        
+
         // Add event listener for remove button
         if (fileRemoveBtn) {
             fileRemoveBtn.addEventListener('click', function(event) {
@@ -1993,7 +1980,7 @@
                 removeSelectedFile();
             });
         }
-        
+
         if (graphDropZoneText) {
             // Click event for text file drop zone
             graphDropZoneText.addEventListener('click', event => {
@@ -2043,13 +2030,13 @@
                         const dataTransfer = new DataTransfer();
                         dataTransfer.items.add(file);
                         textFileInput.files = dataTransfer.files;
-                        
+
                         // Update drop zone text to show loaded filename
                         updateDropZoneText(file.name);
-                        
+
                         // Disable textarea
                         toggleTextareaState(true);
-                        
+
                         // Trigger change event to update the UI
                         textFileInput.dispatchEvent(new Event('change', { bubbles: true }));
                     }
@@ -2077,22 +2064,22 @@
                 const hasText = this.value.trim().length > 0;
                 toggleDropZoneState(hasText);
             });
-            
+
             // Check initial state
             const hasText = sourceText.value.trim().length > 0;
             toggleDropZoneState(hasText);
         }
 
-       
+
 
         // Password toggle functionality
         const passwordToggle = document.getElementById('passwordToggle');
-        
+
         if (passwordToggle && apiKeyInput) {
             passwordToggle.addEventListener('click', function() {
                 const isPassword = apiKeyInput.type === 'password';
                 apiKeyInput.type = isPassword ? 'text' : 'password';
-                
+
                 // Update the eye icon
                 const eyeIcon = passwordToggle.querySelector('.eye-icon');
                 if (eyeIcon) {
@@ -2118,11 +2105,11 @@
             // Check for Cmd+F (Mac) or Ctrl+F (Windows/Linux)
             if ((event.metaKey || event.ctrlKey) && event.key === 'f') {
                 event.preventDefault(); // Prevent browser's default find dialog
-                
+
                 // Try to find search inputs in parent window first
                 let searchInput = null;
                 let mobileSearchInput = null;
-                
+
                 try {
                     // Access parent window's document (for iframe scenarios)
                     if (window.parent && window.parent.document) {
@@ -2132,7 +2119,7 @@
                 } catch (e) {
                     // Cross-origin iframe, can't access parent
                 }
-                
+
                 // If not found in parent, try current document
                 if (!searchInput) {
                     searchInput = document.getElementById('globalSearch');
@@ -2140,7 +2127,7 @@
                 if (!mobileSearchInput) {
                     mobileSearchInput = document.getElementById('globalSearch-mobile');
                 }
-                
+
                 // Try desktop search first, then mobile
                 if (searchInput && !searchInput.disabled) {
                     searchInput.focus();
@@ -2151,10 +2138,10 @@
                 }
             }
         }
-        
+
         // Add event listener to current document
         document.addEventListener('keydown', handleSearchShortcut);
-        
+
         // Also add to parent document if we're in an iframe
         try {
             if (window.parent && window.parent !== window && window.parent.document) {
@@ -2183,7 +2170,7 @@
     // Enhanced iframe focus management and keyboard event handling
     function setupIframeKeyboardHandling() {
         const iframe = document.getElementById('viewer');
-        
+
         if (!iframe) {
             console.warn('[kg-gen] iframe with id "viewer" not found');
             return;
@@ -2192,12 +2179,12 @@
         // Ensure the iframe can be focused
         iframe.removeAttribute('hidden');
         iframe.setAttribute('tabindex', '-1');
-        
+
         iframe.addEventListener('load', () => {
             try {
                 // Access iframe's document (requires same-origin)
                 const doc = iframe.contentDocument || iframe.contentWindow.document;
-                
+
                 if (doc) {
                     // Add keyboard event listener to iframe's document
                     doc.addEventListener('keydown', (e) => {
@@ -2208,7 +2195,7 @@
                             // Try to focus search inputs in parent window
                             const searchInput = document.getElementById('globalSearch');
                             const mobileSearchInput = document.getElementById('globalSearch-mobile');
-                            
+
                             if (searchInput && !searchInput.disabled) {
                                 searchInput.focus();
                                 searchInput.select();
@@ -2218,22 +2205,22 @@
                             }
                             return false;
                         }
-                        
+
                         // Handle Escape key to close any open modals
                         if (e.key === 'Escape') {
                             // Let the event bubble up to parent window
                             // The modal system will handle closing modals
                         }
-                        
+
                         // Handle Tab key for focus management within iframe
                         if (e.key === 'Tab') {
                             // Let the iframe handle its own tab navigation
                         }
                     }, { capture: true });
-                    
+
                     // Focus the iframe when it loads
                     iframe.focus();
-                    
+
                     console.log('[kg-gen] iframe keyboard handling setup complete');
                 } else {
                     console.warn('[kg-gen] Cannot access iframe content - may be cross-origin');
@@ -2243,7 +2230,7 @@
                 console.warn('[kg-gen] This is normal if the iframe content is cross-origin');
             }
         });
-        
+
         // Also handle focus when iframe becomes visible
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
@@ -2258,9 +2245,9 @@
                 }
             });
         });
-        
+
         observer.observe(iframe, { attributes: true });
-        
+
         console.log('[kg-gen] iframe focus management setup complete');
     }
 
@@ -2272,4 +2259,3 @@
     window.toggleDropZoneState = toggleDropZoneState;
     window.toggleTextareaState = toggleTextareaState;
 })();
-
