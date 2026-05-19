@@ -28,3 +28,4 @@ mlruns/
 examples/wikipedia/
 .idea
 benchmarks/data
+benchmarks/wk/data

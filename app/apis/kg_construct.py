@@ -3,39 +3,32 @@ from __future__ import annotations
 from rdflib.exceptions import ParserError
 from typing import Optional
 
-from fastapi import UploadFile, File, Query, HTTPException, APIRouter, Depends
-from pydantic import BaseModel, ValidationError
+from fastapi import UploadFile, File, Query, HTTPException, APIRouter, Depends, Response
+from pydantic import ValidationError
 from rdflib import Graph as RDFGraph, RDFS, OWL, XSD, URIRef, RDF, Literal
-from starlette.responses import Response
 
 from app.apis.deps import get_kg_gen
 from app.kggen_logger import kggen_logger
+from app.schemas import OntologyConversionInput, GenerateSingleInput
 from app.utils import parse_ontology, GenerationMetadata
 from kg_gen.kg_gen import KGGen
 from kg_gen.models import (
     EntityType,
-    OntologyPredicate,
     Ontology,
     Graph,
     KGGenStats,
     InputData,
-    StepStats,
 )
 
 
 kgc_router = APIRouter(prefix="/api")
 
 
-class OntologyConversionInput(BaseModel):
-    classes: list[EntityType]
-    predicates: list[OntologyPredicate]
-
-
-@kgc_router.post("/api/convert_ontology", tags=["KG Construction"])
+@kgc_router.post("/convert_ontology", tags=["KG Construction"])
 async def convert_ontology(input_data: OntologyConversionInput) -> Response:
     """
     Takes a list of entity types (EntityType) and a list of OntologyPredicate
-    and outputs a .ttl file structured for api/generate.
+    and outputs a .ttl file structured for /generate.
     """
     g = RDFGraph()
     g.bind("rdfs", RDFS)
@@ -85,7 +78,7 @@ async def convert_ontology(input_data: OntologyConversionInput) -> Response:
     return Response(content=ttl_content, media_type="application/x-turtle")
 
 
-@kgc_router.post("/api/parse_ontology", tags=["KG Construction"])
+@kgc_router.post("/parse_ontology", tags=["KG Construction"])
 async def parse_ontology_api(
     ontology_file: UploadFile = File(
         ...,
@@ -110,24 +103,20 @@ async def parse_ontology_api(
     return onto
 
 
-@kgc_router.post("/api/generate", tags=["KG Construction"])
+@kgc_router.post("/generate", tags=["KG Construction"])
 async def generate_graph(
     response: Response,
+    input_data: GenerateSingleInput,
     meta: GenerationMetadata = Query(...),
-    corpus_file: UploadFile = File(
-        ...,
-        description="A JSONL file where each line is a JSON object representing a document, with `id`, `text`, and `terms` fields. "
-        "The terms are instances of #/components/schemas/TypedEntity.",
-    ),
     ontology_file: Optional[UploadFile] = File(
         None,
         description=parse_ontology.__doc__,
     ),
     kg_gen: KGGen = Depends(get_kg_gen),
 ) -> Graph:
-    if corpus_file.filename is not None and not corpus_file.filename.endswith(".jsonl"):
-        raise HTTPException(status_code=400, detail="Corpus must be a .jsonl file")
-
+    """
+    Generates a knowledge graph from a single text document.
+    """
     onto = None
     if ontology_file:
         try:
@@ -145,7 +134,7 @@ async def generate_graph(
         predicates = None
 
     kggen_logger.info(
-        f"Generating graph via KGGen: {meta.model = }, {meta.deduplicate = }, {meta.retrieval_model = }, {corpus_file.filename = }"
+        f"Generating graph for a single document via KGGen: {meta.model = }, {meta.retrieval_model = }, doc_id={input_data.id}"
     )
     if onto:
         kggen_logger.info(
@@ -155,43 +144,30 @@ async def generate_graph(
         kggen_logger.info("No ontology provided")
     kggen_logger.info(f"{meta.entity_context = }\n{meta.relation_context = }")
 
-    graphs = []
     total_gen_stats = KGGenStats()
     try:
-        for line in corpus_file.file:
-            try:
-                doc = InputData.model_validate_json(line)
-                try:
-                    graph, gen_stats = await kg_gen.generate(
-                        input_data=doc,
-                        temperature=meta.temperature,
-                        types=types,
-                        terms=doc.terms,
-                        predicate_domain_range=predicates,
-                        entity_context=meta.entity_context or "",
-                        relation_context=meta.relation_context or "",
-                    )
-                    graphs.append(graph)
-                    total_gen_stats += gen_stats
-                except ValidationError as exc:
-                    kggen_logger.exception("KGGen returned validation error")
-                    raise HTTPException(
-                        status_code=400, detail=f"Invalid graph result: {exc}"
-                    )
-                except Exception as exc:
-                    kggen_logger.exception("KGGen generation failed")
-                    raise HTTPException(status_code=500, detail=f"KGGen failed: {exc}")
-            except ValidationError as e:
-                raise HTTPException(
-                    status_code=422, detail=f"Invalid document format: {e.errors()}"
-                )
-    finally:
-        corpus_file.file.close()
-
-    graph = kg_gen.aggregate(graphs)
-    dedup_stats = StepStats()
-    if meta.deduplicate:
-        graph, dedup_stats = kg_gen.deduplicate(graph)
+        doc = InputData(id=input_data.id, text=input_data.text, terms=input_data.terms)
+        try:
+            graph, gen_stats = await kg_gen.generate(
+                input_data=doc,
+                temperature=meta.temperature,
+                types=types,
+                terms=doc.terms,
+                predicate_domain_range=predicates,
+                entity_context=meta.entity_context or "",
+                relation_context=meta.relation_context or "",
+            )
+            total_gen_stats += gen_stats
+        except ValidationError as exc:
+            kggen_logger.exception("KGGen returned validation error")
+            raise HTTPException(status_code=400, detail=f"Invalid graph result: {exc}")
+        except Exception as exc:
+            kggen_logger.exception("KGGen generation failed")
+            raise HTTPException(status_code=500, detail=f"KGGen failed: {exc}")
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=422, detail=f"Invalid document format: {e.errors()}"
+        )
 
     kggen_logger.info(
         "Graph generation complete: entities=%s relations=%s",
@@ -199,7 +175,6 @@ async def generate_graph(
         len(graph.relations),
     )
 
-    total_gen_stats.deduplicate = dedup_stats
     response.headers["X-KG-Gen-Stats"] = total_gen_stats.model_dump_json()
 
     gen_overall_stats = total_gen_stats.overall_usage
@@ -212,3 +187,38 @@ async def generate_graph(
     )
 
     return graph
+
+
+@kgc_router.post("/aggregate_and_deduplicate", tags=["KG Construction"])
+async def aggregate_and_deduplicate_graphs(
+    response: Response,
+    graphs: list[Graph],
+    kg_gen: KGGen = Depends(get_kg_gen),
+) -> Graph:
+    """
+    Aggregates a list of graphs and performs deduplication.
+    """
+    if not graphs:
+        raise HTTPException(
+            status_code=400, detail="No graphs provided for aggregation."
+        )
+
+    kggen_logger.info(f"Aggregating {len(graphs)} graphs.")
+    aggregated_graph = kg_gen.aggregate(graphs)
+    kggen_logger.info(
+        "Aggregation complete: entities=%s relations=%s",
+        len(aggregated_graph.entities),
+        len(aggregated_graph.relations),
+    )
+
+    kggen_logger.info("Performing deduplication.")
+    deduplicated_graph, dedup_stats = kg_gen.deduplicate(aggregated_graph)
+    kggen_logger.info(
+        "Deduplication complete: entities=%s relations=%s",
+        len(deduplicated_graph.entities),
+        len(deduplicated_graph.relations),
+    )
+
+    response.headers["X-KG-Gen-Dedup-Stats"] = dedup_stats.model_dump_json()
+
+    return deduplicated_graph

@@ -396,4 +396,4 @@ class KGGenStats(BaseModel):
 class InputData(BaseModel):
     text: str
     id: str
-    terms: Optional[list[TypedEntity]] = Field(default_factory=list)
+    terms: Optional[list[TypedEntity | str]] = Field(default_factory=list)

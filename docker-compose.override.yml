@@ -6,4 +6,5 @@ services:
     volumes:
       - ./src:/workspace/src
       - ./app:/workspace/app
+      - ./logs:/workspace/logs
     command: "--port 8000 --reload"
