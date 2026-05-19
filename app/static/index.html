@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap" rel="stylesheet">
-    
+
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="sidebar.css">
     <link rel="stylesheet" href="modal.css">
@@ -68,7 +68,7 @@
                 <header class="sidebar-header">
                     <h1>Knowledges Graph Explorer</h1>
                 </header>
-                
+
                 <div class="action-buttons-container">
                     <!-- Open Graph Button -->
                     <button class="action-btn primary-action" onclick="openGraphViewer()">
@@ -77,18 +77,18 @@
                         </svg>
                         <span class="action-title">Open Existing Graph</span>
                     </button>
-                    
+
                     <!-- Generate from Text Button -->
-                    <button class="action-btn secondary-action" onclick="generateFromText()">
-                        <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14,2 14,8 20,8"/>
-                            <line x1="16" y1="13" x2="8" y2="13"/>
-                            <line x1="16" y1="17" x2="8" y2="17"/>
-                            <polyline points="10,9 9,9 8,9"/>
-                        </svg>
-                        <span class="action-title">Generate from Text</span>
-                    </button>
+<!--                    <button class="action-btn secondary-action" onclick="generateFromText()">-->
+<!--                        <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">-->
+<!--                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>-->
+<!--                            <polyline points="14,2 14,8 20,8"/>-->
+<!--                            <line x1="16" y1="13" x2="8" y2="13"/>-->
+<!--                            <line x1="16" y1="17" x2="8" y2="17"/>-->
+<!--                            <polyline points="10,9 9,9 8,9"/>-->
+<!--                        </svg>-->
+<!--                        <span class="action-title">Generate from Text</span>-->
+<!--                    </button>-->
                 </div>
 
             </div>
@@ -138,7 +138,7 @@
 
         </main>
 
-        
+
         <div class="viewer-wrapper-container">
             <header class="app-header" role="banner">
                 <div class="app-header__inner">
@@ -178,7 +178,7 @@
                     <button class="secondary error-message__button example-button" id="tryAgain" type="button" onclick="loadInitialExampleGraph()">Load default graph</button>
                     <button class="secondary error-message__button new-graph-button" id="tryAgain" type="button" onclick="openGraphViewer()">Open existing graph</button>
                     <button class="secondary error-message__button generate-from-text-button" id="closeErrorGraphMessage" type="button" onclick="generateFromText()">Generate from text</button>
-                
+
                 </div>
                 <iframe id="viewer" title="Knowledge Graph Explorer" hidden></iframe>
                 <div class="floating-actions" id="floatingActions">
@@ -194,11 +194,10 @@
                         Reload view</button>
                 </div>
                 <div class="keyboard-shortcuts">
-                    Press <kbd>Ctrl</kbd> or <kbd>Cmd</kbd> + <kbd>F</kbd> to search                     
-                        nodes or relations   
+                    Press <kbd>Ctrl</kbd> or <kbd>Cmd</kbd> + <kbd>F</kbd> to search
+                        nodes or relations
                 </div>
-                                      
-                </div>
+
             </section>
         </div>
 
@@ -219,8 +218,8 @@
                             <option value="">Loading samples...</option>
                         </select>
                         <div class="hint" id="exampleStatus">Select an example to load it instantly.</div>
-                        <a id="exampleLink" class="hint-link" href="#" target="_blank" rel="noopener" hidden>View on
-                            Wikipedia</a>
+<!--                        <a id="exampleLink" class="hint-link" href="#" target="_blank" rel="noopener" hidden>View on-->
+<!--                            Wikipedia</a>-->
                     </div>
                 </div>
             </section>
@@ -293,14 +292,14 @@
                                 Text input disabled while file is selected
                             </div>
                         </div>
-                        
+
                         <!-- Divider with OR -->
                         <div class="field-divider">
                             <div class="divider-line"></div>
                             <div class="divider-text">OR</div>
                             <div class="divider-line"></div>
                         </div>
-                        
+
                         <div>
                         <div class="drop-zone" id="graphDropZoneText" role="button" tabindex="0" aria-controls="textFile"
                         aria-label="Upload text file" >
@@ -322,7 +321,7 @@
                             <div class="input-hint" id="textFileHint">To upload a file, clear the text input first</div>
                         </div>
                     </div>
-                    
+
                     <!-- Error message display -->
                     <div id="generateErrorMessage" class="error-message" style="display: none;">
                         <div class="error-message__icon">
@@ -337,7 +336,7 @@
                             <div class="error-message__description" id="generateErrorText"></div>
                         </div>
                     </div>
-                    
+
                     <div class="button-row">
                         <button class="primary" id="generateButton">Generate graph</button>
                         <button class="secondary" id="clearTextButton" type="button">Clear inputs</button>
@@ -355,7 +354,7 @@
     <script src="https://unpkg.com/simplebar@latest/dist/simplebar.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@floating-ui/core@1.7.3"></script>
     <script src="https://cdn.jsdelivr.net/npm/@floating-ui/dom@1.7.4"></script>
- 
+
 </body>
 
 </html>

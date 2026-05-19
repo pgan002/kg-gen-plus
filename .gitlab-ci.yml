@@ -1,0 +1,64 @@
+# This file is a template for a GitLab CI/CD pipeline.
+# It defines jobs to test the application, and to build and publish a Docker image.
+
+# Define stages for the pipeline. Jobs in earlier stages run before jobs in later stages.
+stages:
+  - test
+  - build
+
+# Define variables that can be used throughout the pipeline.
+variables:
+  # The name of the Docker image. Change this to your Nexus repository path.
+  # Example: nexus.example.com:5000/my-group/kg-gen
+  IMAGE_NAME: $NEXUS_REGISTRY_URL/$CI_PROJECT_PATH
+  # Use the Docker-in-Docker (dind) driver.
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+
+# Job to run tests. This runs on every push to any branch.
+run_tests:
+  stage: test
+  # Use a Python image to run the tests.
+  image: python:3.11
+  before_script:
+    # Install uv, the dependency and environment manager.
+    - pip install uv
+    # Create a virtual environment.
+    - uv venv
+    # Install project dependencies. Assumes a requirements.txt file.
+    - uv pip install -r requirements.txt
+  script:
+    # Run the tests. This assumes pytest is listed in your requirements.
+    # The virtual environment is automatically activated by `uv pip run`.
+    - uv run pytest
+  rules:
+    # Run this job on every push, except when a tag is pushed.
+    - if: $CI_COMMIT_TAG
+      when: never
+    - when: on_success
+
+# Job to build and push the Docker image.
+build_and_push_image:
+  stage: build
+  # Use the official Docker image to build our image.
+  image: docker:20.10.16
+  # Use the Docker-in-Docker service to allow building Docker images inside a Docker container.
+  services:
+    - docker:20.10.16-dind
+  before_script:
+    # Login to the Nexus Docker registry.
+    # $NEXUS_REGISTRY_URL, $NEXUS_USER, and $NEXUS_PASSWORD must be configured
+    # in your project's CI/CD variables in GitLab.
+    - echo "$NEXUS_PASSWORD" | docker login $NEXUS_REGISTRY_URL -u "$NEXUS_USER" --password-stdin
+  script:
+    # Build the Docker image.
+    - docker build -t $IMAGE_NAME:$CI_COMMIT_TAG .
+    # Push the image to the Nexus repository with the git tag as the version.
+    - docker push $IMAGE_NAME:$CI_COMMIT_TAG
+    # Optionally, you can also push a 'latest' tag.
+    - docker tag $IMAGE_NAME:$CI_COMMIT_TAG $IMAGE_NAME:latest
+    - docker push $IMAGE_NAME:latest
+  rules:
+    # This job will only run when a new git tag is pushed.
+    # This is how you control releases.
+    - if: $CI_COMMIT_TAG

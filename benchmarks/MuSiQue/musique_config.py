@@ -17,8 +17,8 @@ dspy.configure_cache(
 )
 # Slice items
 i_start = 4001
-i_end = 5000
-num_workers = 100  # Number of threads for parallel processing
+i_end = 4010
+num_workers = 10  # Number of threads for parallel processing
 
 
 def configure_logging(log_file_path: str):

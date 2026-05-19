@@ -1,0 +1,9 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./src:/workspace/src
+      - ./app:/workspace/app
+    command: "--port 8000 --reload"

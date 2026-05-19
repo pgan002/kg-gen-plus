@@ -1,18 +1,28 @@
 import json
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Optional
 
 import httpx
 import rdflib
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from kg_gen.models import Ontology, EntityType, OntologyPredicate
+from kg_gen.models import Ontology, EntityType, OntologyPredicate, TypedEntity
 
 
 class MusiqueChunk(BaseModel):
     chunk_id: str
     source_doc: str
     content: str
+    terms: Optional[list[TypedEntity]] = Field(default_factory=list)
+
+
+class ExtractedTerm(BaseModel):
+    term: str
+    pref_label: str
+    alt_labels: list[str]
+    definition: str
+    lang: str = "en"
+    rank: int = 0
 
 
 def iter_musique_chunks_jsonl(
@@ -83,7 +93,7 @@ def parse_ontology(onto_path: Path | str) -> Ontology:
     return ontology
 
 
-async def extract_terms_for_text(text: str, item_id: str) -> list[str]:
+async def extract_terms_for_text(text: str) -> list[ExtractedTerm]:
     """Extracts terms for a single piece of text by sending to the external service async."""
     url = "http://dsx-gws-rai-docker-dmo-apl-n-01:8089/extract_from_text"
     headers = {
@@ -100,5 +110,5 @@ async def extract_terms_for_text(text: str, item_id: str) -> list[str]:
     async with httpx.AsyncClient(timeout=None) as client:
         response = await client.post(url, json=text, params=params, headers=headers)
     response.raise_for_status()
-    out = [item["term"] for item in response.json() if "term" in item]
+    out = [ExtractedTerm(**item) for item in response.json()]
     return out

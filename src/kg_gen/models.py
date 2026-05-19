@@ -7,11 +7,6 @@ from typing import Optional, List, Set
 from typing_extensions import TypeVar
 
 
-class InputData(BaseModel):
-    text: str
-    id: str
-
-
 class Entity(BaseModel):
     surface_form: str = Field(..., description="The surface form of the entity")
     uri: Optional[str] = Field(
@@ -169,32 +164,32 @@ class Relation(BaseModel):
         )
 
 
-class OntologyPredicate(EntityType):
-    description: Optional[str] = None
-    domain: Set[EntityType] = Field(default_factory=set)
-    range: Set[EntityType] = Field(default_factory=set)
+class OntologyPredicate(BaseModel):
+    domain: Set[EntityType] = Field(
+        default_factory=set,
+        description="Predicate domain. Any subject/head of this predicate should have a type from this list.",
+        examples=[[{"label": "Person", "uri": "http://www.wikidata.org/entity/Q5"}]],
+    )
+    range: Set[EntityType] = Field(
+        default_factory=set,
+        description="Predicate range. Any object/tail of this predicate should have a type from this list.",
+        examples=[[{"label": "Person", "uri": "http://schema.org/Person"}]],
+    )
+    label: str = Field(..., description="Predicate label", examples=["is_brother_of"])
+    uri: Optional[str] = Field(
+        default=None, description="Identifier or URI of the predicate"
+    )
+    description: Optional[str] = Field(
+        default=None, description="A short description of the predicate"
+    )
+
+    def __hash__(self):
+        return hash((self.label, self.uri))
 
 
 class Ontology(BaseModel):
     classes: Set[EntityType] = Field(default_factory=set)
     predicates: Set[OntologyPredicate] = Field(default_factory=set)
-
-
-class OntologyPredicateExtraction(BaseModel):
-    predicate_label: str = dspy.InputField(
-        desc="Predicate label", examples=["is_brother_of"]
-    )
-    predicate_definition: Optional[str] = dspy.InputField(
-        default=None, desc="Predicate definition"
-    )
-    predicate_domain: list[str] = dspy.InputField(
-        desc="Predicate domain. Any subject/head of this predicate should have a type from this list.",
-        examples=[["Person"]],
-    )
-    predicate_range: list[str] = dspy.InputField(
-        desc="Predicate range. Any object/tail of this predicate should have a type from this list.",
-        examples=[["Person"]],
-    )
 
 
 class ExtractTextRelations(dspy.Signature):
@@ -206,11 +201,9 @@ class ExtractTextRelations(dspy.Signature):
 
     source_text: str = dspy.InputField()
     typed_entities: list[TypedEntity] = dspy.InputField()
-    predicate_domain_range: Optional[list[OntologyPredicateExtraction]] = (
-        dspy.InputField(
-            default=None,
-            desc="List of predicate specification with domains and ranges. If not provided, use any predicates.",
-        )
+    predicate_domain_range: Optional[list[OntologyPredicate]] = dspy.InputField(
+        default=None,
+        desc="List of predicate specification with domains and ranges. If not provided, use any predicates.",
     )
     context: Optional[str] = dspy.InputField(
         default=None,
@@ -228,10 +221,8 @@ class Graph(BaseModel):
     relations_wo_class_assertions: list[Relation] = Field(
         ..., description="List of (subject, predicate, object) triples"
     )
-    entity_clusters: Optional[
-        dict[TypedEntity | Entity, list[TypedEntity | Entity]]
-    ] = None
-    edge_clusters: Optional[dict[Entity, list[Entity]]] = None
+    entity_clusters: Optional[dict[str, list[TypedEntity | Entity]]] = None
+    edge_clusters: Optional[dict[str, list[Entity]]] = None
 
     entity_metadata: dict[TypedEntity, set[str]] | None = None
 
@@ -400,3 +391,9 @@ class KGGenStats(BaseModel):
             deduplicate=new_deduplicate,
         )
         return new_stats
+
+
+class InputData(BaseModel):
+    text: str
+    id: str
+    terms: Optional[list[TypedEntity]] = Field(default_factory=list)

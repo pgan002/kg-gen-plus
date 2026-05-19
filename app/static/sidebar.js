@@ -311,7 +311,7 @@ class SidebarManager {
         if (this.currentMode === 'analysis') {
             this.updateSelectionDetails(selection);
         }
-        
+
         // Update popover with selection data
         this.updatePopoverSelection(selection);
     }
@@ -555,12 +555,12 @@ class SidebarManager {
 
         // Create formatted content for the popover
         let popoverContent = '';
-        
+
         if (selection.type === 'node') {
             const cluster = selection.cluster ? `Cluster: ${selection.cluster}` : 'Unclustered';
-            const neighbors = selection.neighbors && selection.neighbors.length ? 
+            const neighbors = selection.neighbors && selection.neighbors.length ?
                 selection.neighbors.slice(0, 3).join(', ') + (selection.neighbors.length > 3 ? '...' : '') : 'None';
-            
+
             popoverContent = `
                 <p class="selection-item-title"><strong>${selection.label}</strong></p>
                 <div class="selection-item">
@@ -574,7 +574,7 @@ class SidebarManager {
             `;
         } else if (selection.type === 'edge') {
             const cluster = selection.cluster ? `Cluster: ${selection.cluster}` : 'Unclustered';
-            
+
             popoverContent = `
                 <p class="selection-item-title"><strong>${selection.source} → ${selection.target}</strong></p>
                 <div class="selection-item">
@@ -594,7 +594,7 @@ class SidebarManager {
         } catch (error) {
             console.error('Error setting mobile popover content:', error);
         }
-        
+
         // Automatically open the popover when selection changes
         // if (typeof window.openSelectionPopover === 'function') {
         //     window.openSelectionPopover();
@@ -602,7 +602,7 @@ class SidebarManager {
     }
 
     setupDemoDialog() {
-        
+
     }
 
 

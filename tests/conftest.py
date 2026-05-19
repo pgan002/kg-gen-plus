@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import dspy
 import pytest
 
@@ -25,7 +23,7 @@ class MockLM(dspy.LM):
         super().__init__("mock-model")
         self.history = []
 
-    def __call__(self, **kwargs):
+    def _generate_response(self, **kwargs):
         prompt = kwargs["messages"][0]["content"]
         # Simulate different responses based on the prompt content
         if "Extract key entities" in prompt:
@@ -35,7 +33,8 @@ class MockLM(dspy.LM):
             response_content = (
                 "[[ ## typed_entities ## ]]\n"
                 '[{"surface_form": "entity1", "uri": "Q1", "type": {"label": "type1", "uri": "U1"}}, '
-                '{"surface_form": "entity2", "uri": "Q2", "type": {"label": "type2", "uri": "U2"}}]\n[[ ## completed ## ]]'
+                '{"surface_form": "entity2", "uri": "Q2", "type": {"label": "type2", "uri": "U2"}}]\n'
+                "[[ ## completed ## ]]"
             )
             usage = {"prompt_tokens": 15, "completion_tokens": 25, "total_tokens": 40}
         elif "Extract subject-predicate-object triples" in prompt:
@@ -56,18 +55,25 @@ class MockLM(dspy.LM):
                 "response": response,
                 "kwargs": kwargs,
                 "usage": usage,
-                "messages": kwargs["messages"],
             }
         )
-        return [{"text": response_content}]
+        # unwrap the actual response from the list
+        return [response_content]
+
+    def __call__(self, **kwargs):
+        return self._generate_response(**kwargs)
 
     async def acall(self, **kwargs):
-        return self(**kwargs)
+        return self._generate_response(**kwargs)
+
+    async def aforward(self, **kwargs):
+        return self._generate_response(**kwargs)
 
 
 @pytest.fixture(scope="session")
 def mock_kg_gen():
-    with patch("dspy.LM", new=MockLM):
-        dspy.settings.configure(track_usage=True)
-        kg_gen = KGGen(model="mock-model", disable_cache=True)
-        return kg_gen
+    kg_gen = KGGen(model="mock-model", disable_cache=True)
+    mock_lm = MockLM()
+    dspy.settings.configure(lm=mock_lm, track_usage=True)
+    kg_gen._lm = mock_lm
+    return kg_gen

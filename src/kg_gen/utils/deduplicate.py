@@ -90,7 +90,7 @@ class DeduplicateList:
         deduplication_result = semhash.self_deduplicate(threshold=self.threshold)
 
         self.deduplicated_items = len(deduplication_result.selected)
-        self.duplicate_items = len(deduplication_result.duplicates)
+        self.duplicate_items = len(deduplication_result.filtered)
         self.reduction = (
             (self.duplicate_items / self.total_items) * 100
             if self.total_items > 0
@@ -99,7 +99,7 @@ class DeduplicateList:
 
         # 3. Build a graph of duplicate relationships
         adj = defaultdict(set)
-        for duplicate in deduplication_result.duplicates:
+        for duplicate in deduplication_result.filtered:
             record_str = duplicate.record
             record_singular = record_to_singular[record_str]
             for dup_item_str, _ in duplicate.duplicates:
@@ -144,15 +144,18 @@ class DeduplicateList:
 
 
 def run_semhash_deduplication(
-    graph: Graph, similarity_threshold: float = 0.95, model: Encoder = None
+    graph: Graph,
+    model: Encoder = None,
+    entity_similarity_threshold: float = 0.9,
+    edge_similarity_threshold: float = 0.75,
 ) -> Graph:
     """
     Deduplicate the graph.
     """
     # Deduplicate each graph components
-    entities_dedup = DeduplicateList(similarity_threshold)
+    entities_dedup = DeduplicateList(entity_similarity_threshold)
     entities_dedup.deduplicate(list(graph.typed_entities), model=model)
-    edges_dedup = DeduplicateList(similarity_threshold)
+    edges_dedup = DeduplicateList(edge_similarity_threshold)
     edges_dedup.deduplicate(list(graph.edges), model=model)
 
     def get_canonical_entity(
@@ -182,8 +185,10 @@ def run_semhash_deduplication(
         for entity in graph.typed_entities
     }
     canonical2cluster = defaultdict(list)
+    new_entities: list[TypedEntity] = []
     for entity, canonical in entity2canonical.items():
-        canonical2cluster[canonical].append(entity)
+        canonical2cluster[canonical.surface_form].append(entity)
+        new_entities.append(canonical)
     relation2canonical: dict[Relation, Relation] = {
         relation: _get_relation(relation) for relation in graph.relations
     }
@@ -195,11 +200,11 @@ def run_semhash_deduplication(
     }
     canonical_edge2cluster = defaultdict(list)
     for edge, canonical in edge2canonical.items():
-        canonical_edge2cluster[canonical].append(edge)
+        canonical_edge2cluster[canonical.surface_form].append(edge)
 
-    new_entities = list(canonical2cluster.keys())
+    # new_entities = list(canonical2cluster.keys())
     for canonical_entity in new_entities:
-        cluster = canonical2cluster[canonical_entity]
+        cluster = canonical2cluster[canonical_entity.surface_form]
         cluster_prov = sum(
             [ent.provenance_ids for ent in cluster if isinstance(ent, TypedEntity)], []
         )
@@ -223,9 +228,11 @@ def run_semhash_deduplication(
                 new_entity_metadata[deduped_entity] = metadata_set.copy()
 
     return Graph(
-        typed_entities=new_entities,
+        typed_entities=set(new_entities),
         relations_wo_class_assertions=new_relations,
-        entity_clusters=canonical2cluster,
-        edge_clusters=canonical_edge2cluster,
+        entity_clusters={k: vs for k, vs in canonical2cluster.items() if len(vs) > 1},
+        edge_clusters={
+            k: vs for k, vs in canonical_edge2cluster.items() if len(vs) > 1
+        },
         entity_metadata=new_entity_metadata,
     )

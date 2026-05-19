@@ -56,19 +56,24 @@ class KGGen:
         self.api_key = api_key
         self.api_base = api_base
         self.retrieval_model: Optional[SentenceTransformer] = None
-        self.lm = None
+        self.retrieval_model_name: Optional[str] = retrieval_model
+        self._lm = None
         self.disable_cache = disable_cache
 
-        self.init_model(
-            model=model,
-            reasoning_effort=reasoning_effort,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            api_key=api_key,
-            api_base=api_base,
-            retrieval_model=retrieval_model,
-        )
-        dspy.configure(track_usage=True)
+    @property
+    def lm(self):
+        if self._lm is None:
+            dspy.configure(track_usage=True)
+            self.init_model(
+                model=self.model,
+                reasoning_effort=self.reasoning_effort,
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
+                api_key=self.api_key,
+                api_base=self.api_base,
+                retrieval_model=self.retrieval_model_name,
+            )
+        return self._lm
 
     def validate_temperature(self, temperature: float):
         if "gpt-5" in self.model and temperature < 1.0:
@@ -124,7 +129,7 @@ class KGGen:
 
         # Initialize dspy LM with current settings
         if self.api_key:
-            self.lm = dspy.LM(
+            self._lm = dspy.LM(
                 model=self.model,
                 api_key=self.api_key,
                 reasoning={"effort": self.reasoning_effort}
@@ -137,7 +142,7 @@ class KGGen:
                 model_type="chat",
             )
         else:
-            self.lm = dspy.LM(
+            self._lm = dspy.LM(
                 model=self.model,
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
@@ -161,16 +166,12 @@ class KGGen:
         self,
         input_data: InputData,
         entity_context: str = "",
-        terms: Optional[list[str]] = None,
+        terms: Optional[list[str | TypedEntity]] = None,
         types: Optional[list[EntityType]] = None,
         relation_context: str = "",
         predicate_domain_range: Optional[list[OntologyPredicate]] = None,
-        dedup_context: str = "",
-        chunk_size: Optional[int] = None,
-        # deduplication_method: DeduplicateMethod | None = DeduplicateMethod.SEMHASH,
         deduplicate: bool = False,
-        temperature: float = None,
-        output_folder: Optional[str] = None,
+        temperature: float | int | None = None,
     ) -> tuple[Graph, KGGenStats]:
         processed_input: str = input_data.text
         all_chunk_stats = []
@@ -192,7 +193,12 @@ class KGGen:
                         execution_time=time.time() - start_time,
                     )
                 else:
-                    entities = [Entity(surface_form=t) for t in terms]
+                    entities = []
+                    for t in terms:
+                        if isinstance(t, str):
+                            entities.append(Entity(surface_form=t))
+                        else:
+                            entities.append(t)
                     step_stats["get_entities"] = StepStats(
                         lm_usage=LMUsage(), execution_time=0.0
                     )
@@ -205,6 +211,7 @@ class KGGen:
                     types=types,
                     temperature=temperature or self.temperature,
                     provenance_ids=[input_data.id],
+                    context=entity_context,
                 )
                 step_stats["type_terms"] = StepStats(
                     lm_usage=LMUsage(**self.extract_token_usage_from_history()),
@@ -233,37 +240,6 @@ class KGGen:
         )
         all_chunk_stats.append(chunk_stats)
 
-        # if not chunk_size:
-        #     try:
-        #         typed_entities, relations, chunk_stats = await _process(
-        #             processed_input, self.lm
-        #         )
-        #         all_chunk_stats.append(chunk_stats)
-        #     except Exception as e:
-        #         if "context length" in str(e).lower():
-        #             logger.warning(
-        #                 f"Context length error: {e}. Chunking text with chunk size 16384."
-        #             )
-        #             chunk_size = 16384
-        #         else:
-        #             raise e
-        #
-        # if chunk_size:
-        #     chunks = chunk_text(processed_input, chunk_size)
-        #     typed_entities = set()
-        #     relations: list[Relation] = []
-        #
-        #     with ThreadPoolExecutor() as executor:
-        #         future_to_chunk = {
-        #             executor.submit(_process, chunk, self.lm): chunk for chunk in chunks
-        #         }
-        #
-        #         for i, future in enumerate(as_completed(future_to_chunk)):
-        #             chunk_typed_entities, chunk_relations, chunk_stats = future.result()
-        #             typed_entities.update(chunk_typed_entities)
-        #             relations.extend(chunk_relations)
-        #             all_chunk_stats.append(chunk_stats)
-
         aggregated_stats = {
             "get_entities": StepStats(lm_usage=LMUsage(), execution_time=0.0),
             "type_terms": StepStats(lm_usage=LMUsage(), execution_time=0.0),
@@ -282,25 +258,25 @@ class KGGen:
         )
 
         if deduplicate:
-            graph, dedup_stats = self.deduplicate(graph, context=dedup_context)
+            graph, dedup_stats = self.deduplicate(graph)
             kg_gen_stats.deduplicate = dedup_stats
-
-        if output_folder:
-            self.export_graph(graph, os.path.join(output_folder, "graph.json"))
 
         return graph, kg_gen_stats
 
     def deduplicate(
         self,
         graph: Graph,
-        semhash_similarity_threshold: float = 0.9,
-        context: str = "",
+        entity_similarity_threshold: float = 0.9,
+        edge_similarity_threshold: float = 0.75,
     ) -> tuple[Graph, StepStats]:
         start_time = time.time()
         if not graph.entities and not graph.edges:
             return graph, StepStats(execution_time=0.0)
         deduplicated_graph = run_semhash_deduplication(
-            graph, semhash_similarity_threshold, model=self.retrieval_model
+            graph,
+            model=self.retrieval_model,
+            entity_similarity_threshold=entity_similarity_threshold,
+            edge_similarity_threshold=edge_similarity_threshold,
         )
         stats = StepStats(
             execution_time=time.time() - start_time,
