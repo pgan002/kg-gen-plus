@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, TextIO, BinaryIO
+
+from typing import TextIO, BinaryIO
 
 import rdflib
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from rdflib.namespace import XSD
 
 from kg_gen.models import Ontology, EntityType, OntologyPredicate
@@ -62,23 +63,6 @@ xsd_to_python_type = {
     XSD.time: EntityType(label="time", uri=str(XSD.time)),
 }
 python_type_to_xsd = {v: k for k, v in xsd_to_python_type.items()}
-
-
-class GenerationMetadata(BaseModel):
-    model: str = "openai/gpt-5.4-mini"
-    temperature: Optional[float] = None
-    deduplicate: bool = True
-    retrieval_model: Optional[str] = "sentence-transformers/all-mpnet-base-v2"
-    entity_context: Optional[str] = Field(
-        None,
-        description="Use this field to provide additional instruction for processing entities, "
-        "for example, describe which classes should be used if no ontology is provided.",
-    )
-    relation_context: Optional[str] = Field(
-        None,
-        description="Use this field to provide additional instruction for extracting relation, "
-        "for example, describe which predicates should be used if no ontology is provided.",
-    )
 
 
 def parse_ontology(onto_file: TextIO | BinaryIO) -> Ontology:

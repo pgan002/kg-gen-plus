@@ -1,6 +1,7 @@
-from typing import Union, Dict, Optional
-import time  # Import time module
+from typing import Union, Optional, Any
+import time
 
+from app.kggen_logger import kggen_logger
 from kg_gen.steps._1_get_entities import get_entities, type_terms
 from kg_gen.steps._2_get_relations import get_relations_typed
 from kg_gen.utils.deduplicate import run_semhash_deduplication
@@ -35,11 +36,12 @@ class KGGen:
         model: str = "openai/gpt-4o",
         max_tokens: int = 16000,  # minimum for gpt-5 family models
         temperature: float = 0.0,
-        reasoning_effort: str = None,
-        api_key: str = None,
-        api_base: str = None,
+        reasoning_effort: Optional[str] = None,
+        api_key: Optional[str] = None,
+        api_base: Optional[str] = None,
         retrieval_model: Optional[str] = "sentence-transformers/all-mpnet-base-v2",
         disable_cache: bool = False,
+        enable_thinking: Optional[bool] = False,
     ):
         """Initialize KGGen with optional model configuration
 
@@ -59,41 +61,31 @@ class KGGen:
         self.retrieval_model_name: Optional[str] = retrieval_model
         self._lm = None
         self.disable_cache = disable_cache
+        self.enable_thinking = enable_thinking
+
+        self.validate_temperature(self.temperature)
+        self.validate_max_tokens(self.max_tokens)
 
     @property
     def lm(self):
         if self._lm is None:
-            dspy.configure(track_usage=True)
-            self.init_model(
-                model=self.model,
-                reasoning_effort=self.reasoning_effort,
-                max_tokens=self.max_tokens,
-                temperature=self.temperature,
-                api_key=self.api_key,
-                api_base=self.api_base,
-                retrieval_model=self.retrieval_model_name,
-            )
+            self.init_model()
         return self._lm
 
     def validate_temperature(self, temperature: float):
         if "gpt-5" in self.model and temperature < 1.0:
-            raise ValueError(
+            kggen_logger.warning(
                 f"Temperature must be 1.0 for gpt-5 family models, {temperature = }."
             )
+            self.temperature = 1.0
 
     def validate_max_tokens(self, max_tokens: int):
         if "gpt-5" in self.model and max_tokens < 16000:
-            raise ValueError("Max tokens must be 16000 for gpt-5 family models")
+            kggen_logger.warning("Max tokens must be 16000 for gpt-5 family models")
+            self.max_tokens = 16000
 
     def init_model(
         self,
-        model: str = None,
-        reasoning_effort: str = None,
-        max_tokens: int = None,
-        temperature: float = None,
-        retrieval_model: str = None,
-        api_key: str = None,
-        api_base: str = None,
     ):
         """Initialize or reinitialize the model with new parameters
 
@@ -107,56 +99,34 @@ class KGGen:
             max_tokens: Maximum tokens for model
             temperature: Temperature for model sampling
         """
-
-        # Update instance variables if new values provided
-        if model is not None:
-            self.model = model
-        if max_tokens is not None:
-            self.max_tokens = max_tokens
-        if api_key is not None:
-            self.api_key = api_key
-        if api_base is not None:
-            self.api_base = api_base
-        if temperature is not None:
-            self.temperature = temperature
-        if reasoning_effort is not None:
-            self.reasoning_effort = reasoning_effort
-        if retrieval_model is not None:
-            self.retrieval_model = SentenceTransformer(retrieval_model)
-
-        self.validate_temperature(self.temperature)
-        self.validate_max_tokens(self.max_tokens)
+        if self.retrieval_model_name is not None:
+            self.retrieval_model = SentenceTransformer(self.retrieval_model_name)
 
         # Initialize dspy LM with current settings
+        settings_dict: dict[str, Any] = {
+            "model": self.model,
+            "api_key": self.api_key,
+            "reasoning": {"effort": self.reasoning_effort}
+            if self.reasoning_effort
+            else None,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+            "api_base": self.api_base,
+            "cache": not self.disable_cache,
+            "model_type": "chat",
+        }
+        if self.enable_thinking is not None:
+            settings_dict["chat_template_kwargs"] = {
+                "enable_thinking": self.enable_thinking
+            }
         if self.api_key:
-            self._lm = dspy.LM(
-                model=self.model,
-                api_key=self.api_key,
-                reasoning={"effort": self.reasoning_effort}
-                if self.reasoning_effort
-                else None,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-                api_base=self.api_base,
-                cache=not self.disable_cache,
-                model_type="chat",
-            )
-        else:
-            self._lm = dspy.LM(
-                model=self.model,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-                api_base=self.api_base,
-                reasoning={"effort": self.reasoning_effort}
-                if self.reasoning_effort
-                else None,
-                cache=not self.disable_cache,
-                model_type="chat",
-            )
+            settings_dict["api_key"] = self.api_key
 
-    @staticmethod
-    def from_file(file_path: str) -> Graph:
-        return Graph.from_file(file_path)
+        self._lm = dspy.LM(**settings_dict)
+
+    # @staticmethod
+    # def from_file(file_path: str) -> Graph:
+    #     return Graph.from_file(file_path)
 
     @staticmethod
     def from_dict(graph_dict: dict) -> Graph:
@@ -166,7 +136,6 @@ class KGGen:
         self,
         input_data: InputData,
         entity_context: str = "",
-        terms: Optional[list[str | TypedEntity]] = None,
         types: Optional[list[EntityType]] = None,
         relation_context: str = "",
         predicate_domain_range: Optional[list[OntologyPredicate]] = None,
@@ -175,6 +144,7 @@ class KGGen:
     ) -> tuple[Graph, KGGenStats]:
         processed_input: str = input_data.text
         all_chunk_stats = []
+        terms = input_data.terms
 
         async def _process(content, lm):
             with dspy.context(lm=lm):
@@ -198,6 +168,7 @@ class KGGen:
                         if isinstance(t, str):
                             entities.append(Entity(surface_form=t))
                         else:
+                            t: TypedEntity
                             entities.append(t)
                     step_stats["get_entities"] = StepStats(
                         lm_usage=LMUsage(), execution_time=0.0
@@ -429,7 +400,7 @@ class KGGen:
     def reset_token_usage(self):
         self.lm.history = []
 
-    def extract_token_usage_from_history(self) -> Dict[str, int]:
+    def extract_token_usage_from_history(self) -> dict[str, int]:
         total_prompt_tokens = 0
         total_completion_tokens = 0
         total_tokens = 0

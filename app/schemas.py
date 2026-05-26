@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from typing import Optional
 
+from pydantic import BaseModel, Field
 from kg_gen.models import EntityType, OntologyPredicate, TypedEntity
 
 
@@ -18,3 +19,53 @@ class GenerateSingleInput(BaseModel):
     id: str
     text: str
     terms: list[TypedEntity]
+
+
+class GenerationMetadata(BaseModel):
+    model: str = Field(
+        "openai/gpt-5.4-mini",
+        description="The model to use for generation, e.g. 'openai/gpt-4-turbo'",
+    )
+    api_base: Optional[str] = Field(
+        None,
+        description="The base URL for the LLM API. Use this for non-OpenAI models or custom endpoints.",
+    )
+    temperature: float | None = Field(
+        None,
+        description="The temperature to use for generation. Higher values mean more creative but less predictable results.",
+    )
+    entity_context: Optional[str] = Field(
+        None,
+        description="Use this field to provide additional instruction for processing entities, "
+        "for example, describe which classes should be used if no ontology is provided.",
+    )
+    relation_context: Optional[str] = Field(
+        None,
+        description="Use this field to provide additional instruction for extracting relation, "
+        "for example, describe which predicates should be used if no ontology is provided.",
+    )
+    enable_thinking: Optional[bool] = Field(
+        False, description="Allows to control thinking in models like qwen"
+    )
+
+
+class DeduplicationMetadata(BaseModel):
+    deduplicate: bool = Field(
+        True, description="Whether to deduplicate the generated graph."
+    )
+    retrieval_model: Optional[str] = Field(
+        "sentence-transformers/all-MiniLM-L6-v2",
+        description="The retrieval model to use for producing embedding.",
+    )
+    entity_threshold: Optional[float] = Field(
+        0.9,
+        ge=0,
+        le=1,
+        description="Entity similarity threshold for deduplication.",
+    )
+    predicate_threshold: Optional[float] = Field(
+        0.75,
+        ge=0,
+        le=1,
+        description="Predicate similarity threshold for deduplication.",
+    )

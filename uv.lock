@@ -2099,7 +2099,7 @@ wheels = [
 
 [[package]]
 name = "kg-gen"
-version = "0.5.0"
+version = "0.5.3"
 source = { virtual = "." }
 dependencies = [
     { name = "datasets" },

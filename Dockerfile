@@ -13,7 +13,7 @@ ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 COPY pyproject.toml uv.lock /
 
 # Install dependencies
-RUN uv sync
+RUN uv sync --no-cache-dir
 
 # build the runtime image from the builder.
 FROM python:3.11-slim AS runtime
