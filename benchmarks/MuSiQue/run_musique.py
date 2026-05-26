@@ -59,8 +59,7 @@ async def _process_single_chunk(
         )
 
         g, usage = await kg.generate(
-            input_data=InputData(text=item.content, id=item.chunk_id),
-            terms=item.terms,
+            input_data=InputData(text=item.content, id=item.chunk_id, terms=item.terms),
             types=list(onto.classes),
             predicate_domain_range=list(onto.predicates),
         )

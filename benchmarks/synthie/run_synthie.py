@@ -43,11 +43,11 @@ if __name__ == "__main__":
         )
         item_entities = [e.surfaceform for e in item.entities]
         g, usage = kg.generate(
-            input_data=InputData(text=item.text, id=str(item.id_)),
+            input_data=InputData(text=item.text, id=str(item.id_), terms=item_entities),
             relation_context="Use predicates from Wikidata for the extracted relations. "
             "Provide the Wikidata identifiers for the extracted relations, "
             'for example, "{surface_form: operator, uri: P137}".',
-            terms=item_entities,
+            # terms=item_entities,
             entity_context="Pick the types from Wikidata.",
             output_folder=str(synthie_base_data_path),
             deduplication_method=None,

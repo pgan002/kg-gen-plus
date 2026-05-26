@@ -69,8 +69,7 @@ def process_file(test_path: Path, ontology_path: Path, kg: KGGen):
             logging.info(f"Extracted {len(item_entities)} terms.")
 
         g, usage = kg.generate(
-            input_data=InputData(text=item.sent, id=item.id_),
-            terms=item_entities,
+            input_data=InputData(text=item.sent, id=item.id_, terms=item_entities),
             types=onto.classes,
             output_folder=str(text2kgbench_base_data_path),
             predicate_domain_range=onto.predicates,

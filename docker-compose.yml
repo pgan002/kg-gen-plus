@@ -1,6 +1,6 @@
 services:
   server:
-    image: ${IMAGE_NAME}:0.5.0
+    image: ${IMAGE_NAME}:0.5.3
     container_name: kg-gen-server
     command: --port 8000
     volumes:
