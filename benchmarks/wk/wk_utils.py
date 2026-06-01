@@ -3,9 +3,9 @@ from pathlib import Path
 from typing import Iterator
 
 import rdflib
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from kg_gen.models import Ontology, EntityType, OntologyPredicate
+from kg_gen.models import Ontology, EntityType, OntologyPredicate, InputData
 
 
 class Triple(BaseModel):
@@ -14,16 +14,11 @@ class Triple(BaseModel):
     obj: str
 
 
-class WkTestItem(BaseModel):
-    id_: str = Field(..., alias="id")
-    sent: str
-
-
-def iter_wk_jsonl(file_path: str | Path) -> Iterator[WkTestItem]:
+def iter_wk_chunked_jsonl(file_path: str | Path) -> Iterator[InputData]:
     with open(file_path) as f:
         for i, line in enumerate(f):
             data_line = json.loads(line)
-            wk_item = WkTestItem(**data_line)
+            wk_item = InputData(**data_line)
 
             yield wk_item
 
