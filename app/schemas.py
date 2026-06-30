@@ -47,6 +47,19 @@ class GenerationMetadata(BaseModel):
     enable_thinking: Optional[bool] = Field(
         False, description="Allows to control thinking in models like qwen"
     )
+    enforce_type_conformance: bool = Field(
+        False, description="Enforce entity type conformance"
+    )
+    enforce_domain_conformance: bool = Field(
+        True, description="Enforce predicate domain conformance"
+    )
+    enforce_range_conformance: bool = Field(
+        True, description="Enforce predicate range conformance"
+    )
+    enforce_predicate_conformance: bool = Field(
+        False,
+        description="Enforce predicate conformance. If True, all predicates should come from ontology (if provided).",
+    )
 
 
 class DeduplicationMetadata(BaseModel):

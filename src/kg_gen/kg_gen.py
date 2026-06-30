@@ -1,5 +1,6 @@
 from typing import Union, Optional, Any
 import time
+from rdflib import Graph as RDFGraph
 
 from app.kggen_logger import kggen_logger
 from kg_gen.steps._1_get_entities import get_entities, type_terms
@@ -42,6 +43,10 @@ class KGGen:
         retrieval_model: Optional[str] = "sentence-transformers/all-mpnet-base-v2",
         disable_cache: bool = False,
         enable_thinking: Optional[bool] = False,
+        enforce_type_conformance: bool = False,
+        enforce_domain_conformance: bool = True,
+        enforce_range_conformance: bool = True,
+        enforce_predicate_conformance: bool = False,
     ):
         """Initialize KGGen with optional model configuration
 
@@ -50,6 +55,10 @@ class KGGen:
             temperature: Temperature for model sampling
             api_key: API key for model access
             api_base: Specify the base URL endpoint for making API calls to a language model service
+            enforce_type_conformance: If True, predicted types should necessarily come from the list of types, if provided.
+            enforce_domain_conformance: If True, predicted relations should necessarily come from the list of types, if provided.
+            enforce_range_conformance: If True, predicted relations should necessarily come from the list of types, if provided.
+            enforce_predicate_conformance: If True, predicted predicates should necessarily come from the list of predicates, if provided.
         """
         self.model = model
         self.reasoning_effort = reasoning_effort
@@ -62,6 +71,10 @@ class KGGen:
         self._lm = None
         self.disable_cache = disable_cache
         self.enable_thinking = enable_thinking
+        self.enforce_type_conformance = enforce_type_conformance
+        self.enforce_domain_conformance = enforce_domain_conformance
+        self.enforce_range_conformance = enforce_range_conformance
+        self.enforce_predicate_conformance = enforce_predicate_conformance
 
         self.validate_temperature(self.temperature)
         self.validate_max_tokens(self.max_tokens)
@@ -115,7 +128,11 @@ class KGGen:
             "cache": not self.disable_cache,
             "model_type": "chat",
         }
-        if self.enable_thinking is not None:
+        if (
+            self.enable_thinking is not None
+            and "gpt" not in self.model
+            and "o1" not in self.model
+        ):
             settings_dict["chat_template_kwargs"] = {
                 "enable_thinking": self.enable_thinking
             }
@@ -135,16 +152,41 @@ class KGGen:
     async def generate(
         self,
         input_data: InputData,
+        ontology: Optional[RDFGraph] = None,
         entity_context: str = "",
         types: Optional[list[EntityType]] = None,
         relation_context: str = "",
         predicate_domain_range: Optional[list[OntologyPredicate]] = None,
         deduplicate: bool = False,
         temperature: float | int | None = None,
+        enforce_type_conformance: Optional[bool] = None,
+        enforce_domain_conformance: Optional[bool] = None,
+        enforce_range_conformance: Optional[bool] = None,
+        enforce_predicate_conformance: Optional[bool] = None,
     ) -> tuple[Graph, KGGenStats]:
         processed_input: str = input_data.text
         all_chunk_stats = []
         terms = input_data.terms
+        enforce_type_conformance = (
+            enforce_type_conformance
+            if enforce_type_conformance is not None
+            else self.enforce_type_conformance
+        )
+        enforce_domain_conformance = (
+            enforce_domain_conformance
+            if enforce_domain_conformance is not None
+            else self.enforce_domain_conformance
+        )
+        enforce_range_conformance = (
+            enforce_range_conformance
+            if enforce_range_conformance is not None
+            else self.enforce_range_conformance
+        )
+        enforce_predicate_conformance = (
+            enforce_predicate_conformance
+            if enforce_predicate_conformance is not None
+            else self.enforce_predicate_conformance
+        )
 
         async def _process(content, lm):
             with dspy.context(lm=lm):
@@ -157,6 +199,7 @@ class KGGen:
                         context=entity_context,
                         types=types,
                         temperature=temperature or self.temperature,
+                        enforce_type_conformance=enforce_type_conformance,
                     )
                     step_stats["get_entities"] = StepStats(
                         lm_usage=LMUsage(**self.extract_token_usage_from_history()),
@@ -167,23 +210,44 @@ class KGGen:
                     for t in terms:
                         if isinstance(t, str):
                             entities.append(Entity(surface_form=t))
-                        else:
-                            t: TypedEntity
+                        elif isinstance(t, TypedEntity):
                             entities.append(t)
+                        elif isinstance(t, dict):
+                            entities.append(TypedEntity(**t))
+                        else:
+                            # Fallback if it's already an Entity but not TypedEntity
+                            entities.append(
+                                TypedEntity(surface_form=t.surface_form, uri=t.uri)
+                            )
                     step_stats["get_entities"] = StepStats(
                         lm_usage=LMUsage(), execution_time=0.0
                     )
 
                 self.reset_token_usage()
                 start_time = time.time()
-                typed_entities = await type_terms(
-                    input_data=content,
-                    terms=[e.surface_form for e in entities],
-                    types=types,
-                    temperature=temperature or self.temperature,
-                    provenance_ids=[input_data.id],
-                    context=entity_context,
-                )
+
+                already_typed = []
+                to_type = []
+                for e in entities:
+                    if isinstance(e, TypedEntity) and e.type is not None:
+                        already_typed.append(e)
+                    else:
+                        to_type.append(e)
+
+                if not to_type:
+                    typed_entities = entities
+                else:
+                    newly_typed = await type_terms(
+                        input_data=content,
+                        terms=[e.surface_form for e in to_type],
+                        types=types,
+                        temperature=temperature or self.temperature,
+                        provenance_ids=[input_data.id],
+                        context=entity_context,
+                        enforce_type_conformance=enforce_type_conformance,
+                    )
+                    typed_entities = already_typed + newly_typed
+
                 step_stats["type_terms"] = StepStats(
                     lm_usage=LMUsage(**self.extract_token_usage_from_history()),
                     execution_time=time.time() - start_time,
@@ -194,10 +258,16 @@ class KGGen:
                 relations = await get_relations_typed(
                     content,
                     typed_entities=typed_entities,
+                    ontology=ontology,
                     predicate_domain_range=predicate_domain_range,
                     context=relation_context,
                     temperature=temperature or self.temperature,
                     provenance_ids=[input_data.id],
+                    enforce_domain_conformance=enforce_domain_conformance,
+                    enforce_range_conformance=enforce_range_conformance,
+                    enforce_predicate_conformance=enforce_predicate_conformance,
+                    enforce_type_conformance=enforce_type_conformance,
+                    allowed_types=types,
                 )
                 step_stats["get_relations_typed"] = StepStats(
                     lm_usage=LMUsage(**self.extract_token_usage_from_history()),

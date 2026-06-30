@@ -24,7 +24,9 @@ class MockLM(dspy.LM):
         self.history = []
 
     def _generate_response(self, **kwargs):
-        prompt = kwargs["messages"][0]["content"]
+        prompt = kwargs.get("messages", [{}])[0].get("content", "")
+        if not prompt:
+            prompt = kwargs.get("prompt", "")
         # Simulate different responses based on the prompt content
         if "Extract key entities" in prompt:
             response_content = '[[ ## entities ## ]]\n[{"surface_form": "entity1", "uri": "Q1"}, {"surface_form": "entity2", "uri": "Q2"}]\n[[ ## completed ## ]]'

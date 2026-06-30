@@ -210,7 +210,7 @@ class ExtractTextRelations(dspy.Signature):
         desc="Optional context. If provided, consider it when extracting relations.",
     )
     relations: list[Relation] = dspy.OutputField(
-        desc="List of subject-predicate-object tuples. Be thorough."
+        desc="List of subject-predicate-object tuples. Be thorough. Predicates should come strictly from the provided inputs."
     )
 
 

@@ -1,6 +1,6 @@
 [project]
 name = "kg-gen"
-version = "0.5.3"
+version = "0.6.0"
 authors = [{ name = "Belinda Mo", email = "justanexperimentpark@gmail.com" }]
 description = "Extract a knowledge graph using LLMs from any text"
 readme = "README.md"
@@ -39,6 +39,7 @@ dependencies = [
     "inflect>=7.5.0",
     "pyyaml>=6.0.3",
     "toml>=0.10.2",
+    "dspy>=3.2.1",
 ]
 
 [dependency-groups]
