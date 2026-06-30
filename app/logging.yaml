@@ -48,6 +48,10 @@ loggers:
   kg_gen_app:
     level: DEBUG
     handlers: [ console, main_log_file ]
+  openai:
+    level: WARNING
+  httpcore:
+    level: WARNING
 root:
   level: DEBUG
   handlers: [ console, main_log_file ]

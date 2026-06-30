@@ -65,7 +65,7 @@ xsd_to_python_type = {
 python_type_to_xsd = {v: k for k, v in xsd_to_python_type.items()}
 
 
-def parse_ontology(onto_file: TextIO | BinaryIO) -> Ontology:
+def parse_ontology(onto_file: TextIO | BinaryIO) -> tuple[Ontology, rdflib.Graph]:
     """
     Load the ontology from a file. The file is expected to have a proper file extension or Media Type, for more info
     see rdflib documentation.
@@ -135,4 +135,4 @@ def parse_ontology(onto_file: TextIO | BinaryIO) -> Ontology:
 
             ontology.predicates.add(predicate)
 
-    return ontology
+    return ontology, g

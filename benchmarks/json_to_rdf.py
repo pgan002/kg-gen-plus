@@ -86,13 +86,13 @@ def convert_to_turtle(json_data: Dict[str, Any]) -> str:
                     # We use a simplified representation here
                     parts = []
                     if label:
-                        parts.append(f'rdfs:label "{label}"')
+                        parts.append(f'rdfs:label "{label}"@de')
                     if description:
                         # Escape quotes and backslashes in description
                         desc_escaped = description.replace("\\", "\\\\").replace(
                             '"', '\\"'
                         )
-                        parts.append(f'rdfs:comment "{desc_escaped}"')
+                        parts.append(f'rdfs:comment "{desc_escaped}"@en')
 
                     if parts:
                         lines.append(f"{uri} " + " ;\n  ".join(parts) + " .")

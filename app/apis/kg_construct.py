@@ -130,9 +130,10 @@ async def generate_graph(
         raise HTTPException(status_code=400, detail="Corpus must be a .jsonl file")
 
     onto = None
+    rdflib_onto = None
     if ontology_file:
         try:
-            onto: Ontology = parse_ontology(ontology_file.file)
+            onto, rdflib_onto = parse_ontology(ontology_file.file)
             types = list(onto.classes)
             predicates = list(onto.predicates)
         except (ParserError, SyntaxError) as exc:
@@ -154,7 +155,15 @@ async def generate_graph(
     kggen_logger.info(f"{meta.entity_context = }\n{meta.relation_context = }")
 
     total_gen_stats = KGGenStats()
-    kg_gen = get_kg_gen(api_key=x_api_key, api_base=meta.api_base, model=meta.model)
+    kg_gen = get_kg_gen(
+        api_key=x_api_key,
+        api_base=meta.api_base,
+        model=meta.model,
+        enforce_type_conformance=meta.enforce_type_conformance,
+        enforce_domain_conformance=meta.enforce_domain_conformance,
+        enforce_range_conformance=meta.enforce_range_conformance,
+        enforce_predicate_conformance=meta.enforce_predicate_conformance,
+    )
     graphs = []
     kggen_logger.info(f"Generating graph via KGGen: {meta.model = }")
     try:
@@ -171,9 +180,14 @@ async def generate_graph(
                     input_data=doc,
                     temperature=meta.temperature,
                     types=types,
+                    ontology=rdflib_onto,
                     predicate_domain_range=predicates,
                     entity_context=meta.entity_context or "",
                     relation_context=meta.relation_context or "",
+                    enforce_type_conformance=meta.enforce_type_conformance,
+                    enforce_domain_conformance=meta.enforce_domain_conformance,
+                    enforce_range_conformance=meta.enforce_range_conformance,
+                    enforce_predicate_conformance=meta.enforce_predicate_conformance,
                 )
                 kggen_logger.info(
                     f"Graph generation complete: {len(graph.entities) = }, {len(graph.relations) = }"

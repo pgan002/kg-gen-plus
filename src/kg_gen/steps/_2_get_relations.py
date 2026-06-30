@@ -1,3 +1,4 @@
+from rdflib import Graph as RDFGraph, URIRef, RDFS, XSD
 from typing import List, Tuple, Optional, Literal, Type
 from pathlib import Path
 import json
@@ -5,7 +6,13 @@ import dspy
 import litellm
 from pydantic import BaseModel, create_model, ValidationError
 
-from kg_gen.models import TypedEntity, ExtractTextRelations, Relation, OntologyPredicate
+from kg_gen.models import (
+    TypedEntity,
+    ExtractTextRelations,
+    Relation,
+    OntologyPredicate,
+    EntityType,
+)
 
 
 def parse_relations_response(
@@ -164,8 +171,8 @@ Here is the source text to analyze:
 
 
 def extraction_sig(
-    Relation: BaseModel, is_conversation: bool, context: str = ""
-) -> dspy.Signature:
+    RelationModel: Type[BaseModel], is_conversation: bool, context: str = ""
+) -> Type[dspy.Signature]:
     if not is_conversation:
 
         class ExtractTextRelations(dspy.Signature):
@@ -175,7 +182,7 @@ def extraction_sig(
 
             source_text: str = dspy.InputField()
             entities: list[str] = dspy.InputField()
-            relations: list[Relation] = dspy.OutputField(
+            relations: list[RelationModel] = dspy.OutputField(
                 desc="List of subject-predicate-object tuples. Be thorough."
             )
 
@@ -192,7 +199,7 @@ def extraction_sig(
 
             source_text: str = dspy.InputField()
             entities: list[str] = dspy.InputField()
-            relations: list[Relation] = dspy.OutputField(
+            relations: list[RelationModel] = dspy.OutputField(
                 desc="List of subject-predicate-object tuples where subject and object are exact matches to items in entities list. Be thorough"
             )
 
@@ -222,31 +229,189 @@ def _filter_entities(entities: List[str]) -> List[str]:
     return [e for e in entities if '"' not in e]  # not received by oai api
 
 
+def validate_ontology_conformance(
+    typed_entities: list[TypedEntity],
+    relations: Optional[list[Relation]] = None,
+    predicate_domain_range: Optional[list[OntologyPredicate]] = None,
+    enforce_domain_conformance: bool = True,
+    enforce_range_conformance: bool = True,
+    enforce_predicate_conformance: bool = False,
+    enforce_type_conformance: bool = False,
+    allowed_types: Optional[list[EntityType]] = None,
+) -> tuple[float, str]:
+    if not predicate_domain_range and not enforce_type_conformance:
+        return 1.0, ""
+
+    allowed_labels = {t.label for t in allowed_types} if allowed_types else set()
+    errors = []
+    successes = 0
+    total_checks = 0
+
+    if enforce_type_conformance and allowed_labels:
+        for ent in typed_entities:
+            total_checks += 1
+            if ent.type and ent.type.label not in allowed_labels:
+                errors.append(
+                    f"Entity {ent.surface_form}: type {ent.type.label} not in allowed types"
+                )
+            else:
+                successes += 1
+
+    if not relations:
+        if total_checks == 0:
+            return 1.0, ""
+        return successes / total_checks, "; ".join(errors)
+
+    entity_map = {te.surface_form: te for te in typed_entities}
+    predicate_map = (
+        {p.label: p for p in predicate_domain_range} if predicate_domain_range else {}
+    )
+
+    for rel in relations:
+        subj_ent = entity_map.get(rel.subject.surface_form)
+        obj_ent = entity_map.get(rel.object.surface_form)
+        pred_obj = predicate_map.get(rel.predicate.surface_form)
+
+        if enforce_predicate_conformance:
+            total_checks += 1
+            if not pred_obj:
+                errors.append(
+                    f"Relation {rel.subject} -[{rel.predicate}]-> {rel.object}: Predicate {rel.predicate.surface_form} not in ontology"
+                )
+            else:
+                successes += 1
+
+        if not pred_obj:
+            continue
+
+        if (
+            enforce_domain_conformance
+            and subj_ent
+            and subj_ent.type
+            and pred_obj.domain
+        ):
+            total_checks += 1
+            if subj_ent.type not in pred_obj.domain:
+                errors.append(
+                    f"Relation {rel.subject} -[{rel.predicate}]-> {rel.object}: Subject type {subj_ent.type.label} not in domain {[d.label for d in pred_obj.domain]}"
+                )
+            else:
+                successes += 1
+
+        if enforce_range_conformance and obj_ent and obj_ent.type and pred_obj.range:
+            total_checks += 1
+            if obj_ent.type not in pred_obj.range:
+                errors.append(
+                    f"Relation {rel.subject} -[{rel.predicate}]-> {rel.object}: Object type {obj_ent.type.label} not in range {[r.label for r in pred_obj.range]}"
+                )
+            else:
+                successes += 1
+
+    if total_checks == 0:
+        return 1.0, ""
+    return successes / total_checks, "; ".join(errors)
+
+
+def get_all_superclasses(g: RDFGraph, type_uri: URIRef) -> set[URIRef]:
+    superclasses = set()
+    q = [type_uri]
+    while q:
+        curr = q.pop(0)
+        if curr not in superclasses:
+            superclasses.add(curr)
+            scs = g.objects(curr, RDFS.subClassOf)
+            q.extend(scs)
+    return superclasses
+
+
 async def get_relations_typed(
     input_text: str,
     typed_entities: list[TypedEntity],
-    predicate_domain_range: list[OntologyPredicate] = None,
+    ontology: Optional[RDFGraph] = None,
+    predicate_domain_range: Optional[list[OntologyPredicate]] = None,
     context: str = "",
     temperature: float = 0.0,
-    n_retries=3,
+    n_retries=2,
     provenance_ids: Optional[List[str]] = None,
+    enforce_domain_conformance: bool = True,
+    enforce_range_conformance: bool = True,
+    enforce_predicate_conformance: bool = False,
+    enforce_type_conformance: bool = False,
+    allowed_types: Optional[list[EntityType]] = None,
 ) -> list[Relation]:
-    latest_exception = None
     assert n_retries > 0, "n_retries must be greater than 0"
-    for _ in range(n_retries):
-        try:
-            extract = dspy.Predict(ExtractTextRelations, temperature=temperature)
-            result = await extract.acall(
-                source_text=input_text,
-                typed_entities=typed_entities,
-                context=context,
-                predicate_domain_range=predicate_domain_range,
+
+    entity_types_with_superclasses = set()
+    if ontology is not None:
+        label_to_uri = {
+            str(label): uri
+            for uri, _, label in ontology.triples((None, RDFS.label, None))
+        }
+        for e in typed_entities:
+            if e.type and e.type.label in label_to_uri:
+                type_uri = label_to_uri[e.type.label]
+                entity_types_with_superclasses.update(
+                    get_all_superclasses(ontology, type_uri)
+                )
+
+    if predicate_domain_range:
+        filtered_predicates = []
+        for p in predicate_domain_range:
+            domain_uris = {URIRef(d.uri) for d in p.domain if d.uri}
+            range_uris = {URIRef(r.uri) for r in p.range if r.uri}
+            # Include if domain is compatible or not specified
+            domain_match = (
+                not domain_uris
+                or not entity_types_with_superclasses.isdisjoint(domain_uris)
+                or not enforce_domain_conformance
             )
-            for relation in result.relations:
-                relation.provenance_ids = provenance_ids or []
-            return result.relations
-        except Exception as e:
-            latest_exception = e
-            pass
+            # Include if range is a simple datatype or is compatible
+            range_is_simple = any(str(r).startswith(str(XSD)) for r in range_uris)
+            range_match = (
+                not range_uris
+                or range_is_simple
+                or not entity_types_with_superclasses.isdisjoint(range_uris)
+                or not enforce_range_conformance
+            )
+
+            if domain_match and range_match:
+                filtered_predicates.append(p)
     else:
-        raise latest_exception
+        filtered_predicates = None
+
+    if enforce_predicate_conformance and not filtered_predicates:
+        return []
+
+    def reward_fn(args, pred: dspy.Prediction) -> float:
+        conforms, _ = validate_ontology_conformance(
+            typed_entities=typed_entities,
+            relations=pred.relations,
+            predicate_domain_range=filtered_predicates,
+            enforce_domain_conformance=enforce_domain_conformance,
+            enforce_range_conformance=enforce_range_conformance,
+            enforce_predicate_conformance=enforce_predicate_conformance,
+            enforce_type_conformance=enforce_type_conformance,
+            allowed_types=allowed_types,
+        )
+        return conforms
+
+    extract_module = dspy.Predict(ExtractTextRelations)
+    refine = dspy.Refine(
+        module=extract_module, N=n_retries, reward_fn=reward_fn, threshold=1.0
+    )
+
+    result = await dspy.asyncify(refine)(
+        source_text=input_text,
+        typed_entities=typed_entities,
+        predicate_domain_range=filtered_predicates,
+        context=context,
+        config={"temperature": temperature},
+    )
+    if result is None:
+        raise Exception(
+            f"Refine failed to produce a result after {n_retries} attempts."
+        )
+
+    for relation in result.relations:
+        relation.provenance_ids = provenance_ids or []
+    return result.relations

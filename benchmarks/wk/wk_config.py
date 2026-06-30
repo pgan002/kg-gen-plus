@@ -18,9 +18,9 @@ AGGREGATE_URL = (
 wk_base_data_path = Path(__file__).parent / "data"
 chunking_auth_key = os.getenv("CHUNKING_AUTH_KEY")
 chunking_task_id = "461f297c-3d98-4a19-82f5-b7d347604398"
-output_stem = "skript_crashkurs_sose2018__chunked_gdb"
-ontology_file = wk_base_data_path / "wkg_ontology_refined.ttl"
-chunked_path = wk_base_data_path / "wk_script_chunked.jsonl"
+output_stem = "wkg_chunks_v2"
+ontology_file = wk_base_data_path / "wkg_ontology_refined_v2.ttl"
+chunked_path = wk_base_data_path / "wkg_chunks_v2.jsonl"
 
 # --- Chunking Service Parameters ---
 CHUNKING_HEADERS = {"accept": "application/json", "Authorization": chunking_auth_key}

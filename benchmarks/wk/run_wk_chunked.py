@@ -2,6 +2,8 @@ import logging
 import json
 import asyncio
 from pathlib import Path
+
+import rdflib
 from typing import Any
 import tqdm
 import aiohttp
@@ -25,7 +27,7 @@ from benchmarks.wk.wk_config import (
     chunked_path,
 )
 from benchmarks.wk.wk_utils import iter_wk_chunked_jsonl
-from kg_gen.models import TypedEntity
+from kg_gen.models import TypedEntity, EntityType
 
 
 # --- Helper Functions ---
@@ -117,15 +119,18 @@ async def get_parse_result(
 
 
 async def call_term_extraction_service(
-    session: aiohttp.ClientSession, text: str
+    session: aiohttp.ClientSession, text: str, categories: list[str] | None = None
 ) -> list[Term]:
     """Calls the term extraction service asynchronously."""
     logging.info("Calling term extraction service...")
 
+    if categories:
+        te_params = {**TERM_EXTRACTION_PARAMS, "categories": categories}
+
     try:
         async with session.post(
             TERM_EXTRACTION_URL,
-            params=TERM_EXTRACTION_PARAMS,
+            params=te_params,
             headers=TERM_EXTRACTION_HEADERS,
             data=json.dumps(text),
         ) as response:
@@ -152,6 +157,7 @@ async def call_kg_generation_service(
     item_id: str,
     terms: list[Term],
     ontology_content: bytes,
+    label_to_uri: dict[str, str],
 ) -> dict:
     """Calls the KG generation service asynchronously."""
     logging.info(
@@ -160,13 +166,24 @@ async def call_kg_generation_service(
 
     kg_input_terms = []
     for term in terms:
-        term_description = term.definition
-        if term.alt_labels:
-            term_description += f", alternative labels: {', '.join(term.alt_labels)}"
-        if term.categories:
-            term_description += f", predicted types: {', '.join(term.categories)}"
+        categories = term.categories or []
+        entity_type = None
+        if categories:
+            cat_label = categories[0]
+            cat_uri = label_to_uri.get(cat_label)
+            entity_type = EntityType(label=cat_label, uri=cat_uri)
+
+        term_description = (
+            f"{term.definition}\nAlternative labels: {', '.join(term.alt_labels)}"
+            if term.alt_labels
+            else term.definition
+        )
         kg_input_terms.append(
-            TypedEntity(surface_form=term.pref_label, description=term_description)
+            TypedEntity(
+                surface_form=term.pref_label,
+                description=term_description,
+                type=entity_type,
+            )
         )
 
     corpus_data = {
@@ -242,10 +259,41 @@ async def process_chunk_with_sem(
         chunk_id = chunk_data["chunk_id"]
         chunk_text = chunk_data["chunk_text"]
         ontology_content = chunk_data["ontology_content"]
+        onto_class_names = chunk_data.get("onto_class_names")
+        label_to_uri = chunk_data["label_to_uri"]
 
         logging.info(f"Worker processing chunk {chunk_id}...")
 
-        terms = await call_term_extraction_service(session, chunk_text)
+        terms_cache_dir = wk_base_data_path / "terms_cache"
+        terms_cache_dir.mkdir(exist_ok=True)
+        cache_file = terms_cache_dir / f"terms_{chunk_id}.json"
+
+        terms = []
+        if cache_file.exists():
+            logging.info(f"Loading terms from cache for chunk {chunk_id}")
+            with open(cache_file, "r") as f:
+                terms_data = json.load(f)
+                try:
+                    terms = [Term(**item) for item in terms_data]
+                except ValidationError as e:
+                    logging.error(
+                        f"Error validating cached terms for chunk {chunk_id}: {e}"
+                    )
+                    # Invalidate cache and re-fetch
+                    cache_file.unlink()
+
+        if not terms:
+            logging.info(
+                f"No valid cache found, calling term extraction for chunk {chunk_id}"
+            )
+            terms = await call_term_extraction_service(
+                session, chunk_text, categories=onto_class_names
+            )
+            if terms:
+                logging.info(f"Saving {len(terms)} terms to cache for chunk {chunk_id}")
+                with open(cache_file, "w") as f:
+                    json.dump([term.model_dump() for term in terms], f, indent=2)
+
         if not terms:
             logging.warning(f"No terms extracted for chunk {chunk_id}.")
             return {}
@@ -256,6 +304,7 @@ async def process_chunk_with_sem(
             item_id=chunk_id,
             terms=terms,
             ontology_content=ontology_content,
+            label_to_uri=label_to_uri,
         )
         return graph
 
@@ -272,6 +321,25 @@ async def main(data_path: Path, ontology_path: Path, output_stem: str):
         logging.error(f"Ontology file not found at {ontology_path}")
         return
 
+    onto = rdflib.Graph()
+    onto.parse(ontology_path)
+
+    classes = set()
+    for s in onto.subjects(rdflib.RDF.type, rdflib.RDFS.Class):
+        if isinstance(s, rdflib.URIRef):
+            classes.add(s)
+    for s in onto.subjects(rdflib.RDF.type, rdflib.OWL.Class):
+        if isinstance(s, rdflib.URIRef):
+            classes.add(s)
+
+    onto_class_names = [onto.value(c, rdflib.RDFS.label).toPython() for c in classes]
+    label_to_uri = {
+        str(label): str(s)
+        for s, p, o in onto.triples((None, rdflib.RDFS.label, None))
+        for label in [o]
+    }
+    logging.info(f"Found {len(onto_class_names)} ontology classes.")
+
     async with aiohttp.ClientSession() as session:
         document_chunks = iter_wk_chunked_jsonl(data_path)
 
@@ -280,6 +348,8 @@ async def main(data_path: Path, ontology_path: Path, output_stem: str):
                 "chunk_id": chunk.id,
                 "chunk_text": chunk.text,
                 "ontology_content": ontology_content,
+                "onto_class_names": onto_class_names,
+                "label_to_uri": label_to_uri,
             }
             for i, chunk in enumerate(document_chunks)
         ]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dspy
 import toml
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -75,3 +76,8 @@ app.include_router(ui_router)
 
 # Serve static files (CSS, JS, etc.) - must be mounted after all routes
 app.mount("/ui", StaticFiles(directory=APP_DIR / "static", html=True), name="static")
+
+dspy.configure_cache(
+    enable_disk_cache=False,
+    enable_memory_cache=False,
+)
