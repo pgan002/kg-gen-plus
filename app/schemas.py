@@ -55,7 +55,7 @@ class GenerationMetadata(BaseModel):
     )
     enforce_type_conformance: bool = Field(
         False,
-        description="Encourage entity type conformance (not enforced)",
+        description="Encourage entity type conformance. Note: best-effort, not strictly enforced.",
     )
     enforce_domain_conformance: bool = Field(
         True,
@@ -70,12 +70,11 @@ class GenerationMetadata(BaseModel):
         description="Encourage predicate conformance. Note: best-effort, not strictly enforced.",
     )
     deduplicate: bool = Field(
-        True,
-        description="Whether to deduplicate the generated graph."
+        True, description="Whether to deduplicate the generated graph."
     )
     retrieval_model: Optional[str] = Field(
         "sentence-transformers/all-MiniLM-L6-v2",
-        description="The retrieval model to use for embedding.",
+        description="The retrieval model to use for producing embedding.",
     )
     entity_threshold: float = Field(
         0.8,

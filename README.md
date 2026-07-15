@@ -1,98 +1,145 @@
-# kg-gen: Knowledge Graph Generation from Any Text
+# KGGen+ — Ontology-Guided Knowledge Graph Generation
 
-Welcome! `kg-gen` helps you extract knowledge graphs from any plain text using AI. It can process both small and large text inputs.
+`KGGen+` extracts knowledge graphs from plain text using LLMs. It builds on
+[kg-gen](https://github.com/stair-lab/kg-gen) and adds **ontology-guided
+extraction** (typed entities and predicates with best-effort domain/range
+conformance), a **FastAPI service** with a visual UI, entity/relation
+**deduplication**, and a set of **benchmarks**.
 
-Why generate knowledge graphs? `kg-gen` is great if you want to:
+Use it if you want to:
 - Create a graph to assist with RAG (Retrieval-Augmented Generation)
-- Create graph synthetic data for model training and testing
-- Structure any text into a graph
+- Generate graph-structured synthetic data for model training and testing
+- Structure text into a graph that conforms to an ontology you provide
 - Analyze the relationships between concepts in your source text
 
-We support API-based and local model providers via [LiteLLM](https://docs.litellm.ai/docs/providers), including OpenAI, Ollama, Anthropic, Gemini, Deepseek, and others. We also use [DSPy](https://dspy.ai/) for structured output generation.
+Models are pluggable via [LiteLLM](https://docs.litellm.ai/docs/providers)
+(OpenAI, Ollama, Anthropic, Gemini, Deepseek, and others), and structured output
+is produced with [DSPy](https://dspy.ai/).
 
 ## Powered by a model of your choice
 
-Examples of models you can pass in:
+Pass any LiteLLM-supported model id, e.g.:
 - `openai/gpt-5.4-mini`
 - `ollama/gpt-oss:120b`
 
-## Quick start
+## Quick start (Docker)
 
-This application is containerized and can be run using Docker Compose.
+The application is containerized and run with Docker Compose.
 
-**1. Configure the Environment**
+**1. Configure the environment**
 
-Create a `.env` file in the project's root directory by copying the file `.env.example`.
+Create a `.env` file in the project root by copying `.env.example`, then fill in
+your keys:
 
-Add your keys to the `.env` file like this:
-```.env
-# Example .env file
-OPENAI_API_KEY="your_openai_api_key_here"
+```dotenv
 LLM_MODEL=openai/gpt-5.4-mini
 LLM_TEMPERATURE=1.0
 RETRIEVAL_MODEL=all-MiniLM-L6-v2
+
+OPENAI_API_KEY=your_openai_api_key_here
+# ANTHROPIC_API_KEY=
+# GEMINI_API_KEY=
+
+IMAGE_NAME="maven.ontotext.com/nlp/kg-gen-plus"
 ```
 
 **2. Run the application**
-
-To start the application, run the following command in the root of the project:
 
 ```bash
 docker-compose up --build
 ```
 
-This will build the Docker image and start the web server. The server provides:
-- **Web APIs at `/api`**: for generating graphs from text.
-- **Graphical User UI at `/ui`**: for visually investigating the graphs.
+The server is then available at `http://localhost:5000` (override with `PORT`):
+- **Interactive API docs** at `/docs`
+- **Web APIs** at `/api` — generate graphs from text, parse/convert ontologies
+- **Graphical UI** at `/ui` — visually investigate generated graphs
 
-You can access the application at `http://localhost:5000`.
+## Using the HTTP API
 
-## How to use `kg-gen` in your code
+Generate a graph from a `.jsonl` corpus (one `{"id", "text"}` object per line),
+optionally guided by a Turtle (`.ttl`) ontology. Two modes are available:
 
-You can also use `kg-gen` as a library in your own Python code.
+- **`POST /api/generate`** — synchronous; blocks until generation finishes and
+  returns the `KnowledgeGraph`. Best for small corpora.
+- **`POST /api/generate_async`** — starts a background job and returns `202` with
+  a `job_id`. Generation continues even if the client disconnects. Poll
+  `GET /api/jobs/{job_id}` for progress (with a live ETA) and fetch the graph
+  from `GET /api/jobs/{job_id}/result` once the status is `completed`. Use
+  `GET /api/jobs` to list all jobs. Recommended for large corpora.
 
-First, install it:
+> **Note:** background jobs are held **in memory** in the server process — they
+> are lost on restart, the store is bounded (oldest finished jobs are evicted
+> when full), and it does not work across multiple workers. See
+> [`app/api_doku.md`](app/api_doku.md) for details and the full endpoint
+> reference.
+
+Example (background job):
+
+```bash
+# Start the job
+curl -sX POST "http://localhost:5000/api/generate_async?model=openai/gpt-5.4-mini" \
+  -H "X-API-Key: $OPENAI_API_KEY" \
+  -F "corpus_file=@corpus.jsonl" \
+  -F "ontology_file=@ontology.ttl"
+# -> {"job_id": "...", "status": "pending", "status_url": "...", "result_url": "..."}
+
+# Poll progress, then fetch the result
+curl -s "http://localhost:5000/api/jobs/<job_id>"
+curl -s "http://localhost:5000/api/jobs/<job_id>/result"
+```
+
+## Using `kg-gen` as a library
+
+Install it:
+
 ```bash
 pip install .
 ```
 
-Then import and use `kg-gen`. You can provide your text input as a string.
+`KGGen.generate` is asynchronous, so run it inside an event loop (e.g. with
+`asyncio.run`):
 
-Below is an example snippet:
 ```python
-from kg_gen import KGGen
+import asyncio
+
+from kg_gen.kg_gen import KGGen
 from kg_gen.models import InputData
-from kg_gen.steps import DeduplicateMethod
 
-# Initialize KGGen with optional configuration
 kg = KGGen(
-  model="openai/gpt-4o",  # Default model
-  temperature=0.0,        # Default temperature
-  api_key="YOUR_API_KEY"  # Optional if set in environment or using a local model
+    model="openai/gpt-5.4-mini",  # any LiteLLM model id
+    temperature=0.0,
+    api_key="YOUR_API_KEY",       # optional if set in the environment / local model
 )
 
-# EXAMPLE: Single string with context
-text_input = "Linda is Josh's mother. Ben is Josh's brother. Andrew is Josh's father."
-graph, stats = kg.generate(
-  input_data=InputData(text=text_input, id="text_1"),
-  entity_context="Family relationships"
+text = "Linda is Josh's mother. Ben is Josh's brother. Andrew is Josh's father."
+
+graph, stats = asyncio.run(
+    kg.generate(
+        input_data=InputData(id="text_1", text=text),
+        entity_context="Family relationships",
+    )
 )
-print(graph)
-# Output:
-# entities={'Linda', 'Ben', 'Andrew', 'Josh'}
-# edges={'is brother of', 'is father of', 'is mother of'}
-# relations={('Ben', 'is brother of', 'Josh'),
-#           ('Andrew', 'is father of', 'Josh'),
-#           ('Linda', 'is mother of', 'Josh')}
+print(graph)   # typed entities and relations
+print(stats)   # token usage, timings, class/predicate usage
 ```
 
-### Visualizing KGs
+`input_data` also accepts a `list[InputData]`, in which case documents are
+processed in parallel (see `n_parallel`) and the resulting graphs are aggregated
+and deduplicated into one. Progress is logged in a tqdm-like form.
+
+### Visualizing graphs
+
 ```python
-KGGen.visualize(graph, output_path, open_in_browser=True)
+KGGen.visualize(graph, output_path="graph.html", open_in_browser=True)
 ```
 
-The library also supports processing large texts by deduplicating entities and relations from multiple graphs.
+## Benchmarks
 
-### Reference
+The `benchmarks/` directory contains runners for several datasets (e.g. MuSiQue,
+SynthIE, Text2KGBench). They call the service's `/api/generate` endpoint or the
+library directly; see each subdirectory for configuration.
 
-This repo was forked from [kg-gen at Github](https://github.com/stair-lab/kg-gen). See the original repo for more instructions.
+## Reference
+
+This repository was forked from [kg-gen on GitHub](https://github.com/stair-lab/kg-gen).
+See the original repo for additional background.
