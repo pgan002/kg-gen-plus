@@ -18,8 +18,8 @@ AGGREGATE_URL = (
 wk_base_data_path = Path(__file__).parent / "data"
 chunking_auth_key = os.getenv("CHUNKING_AUTH_KEY")
 chunking_task_id = "461f297c-3d98-4a19-82f5-b7d347604398"
-output_stem = "wkg_chunks_v2"
-ontology_file = wk_base_data_path / "wkg_ontology_refined_v2.ttl"
+output_stem = "wkg_chunks_v2_conform"
+ontology_file = wk_base_data_path / "wk-legal.ttl"
 chunked_path = wk_base_data_path / "wkg_chunks_v2.jsonl"
 
 # --- Chunking Service Parameters ---
@@ -45,6 +45,10 @@ KG_GENERATION_PARAMS = {
     "model": "openai/qwen3.5",
     "api_base": "http://192.168.129.20:7777/v1",
     "enable_thinking": "false",
+    "enforce_type_conformance": "true",
+    "enforce_domain_conformance": "false",
+    "enforce_range_conformance": "false",
+    "enforce_predicate_conformance": "true",
 }
 
 

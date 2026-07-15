@@ -27,7 +27,7 @@ from benchmarks.wk.wk_config import (
     chunked_path,
 )
 from benchmarks.wk.wk_utils import iter_wk_chunked_jsonl
-from kg_gen.models import TypedEntity, EntityType
+from kg_gen.models import TypedEntity
 
 
 # --- Helper Functions ---
@@ -157,7 +157,6 @@ async def call_kg_generation_service(
     item_id: str,
     terms: list[Term],
     ontology_content: bytes,
-    label_to_uri: dict[str, str],
 ) -> dict:
     """Calls the KG generation service asynchronously."""
     logging.info(
@@ -167,22 +166,12 @@ async def call_kg_generation_service(
     kg_input_terms = []
     for term in terms:
         categories = term.categories or []
-        entity_type = None
-        if categories:
-            cat_label = categories[0]
-            cat_uri = label_to_uri.get(cat_label)
-            entity_type = EntityType(label=cat_label, uri=cat_uri)
-
-        term_description = (
-            f"{term.definition}\nAlternative labels: {', '.join(term.alt_labels)}"
-            if term.alt_labels
-            else term.definition
-        )
+        alt_labels = term.alt_labels or []
+        term_description = f"{term.definition}\nAlternative labels: {', '.join(alt_labels)}\nPredicted types: {', '.join(categories)}"
         kg_input_terms.append(
             TypedEntity(
                 surface_form=term.pref_label,
                 description=term_description,
-                type=entity_type,
             )
         )
 
@@ -260,7 +249,6 @@ async def process_chunk_with_sem(
         chunk_text = chunk_data["chunk_text"]
         ontology_content = chunk_data["ontology_content"]
         onto_class_names = chunk_data.get("onto_class_names")
-        label_to_uri = chunk_data["label_to_uri"]
 
         logging.info(f"Worker processing chunk {chunk_id}...")
 
@@ -268,31 +256,31 @@ async def process_chunk_with_sem(
         terms_cache_dir.mkdir(exist_ok=True)
         cache_file = terms_cache_dir / f"terms_{chunk_id}.json"
 
-        terms = []
-        if cache_file.exists():
-            logging.info(f"Loading terms from cache for chunk {chunk_id}")
-            with open(cache_file, "r") as f:
-                terms_data = json.load(f)
-                try:
-                    terms = [Term(**item) for item in terms_data]
-                except ValidationError as e:
-                    logging.error(
-                        f"Error validating cached terms for chunk {chunk_id}: {e}"
-                    )
-                    # Invalidate cache and re-fetch
-                    cache_file.unlink()
-
-        if not terms:
-            logging.info(
-                f"No valid cache found, calling term extraction for chunk {chunk_id}"
-            )
-            terms = await call_term_extraction_service(
-                session, chunk_text, categories=onto_class_names
-            )
-            if terms:
-                logging.info(f"Saving {len(terms)} terms to cache for chunk {chunk_id}")
-                with open(cache_file, "w") as f:
-                    json.dump([term.model_dump() for term in terms], f, indent=2)
+        # terms = []
+        # if cache_file.exists():
+        #     logging.info(f"Loading terms from cache for chunk {chunk_id}")
+        #     with open(cache_file, "r") as f:
+        #         terms_data = json.load(f)
+        #         try:
+        #             terms = [Term(**item) for item in terms_data]
+        #         except ValidationError as e:
+        #             logging.error(
+        #                 f"Error validating cached terms for chunk {chunk_id}: {e}"
+        #             )
+        #             # Invalidate cache and re-fetch
+        #             cache_file.unlink()
+        #
+        # if not terms:
+        logging.info(
+            f"No valid cache found, calling term extraction for chunk {chunk_id}"
+        )
+        terms = await call_term_extraction_service(
+            session, chunk_text, categories=onto_class_names
+        )
+        if terms:
+            logging.info(f"Saving {len(terms)} terms to cache for chunk {chunk_id}")
+            with open(cache_file, "w") as f:
+                json.dump([term.model_dump() for term in terms], f, indent=2)
 
         if not terms:
             logging.warning(f"No terms extracted for chunk {chunk_id}.")
@@ -304,7 +292,6 @@ async def process_chunk_with_sem(
             item_id=chunk_id,
             terms=terms,
             ontology_content=ontology_content,
-            label_to_uri=label_to_uri,
         )
         return graph
 

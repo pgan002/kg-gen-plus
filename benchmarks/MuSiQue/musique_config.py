@@ -1,24 +1,56 @@
+from datetime import datetime
+
 import logging
+import os
 from pathlib import Path
 
-import dspy
-
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 musique_base_data_path = Path(__file__).parent / "data"
 musique_chunks_path = musique_base_data_path / "musique_chunks.jsonl"
 musique_onto_path = musique_base_data_path / "musique_ontology_refined.ttl"
-output_base_path = musique_base_data_path / "results" / "musique_kg"
+output_base_path = musique_base_data_path / "results" / f"musique_kg_{timestamp}"
 output_base_path.parent.mkdir(exist_ok=True)
-llm_model = "openai/gpt-5.4-mini"
-retrieval_model = None
-# Disable dspy caching to produce new results every call -- useful for getting mean and std dev
-dspy.configure_cache(
-    enable_disk_cache=False,
-    enable_memory_cache=False,
-)
-# Slice items
-i_start = 4001
-i_end = 4010
-num_workers = 10  # Number of threads for parallel processing
+
+# Slice items (1-based, inclusive) to process.
+i_start = 0
+i_end = 10000
+
+# --- Configuration ---
+# Number of documents kg-gen processes concurrently server-side (n_parallel).
+NUM_WORKERS = 10
+
+# --- Service Configuration ---
+# The kg-gen "single parallel endpoint": it takes the whole JSONL corpus plus an
+# optional ontology, performs entity extraction, typing, relation extraction,
+# aggregation and deduplication server-side, and returns one KnowledgeGraph.
+# Term extraction is no longer done externally -- kg-gen handles it.
+KG_GEN_URL = "http://dsx-gws-rai-docker-dmo-apl-n-01:8087/api/generate"
+
+# Optional API key for the LLM provider, forwarded as the X-API-Key header.
+# Not needed for the local (api_base) models below.
+X_API_KEY = os.getenv("KG_GEN_API_KEY")
+
+# --- KG Generation Parameters (sent as query parameters to KG_GEN_URL) ---
+# These mirror app.schemas.GenerationMetadata. Values are strings because they
+# are passed as URL query parameters.
+KG_GENERATION_PARAMS = {
+    "model": "openai/qwen3.5",
+    "api_base": "http://192.168.129.20:7777/v1",
+    "enable_thinking": "false",
+    "enforce_type_conformance": "true",
+    "enforce_domain_conformance": "true",
+    "enforce_range_conformance": "true",
+    "enforce_predicate_conformance": "true",
+    "deduplicate": "true",
+    "n_parallel": str(NUM_WORKERS),
+    # A small non-zero temperature reduces repetition loops that cause local
+    # models to run to the token limit at temperature 0.0.
+    "temperature": "0.3",
+    # Headroom above the 16000 default to avoid truncated extractions. Keep this
+    # within the model's context window (prompt + output). Lower if your model
+    # rejects it.
+    "max_tokens": "32000",
+}
 
 
 def configure_logging(log_file_path: str):

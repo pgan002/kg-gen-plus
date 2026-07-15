@@ -15,6 +15,25 @@ from kg_gen.models import (
 )
 
 
+def _format_entities(entities: List[TypedEntity]) -> str:
+    """Format entities for the prompt."""
+    lines = []
+    for e in entities:
+        type_label = e.type.label if e.type else "Unknown"
+        lines.append(f"- {e.surface_form} ({type_label})")
+    return "\n".join(lines)
+
+
+def _format_predicates(predicates: List[OntologyPredicate]) -> str:
+    """Format predicates for the prompt."""
+    lines = []
+    for p in predicates:
+        domains = ", ".join([d.label for d in p.domain]) or "Any"
+        ranges = ", ".join([r.label for r in p.range]) or "Any"
+        lines.append(f"- {p.label}: [{domains}] -> [{ranges}]")
+    return "\n".join(lines)
+
+
 def parse_relations_response(
     raw_json: str,
     entities: List[str],
@@ -382,36 +401,65 @@ async def get_relations_typed(
     if enforce_predicate_conformance and not filtered_predicates:
         return []
 
-    def reward_fn(args, pred: dspy.Prediction) -> float:
-        conforms, _ = validate_ontology_conformance(
-            typed_entities=typed_entities,
-            relations=pred.relations,
-            predicate_domain_range=filtered_predicates,
-            enforce_domain_conformance=enforce_domain_conformance,
-            enforce_range_conformance=enforce_range_conformance,
-            enforce_predicate_conformance=enforce_predicate_conformance,
-            enforce_type_conformance=enforce_type_conformance,
-            allowed_types=allowed_types,
-        )
-        return conforms
-
-    extract_module = dspy.Predict(ExtractTextRelations)
-    refine = dspy.Refine(
-        module=extract_module, N=n_retries, reward_fn=reward_fn, threshold=1.0
+    entities_str = _format_entities(typed_entities)
+    predicates_str = (
+        _format_predicates(filtered_predicates)
+        if filtered_predicates
+        else "Any predicates allowed"
     )
 
-    result = await dspy.asyncify(refine)(
-        source_text=input_text,
-        typed_entities=typed_entities,
-        predicate_domain_range=filtered_predicates,
-        context=context,
-        config={"temperature": temperature},
-    )
-    if result is None:
-        raise Exception(
-            f"Refine failed to produce a result after {n_retries} attempts."
-        )
+    extract_module = dspy.ChainOfThought(ExtractTextRelations)
 
-    for relation in result.relations:
-        relation.provenance_ids = provenance_ids or []
-    return result.relations
+    current_context = context
+    for attempt in range(n_retries):
+        try:
+            result = await extract_module.acall(
+                source_text=input_text,
+                entities_with_types=entities_str,
+                allowed_predicates=predicates_str,
+                context=current_context,
+                config={"temperature": temperature},
+            )
+
+            conforms, errors = validate_ontology_conformance(
+                typed_entities=typed_entities,
+                relations=result.relations,
+                predicate_domain_range=filtered_predicates,
+                enforce_domain_conformance=enforce_domain_conformance,
+                enforce_range_conformance=enforce_range_conformance,
+                enforce_predicate_conformance=enforce_predicate_conformance,
+                enforce_type_conformance=enforce_type_conformance,
+                allowed_types=allowed_types,
+            )
+
+            if conforms == 1.0:
+                for relation in result.relations:
+                    relation.provenance_ids = provenance_ids or []
+                return result.relations
+
+            # If not conforming, update context for next attempt
+            last_relations = result.relations
+            feedback = f"Ontology conformance errors found: {errors}. Please correct these relations in your next response."
+            current_context = (
+                f"{context}\n\nFeedback from previous attempt: {feedback}"
+                if context
+                else feedback
+            )
+
+        except Exception as e:
+            if attempt == n_retries - 1:
+                # If we have a previous result, return it instead of raising
+                if "last_relations" in locals():
+                    for relation in last_relations:
+                        relation.provenance_ids = provenance_ids or []
+                    return last_relations
+                raise e
+            continue
+
+    # Fallback: return the last result even if not perfectly conforming.
+    if "last_relations" in locals():
+        for relation in last_relations:
+            relation.provenance_ids = provenance_ids or []
+        return last_relations
+
+    return []

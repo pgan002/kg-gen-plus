@@ -984,18 +984,6 @@ wheels = [
 ]
 
 [[package]]
-name = "dspy-ai"
-version = "3.2.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "dspy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/3b/9e/e09701f7ac9a9f7dc3d4407eacb022268eb2000b8fcce2e4b76ae08ffafd/dspy_ai-3.2.1.tar.gz", hash = "sha256:d5cb7e0dc1597612a8b49e06f42bc446235e84bd68249fe6adc3287c8184e41b", size = 1220, upload-time = "2026-05-05T19:35:16.765Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e2/37/e4dc75151932629a1a9c20f24f7ea83d080f47d6c19c402ebf2b3536dc8e/dspy_ai-3.2.1-py3-none-any.whl", hash = "sha256:613d0ce08d7965fa6ea078df0923c17cfb38489cb3a7300a0a425a54c70ea396", size = 1170, upload-time = "2026-05-05T19:35:15.429Z" },
-]
-
-[[package]]
 name = "email-validator"
 version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2099,19 +2087,15 @@ wheels = [
 
 [[package]]
 name = "kg-gen"
-version = "0.5.3"
+version = "0.8.0rc1"
 source = { virtual = "." }
 dependencies = [
-    { name = "datasets" },
     { name = "dspy" },
-    { name = "dspy-ai" },
     { name = "fastapi" },
     { name = "inflect" },
     { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "openai" },
-    { name = "pathlib2" },
-    { name = "pre-commit" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "python-multipart" },
@@ -2120,14 +2104,12 @@ dependencies = [
     { name = "rapidfuzz" },
     { name = "rdflib" },
     { name = "requests-oauthlib" },
-    { name = "ruff" },
     { name = "semhash" },
     { name = "sentence-transformers" },
     { name = "toml" },
     { name = "torch", version = "2.12.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
     { name = "torch", version = "2.12.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
     { name = "tqdm" },
-    { name = "ty" },
     { name = "typer" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -2138,10 +2120,13 @@ dev = [
     { name = "huggingface-hub" },
     { name = "matplotlib" },
     { name = "mlflow" },
+    { name = "pre-commit" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "ruff" },
     { name = "seaborn" },
     { name = "streamlit" },
+    { name = "ty" },
     { name = "wikipedia-api" },
 ]
 mcp = [
@@ -2153,15 +2138,11 @@ mcp = [
 
 [package.metadata]
 requires-dist = [
-    { name = "datasets", specifier = ">=4.4.1" },
     { name = "dspy", specifier = ">=3.2.1" },
-    { name = "dspy-ai", specifier = ">=3.0.4" },
     { name = "fastapi", specifier = ">=0.121.3" },
     { name = "inflect", specifier = ">=7.5.0" },
     { name = "networkx", specifier = ">=3.0" },
     { name = "openai", specifier = ">=1.108.1" },
-    { name = "pathlib2", specifier = ">=2.3.7" },
-    { name = "pre-commit", specifier = ">=4.3.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pydantic-settings", specifier = ">=2.11.0" },
     { name = "python-multipart", specifier = ">=0.0.20" },
@@ -2170,27 +2151,28 @@ requires-dist = [
     { name = "rapidfuzz", specifier = ">=3.14.5" },
     { name = "rdflib", specifier = ">=7.6.0" },
     { name = "requests-oauthlib", specifier = ">=2.0.0" },
-    { name = "ruff", specifier = ">=0.14.2" },
     { name = "semhash", specifier = ">=0.3.2" },
     { name = "sentence-transformers", specifier = ">=5.1.0" },
     { name = "toml", specifier = ">=0.10.2" },
     { name = "torch", specifier = ">=2.12.0", index = "https://download.pytorch.org/whl/cpu" },
     { name = "tqdm", specifier = ">=4.67.1" },
-    { name = "ty", specifier = ">=0.0.1a21" },
     { name = "typer", specifier = ">=0.17.4" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.37.0" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "datasets", specifier = ">=4.1.1" },
+    { name = "datasets", specifier = ">=4.4.1" },
     { name = "huggingface-hub", specifier = ">=0.35.0" },
     { name = "matplotlib", specifier = ">=3.10.7" },
     { name = "mlflow", specifier = ">=3.6.0" },
+    { name = "pre-commit", specifier = ">=4.3.0" },
     { name = "pytest", specifier = ">=8.4.2" },
     { name = "pytest-asyncio", specifier = ">=0.21.0" },
+    { name = "ruff", specifier = ">=0.14.2" },
     { name = "seaborn", specifier = ">=0.13.2" },
     { name = "streamlit", specifier = ">=1.51.0" },
+    { name = "ty", specifier = ">=0.0.1a21" },
     { name = "wikipedia-api", specifier = ">=0.8.1" },
 ]
 mcp = [
@@ -3508,18 +3490,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/72/55/b748445cb4ea6b125626f15379be7c96d1035d4fa3e8fee362fa92298abf/pathable-0.5.0.tar.gz", hash = "sha256:d81938348a1cacb525e7c75166270644782c0fb9c8cecc16be033e71427e0ef1", size = 16655, upload-time = "2026-02-20T08:47:00.748Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/52/96/5a770e5c461462575474468e5af931cff9de036e7c2b4fea23c1c58d2cbe/pathable-0.5.0-py3-none-any.whl", hash = "sha256:646e3d09491a6351a0c82632a09c02cdf70a252e73196b36d8a15ba0a114f0a6", size = 16867, upload-time = "2026-02-20T08:46:59.536Z" },
-]
-
-[[package]]
-name = "pathlib2"
-version = "2.3.7.post1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "six" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/31/51/99caf463dc7c18eb18dad1fffe465a3cf3ee50ac3d1dccbd1781336fe9c7/pathlib2-2.3.7.post1.tar.gz", hash = "sha256:9fe0edad898b83c0c3e199c842b27ed216645d2e177757b2dd67384d4113c641", size = 211190, upload-time = "2022-02-10T18:01:09.996Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/09/eb/4af4bcd5b8731366b676192675221c5324394a580dfae469d498313b5c4a/pathlib2-2.3.7.post1-py2.py3-none-any.whl", hash = "sha256:5266a0fd000452f1b3467d782f079a4343c63aaa119221fbdc4e39577489ca5b", size = 18027, upload-time = "2022-02-10T18:01:07.751Z" },
 ]
 
 [[package]]

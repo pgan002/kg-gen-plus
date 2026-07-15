@@ -1,9 +1,10 @@
 from typing import Union, Optional, Any
+import asyncio
 import time
 from rdflib import Graph as RDFGraph
 
 from app.kggen_logger import kggen_logger
-from kg_gen.steps._1_get_entities import get_entities, type_terms
+from kg_gen.steps._1_get_entities import type_terms, extract_entities
 from kg_gen.steps._2_get_relations import get_relations_typed
 from kg_gen.utils.deduplicate import run_semhash_deduplication
 from kg_gen.utils.visualize_kg import visualize as visualize_kg
@@ -29,6 +30,31 @@ import numpy as np
 import logging
 
 logger = logging.getLogger(__name__)
+
+# SentenceTransformer models are large (hundreds of MB) and stateless for
+# inference, so a single instance per model name is shared across all KGGen
+# instances instead of loading a fresh copy for each one.
+_SENTENCE_TRANSFORMER_CACHE: dict[str, SentenceTransformer] = {}
+
+
+def _get_shared_sentence_transformer(model_name: str) -> SentenceTransformer:
+    """Return a shared SentenceTransformer, loading it once per model name."""
+    if model_name not in _SENTENCE_TRANSFORMER_CACHE:
+        _SENTENCE_TRANSFORMER_CACHE[model_name] = SentenceTransformer(model_name)
+    return _SENTENCE_TRANSFORMER_CACHE[model_name]
+
+
+# Monkey-patch dspy.predict.refine.OfferFeedback to avoid type mismatch warnings.
+# Refine.forward stringifies these fields, so we update the signature to expect strings.
+try:
+    from dspy.predict.refine import OfferFeedback
+
+    for field_name in ["target_threshold", "reward_value", "module_names"]:
+        if field_name in OfferFeedback.model_fields:
+            OfferFeedback.model_fields[field_name].annotation = str
+    OfferFeedback.model_rebuild(force=True)
+except (ImportError, AttributeError):
+    pass
 
 
 class KGGen:
@@ -113,7 +139,9 @@ class KGGen:
             temperature: Temperature for model sampling
         """
         if self.retrieval_model_name is not None:
-            self.retrieval_model = SentenceTransformer(self.retrieval_model_name)
+            self.retrieval_model = _get_shared_sentence_transformer(
+                self.retrieval_model_name
+            )
 
         # Initialize dspy LM with current settings
         settings_dict: dict[str, Any] = {
@@ -141,32 +169,29 @@ class KGGen:
 
         self._lm = dspy.LM(**settings_dict)
 
-    # @staticmethod
-    # def from_file(file_path: str) -> Graph:
-    #     return Graph.from_file(file_path)
-
     @staticmethod
     def from_dict(graph_dict: dict) -> Graph:
         return Graph(**graph_dict)
 
     async def generate(
         self,
-        input_data: InputData,
+        input_data: Union[InputData, list[InputData]],
         ontology: Optional[RDFGraph] = None,
         entity_context: str = "",
         types: Optional[list[EntityType]] = None,
         relation_context: str = "",
         predicate_domain_range: Optional[list[OntologyPredicate]] = None,
-        deduplicate: bool = False,
+        deduplicate: bool = True,
         temperature: float | int | None = None,
         enforce_type_conformance: Optional[bool] = None,
         enforce_domain_conformance: Optional[bool] = None,
         enforce_range_conformance: Optional[bool] = None,
         enforce_predicate_conformance: Optional[bool] = None,
+        n_parallel: int = 10,
+        entity_similarity_threshold: float = 0.8,
+        edge_similarity_threshold: float = 0.9,
     ) -> tuple[Graph, KGGenStats]:
-        processed_input: str = input_data.text
-        all_chunk_stats = []
-        terms = input_data.terms
+        # Normalize parameters
         enforce_type_conformance = (
             enforce_type_conformance
             if enforce_type_conformance is not None
@@ -187,27 +212,53 @@ class KGGen:
             if enforce_predicate_conformance is not None
             else self.enforce_predicate_conformance
         )
+        # Note: use `is not None` rather than `or` so an explicit temperature=0.0
+        # (greedy decoding) is respected instead of falling back to the default.
+        temperature = temperature if temperature is not None else self.temperature
 
-        async def _process(content, lm):
+        kggen_logger.info(
+            "Generating Knowledge Graph"
+            f"{enforce_domain_conformance = }, {enforce_range_conformance = }, {enforce_predicate_conformance = }, {enforce_type_conformance = }, "
+            f"{deduplicate = }, {temperature = }"
+        )
+
+        async def _process_single(item: InputData) -> tuple[Graph, KGGenStats]:
+            content = item.text
+            item_terms = item.terms
+            lm = self.lm.copy()
+
+            # Monkey-patch copy to preserve history reference
+            # This is needed because dspy.Refine and other modules might copy the LM,
+            # which isolates token usage stats.
+            original_copy = lm.copy
+
+            def shared_history_copy(**kwargs):
+                new_instance = original_copy(**kwargs)
+                new_instance.history = lm.history
+                return new_instance
+
+            lm.copy = shared_history_copy
+
             with dspy.context(lm=lm):
                 step_stats = {}
-                self.reset_token_usage()
+                self.reset_token_usage(lm)
                 start_time = time.time()
-                if not terms:
-                    entities = await get_entities(
+                if not item_terms:
+                    typed_entities = await extract_entities(
                         content,
                         context=entity_context,
                         types=types,
-                        temperature=temperature or self.temperature,
+                        temperature=temperature,
                         enforce_type_conformance=enforce_type_conformance,
+                        provenance_ids=[item.id],
                     )
-                    step_stats["get_entities"] = StepStats(
-                        lm_usage=LMUsage(**self.extract_token_usage_from_history()),
+                    step_stats["extract_entities"] = StepStats(
+                        lm_usage=LMUsage(**self.extract_token_usage_from_history(lm)),
                         execution_time=time.time() - start_time,
                     )
                 else:
                     entities = []
-                    for t in terms:
+                    for t in item_terms:
                         if isinstance(t, str):
                             entities.append(Entity(surface_form=t))
                         elif isinstance(t, TypedEntity):
@@ -223,37 +274,37 @@ class KGGen:
                         lm_usage=LMUsage(), execution_time=0.0
                     )
 
-                self.reset_token_usage()
-                start_time = time.time()
+                    self.reset_token_usage(lm)
+                    start_time = time.time()
 
-                already_typed = []
-                to_type = []
-                for e in entities:
-                    if isinstance(e, TypedEntity) and e.type is not None:
-                        already_typed.append(e)
+                    already_typed = []
+                    to_type = []
+                    for e in entities:
+                        if isinstance(e, TypedEntity) and e.type is not None:
+                            already_typed.append(e)
+                        else:
+                            to_type.append(e)
+
+                    if not to_type:
+                        typed_entities = entities
                     else:
-                        to_type.append(e)
+                        newly_typed = await type_terms(
+                            input_data=content,
+                            terms=[e.surface_form for e in to_type],
+                            types=types,
+                            temperature=temperature,
+                            provenance_ids=[item.id],
+                            context=entity_context,
+                            enforce_type_conformance=enforce_type_conformance,
+                        )
+                        typed_entities = already_typed + newly_typed
 
-                if not to_type:
-                    typed_entities = entities
-                else:
-                    newly_typed = await type_terms(
-                        input_data=content,
-                        terms=[e.surface_form for e in to_type],
-                        types=types,
-                        temperature=temperature or self.temperature,
-                        provenance_ids=[input_data.id],
-                        context=entity_context,
-                        enforce_type_conformance=enforce_type_conformance,
+                    step_stats["type_terms"] = StepStats(
+                        lm_usage=LMUsage(**self.extract_token_usage_from_history(lm)),
+                        execution_time=time.time() - start_time,
                     )
-                    typed_entities = already_typed + newly_typed
 
-                step_stats["type_terms"] = StepStats(
-                    lm_usage=LMUsage(**self.extract_token_usage_from_history()),
-                    execution_time=time.time() - start_time,
-                )
-
-                self.reset_token_usage()
+                self.reset_token_usage(lm)
                 start_time = time.time()
                 relations = await get_relations_typed(
                     content,
@@ -261,54 +312,91 @@ class KGGen:
                     ontology=ontology,
                     predicate_domain_range=predicate_domain_range,
                     context=relation_context,
-                    temperature=temperature or self.temperature,
-                    provenance_ids=[input_data.id],
-                    enforce_domain_conformance=enforce_domain_conformance,
-                    enforce_range_conformance=enforce_range_conformance,
-                    enforce_predicate_conformance=enforce_predicate_conformance,
+                    temperature=temperature,
+                    provenance_ids=[item.id],
+                    enforce_domain_conformance=enforce_domain_conformance or False,
+                    enforce_range_conformance=enforce_range_conformance or False,
+                    enforce_predicate_conformance=enforce_predicate_conformance
+                    or False,
                     enforce_type_conformance=enforce_type_conformance,
                     allowed_types=types,
                 )
                 step_stats["get_relations_typed"] = StepStats(
-                    lm_usage=LMUsage(**self.extract_token_usage_from_history()),
+                    lm_usage=LMUsage(**self.extract_token_usage_from_history(lm)),
                     execution_time=time.time() - start_time,
                 )
 
-                return typed_entities, relations, step_stats
+                graph = Graph(
+                    typed_entities=set(typed_entities),
+                    relations_wo_class_assertions=relations,
+                )
+                return graph, KGGenStats(**step_stats)
 
-        typed_entities, relations, chunk_stats = await _process(
-            processed_input, self.lm
-        )
-        all_chunk_stats.append(chunk_stats)
+        if isinstance(input_data, list):
+            """Generates a Knowledge Graph from multiple input documents in parallel."""
+            semaphore = asyncio.Semaphore(n_parallel)
 
-        aggregated_stats = {
-            "get_entities": StepStats(lm_usage=LMUsage(), execution_time=0.0),
-            "type_terms": StepStats(lm_usage=LMUsage(), execution_time=0.0),
-            "get_relations_typed": StepStats(lm_usage=LMUsage(), execution_time=0.0),
-        }
+            async def process_with_semaphore(item: InputData):
+                async with semaphore:
+                    return await _process_single(item)
 
-        for chunk_stats in all_chunk_stats:
-            for step_name, step_stat in chunk_stats.items():
-                aggregated_stats[step_name] += step_stat
+            tasks = [process_with_semaphore(i) for i in input_data]
+            if not tasks:
+                return Graph(
+                    typed_entities=set(), relations_wo_class_assertions=[]
+                ), KGGenStats()
 
-        kg_gen_stats = KGGenStats(**aggregated_stats)
+            results = await asyncio.gather(*tasks)
 
-        graph = Graph(
-            typed_entities=set(typed_entities),
-            relations_wo_class_assertions=relations,
-        )
+            graphs = []
+            total_gen_stats = KGGenStats()
+            for graph, gen_stats in results:
+                graphs.append(graph)
+                total_gen_stats += gen_stats
+
+            kggen_logger.info(
+                f"Graphs generation complete: {len(graphs) = }, "
+                f"total entities: {sum(len(g.entities) for g in graphs)}, "
+                f"total relations: {sum(len(g.relations) for g in graphs)}."
+            )
+
+            kggen_logger.info(f"Aggregating {len(graphs)} graphs.")
+            final_graph = self.aggregate(graphs)
+            final_stats = total_gen_stats
+        else:
+            final_graph, final_stats = await _process_single(input_data)
 
         if deduplicate:
-            graph, dedup_stats = self.deduplicate(graph)
-            kg_gen_stats.deduplicate = dedup_stats
+            kggen_logger.info("Performing deduplication.")
+            final_graph, dedup_stats = self.deduplicate(
+                final_graph,
+                entity_similarity_threshold=entity_similarity_threshold,
+                edge_similarity_threshold=edge_similarity_threshold,
+            )
+            final_stats.deduplicate = dedup_stats
 
-        return graph, kg_gen_stats
+        # Calculate class and predicate usage
+        class_usage = {}
+        for te in final_graph.typed_entities:
+            if te.type:
+                key = te.type.uri or te.type.label
+                class_usage[key] = class_usage.get(key, 0) + 1
+
+        predicate_usage = {}
+        for rel in final_graph.relations_wo_class_assertions:
+            key = rel.predicate.uri or rel.predicate.surface_form
+            predicate_usage[key] = predicate_usage.get(key, 0) + 1
+
+        final_stats.class_usage = class_usage
+        final_stats.predicate_usage = predicate_usage
+
+        return final_graph, final_stats
 
     def deduplicate(
         self,
         graph: Graph,
-        entity_similarity_threshold: float = 0.9,
-        edge_similarity_threshold: float = 0.75,
+        entity_similarity_threshold: float = 0.8,
+        edge_similarity_threshold: float = 0.9,
     ) -> tuple[Graph, StepStats]:
         start_time = time.time()
         if not graph.entities and not graph.edges:
@@ -325,27 +413,58 @@ class KGGen:
         return deduplicated_graph, stats
 
     def aggregate(self, graphs: list[Graph]) -> Graph:
-        all_typed_entities: dict[str, TypedEntity] = {}
-        all_relations: dict[str, Relation] = {}
+        # Key entities/relations on (surface form + type), excluding URIs, since
+        # LLM-generated URIs are unreliable and would otherwise over-count
+        # otherwise-identical entities. Type is kept so homonyms with distinct
+        # types (e.g. "Mercury" the planet vs. the element) stay separate.
+        all_typed_entities: dict[tuple, TypedEntity] = {}
+        all_relations: dict[tuple, Relation] = {}
         all_entity_metadata: dict[TypedEntity, set[str]] = {}
+
+        def _prefer_non_null_uri(target: Entity, source: Entity) -> None:
+            """Fill target.uri from source.uri when the survivor lacks one."""
+            if target.uri is None and source.uri is not None:
+                target.uri = source.uri
 
         for graph in graphs:
             for entity in graph.typed_entities:
-                if entity.surface_form in all_typed_entities:
-                    existing_entity = all_typed_entities[entity.surface_form]
-                    existing_entity.provenance_ids.extend(entity.provenance_ids)
+                entity_key = (entity.surface_form, entity.type)
+                if entity_key in all_typed_entities:
+                    existing_entity = all_typed_entities[entity_key]
+                    existing_entity.provenance_ids = list(
+                        set(existing_entity.provenance_ids + entity.provenance_ids)
+                    )
+                    # Preserve a non-null URI on the entity and its type.
+                    _prefer_non_null_uri(existing_entity, entity)
+                    if (
+                        existing_entity.type is not None
+                        and existing_entity.type.uri is None
+                        and entity.type is not None
+                        and entity.type.uri is not None
+                    ):
+                        existing_entity.type = existing_entity.type.model_copy(
+                            update={"uri": entity.type.uri}
+                        )
                 else:
-                    all_typed_entities[entity.surface_form] = entity
+                    all_typed_entities[entity_key] = entity
 
             for relation in graph.relations_wo_class_assertions:
                 relation_key = (
-                    f"{relation.subject.surface_form}-"
-                    f"{relation.predicate.surface_form}-"
-                    f"{relation.object.surface_form}"
+                    relation.subject.surface_form,
+                    relation.predicate.surface_form,
+                    relation.object.surface_form,
                 )
                 if relation_key in all_relations:
                     existing_relation = all_relations[relation_key]
-                    existing_relation.provenance_ids.extend(relation.provenance_ids)
+                    existing_relation.provenance_ids = list(
+                        set(existing_relation.provenance_ids + relation.provenance_ids)
+                    )
+                    # Preserve non-null URIs on the merged relation's components.
+                    _prefer_non_null_uri(existing_relation.subject, relation.subject)
+                    _prefer_non_null_uri(
+                        existing_relation.predicate, relation.predicate
+                    )
+                    _prefer_non_null_uri(existing_relation.object, relation.object)
                 else:
                     all_relations[relation_key] = relation
 
@@ -467,22 +586,68 @@ class KGGen:
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         graph.to_file(output_path)
 
-    def reset_token_usage(self):
-        self.lm.history = []
+    def reset_token_usage(self, lm: Optional[dspy.LM] = None):
+        target_lm = lm if lm is not None else self.lm
+        target_lm.history = []
 
-    def extract_token_usage_from_history(self) -> dict[str, int]:
+    def extract_token_usage_from_history(
+        self, lm: Optional[dspy.LM] = None
+    ) -> dict[str, int]:
         total_prompt_tokens = 0
         total_completion_tokens = 0
         total_tokens = 0
 
-        for entry in self.lm.history:
+        target_lm = lm if lm is not None else self.lm
+        for entry in target_lm.history:
+            usage = None
             if isinstance(entry, dict):
-                usage = entry.get("usage") or entry.get("response", {}).get("usage")
+                # Try multiple possible locations for usage
+                usage = (
+                    entry.get("usage")
+                    or entry.get("response", {}).get("usage")
+                    or entry.get("model_info", {}).get("usage")
+                )
 
-                if usage:
-                    total_prompt_tokens += usage.get("prompt_tokens", 0)
-                    total_completion_tokens += usage.get("completion_tokens", 0)
-                    total_tokens += usage.get("total_tokens", 0)
+                # If still not found, check if it's a cached entry which might have different structure
+                if not usage and "cache_hit" in entry:
+                    # Often cached entries have 0 usage anyway, but just in case
+                    pass
+
+            if usage:
+                # Map various token field names
+                p_tokens = 0
+                c_tokens = 0
+                t_tokens = 0
+
+                if isinstance(usage, dict):
+                    p_tokens = (
+                        usage.get("prompt_tokens") or usage.get("input_tokens") or 0
+                    )
+                    c_tokens = (
+                        usage.get("completion_tokens")
+                        or usage.get("output_tokens")
+                        or 0
+                    )
+                    t_tokens = usage.get("total_tokens") or (p_tokens + c_tokens)
+                else:
+                    # Handle cases where usage might be an object
+                    p_tokens = (
+                        getattr(usage, "prompt_tokens", None)
+                        or getattr(usage, "input_tokens", 0)
+                        or 0
+                    )
+                    c_tokens = (
+                        getattr(usage, "completion_tokens", None)
+                        or getattr(usage, "output_tokens", 0)
+                        or 0
+                    )
+                    t_tokens = getattr(usage, "total_tokens", None) or (
+                        p_tokens + c_tokens
+                    )
+
+                total_prompt_tokens += p_tokens
+                total_completion_tokens += c_tokens
+                total_tokens += t_tokens
 
         return {
             "prompt_tokens": total_prompt_tokens,
