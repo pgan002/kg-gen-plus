@@ -12,8 +12,12 @@ ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 # Copy dependency definitions
 COPY pyproject.toml uv.lock /
 
-# Install dependencies
-RUN uv sync --no-cache-dir
+# Install dependencies (including the optional MCP server extra, so the
+# in-process MCP server mounted at /mcp is available at runtime).
+# --no-install-project: only the deps are needed here; the project sources are
+# copied into the runtime image and put on PYTHONPATH (see below), and they are
+# not present at this build stage, so building the project would fail.
+RUN uv sync --no-cache-dir --extra mcp --no-install-project
 
 # build the runtime image from the builder.
 FROM python:3.11-slim AS runtime
@@ -38,6 +42,7 @@ COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 COPY ./src /workspace/src
 ENV PYTHONPATH="/workspace/src:$PYTHONPATH"
 COPY ./app /workspace/app
+COPY ./mcp /workspace/mcp
 COPY ./logs /workspace/logs
 COPY pyproject.toml /workspace
 RUN chown -R "${user}":"${group}" /workspace

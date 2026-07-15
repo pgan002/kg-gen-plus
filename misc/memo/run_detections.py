@@ -2,18 +2,22 @@ import json
 from pathlib import Path
 
 from kg_gen import KGGen
-import kg_gen
 from memo.auth_handler import get_keycloak_token
 
-def read_data(input_path: str | Path = Path(__file__).parent / "data" / "detections.json"):
+
+def read_data(
+    input_path: str | Path = Path(__file__).parent / "data" / "detections.json",
+):
     out_fields = {"image_file", "detections", "ImageURL", "URL"}
     with open(input_path, "r") as f:
         data = json.load(f)
-    filter_data = [{k: v for k, v in data_point.items()
-                    if k not in out_fields}
-                   for data_point in data]
+    filter_data = [
+        {k: v for k, v in data_point.items() if k not in out_fields}
+        for data_point in data
+    ]
     # print(output_text)
     return filter_data
+
 
 if __name__ == "__main__":
     # Initialize KGGen with the token
@@ -24,7 +28,7 @@ if __name__ == "__main__":
         # Append /v1 to access Ollama's OpenAI-compatible API
         api_base="https://ollama.dev.memorise.sdu.dk/v1",
         # Pass the token directly to KGGen
-        api_key=get_keycloak_token()
+        api_key=get_keycloak_token(),
     )
     #
     sample_data = read_data()

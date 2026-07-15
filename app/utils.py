@@ -66,21 +66,43 @@ xsd_to_python_type = {
 python_type_to_xsd = {v: k for k, v in xsd_to_python_type.items()}
 
 
+ONTOLOGY_PREDICATES_DOC = """The ontology is parsed using the following predicates:
+- rdf:type (OWL.Class, OWL.ObjectProperty, OWL.DatatypeProperty)
+- rdfs:label
+- rdfs:comment
+- rdfs:domain
+- rdfs:range"""
+
+
 def parse_ontology(onto_file: TextIO | BinaryIO) -> tuple[Ontology, rdflib.Graph]:
     """
     Load the ontology from a file. The file is expected to have a proper file extension or Media Type, for more info
     see rdflib documentation.
 
-    The ontology is parsed using the following predicates:
-    - rdf:type (OWL.Class, OWL.ObjectProperty, OWL.DatatypeProperty)
-    - rdfs:label
-    - rdfs:comment
-    - rdfs:domain
-    - rdfs:range
-    """
+    {predicates}
+    """.format(predicates=ONTOLOGY_PREDICATES_DOC)
     g = rdflib.Graph()
     g.parse(onto_file)
+    return _extract_ontology(g), g
 
+
+def parse_ontology_from_string(
+    ttl: str, fmt: str = "turtle"
+) -> tuple[Ontology, rdflib.Graph]:
+    """
+    Load an ontology from an in-memory string (Turtle by default).
+
+    Same parsing rules as :func:`parse_ontology`; use this when the ontology is
+    passed as text (e.g. through an MCP tool) rather than a file.
+    """
+    g = rdflib.Graph()
+    g.parse(data=ttl, format=fmt)
+    return _extract_ontology(g), g
+
+
+def _extract_ontology(g: rdflib.Graph) -> Ontology:
+    """Extract the structured :class:`Ontology` (classes + predicates) from a
+    parsed RDF graph. See :data:`ONTOLOGY_PREDICATES_DOC` for the predicates used."""
     ontology = Ontology()
     class_map = {}
 
@@ -144,4 +166,64 @@ def parse_ontology(onto_file: TextIO | BinaryIO) -> tuple[Ontology, rdflib.Graph
 
             ontology.predicates.add(predicate)
 
-    return ontology, g
+    return ontology
+
+
+def serialize_ontology_to_ttl(
+    classes: list[EntityType], predicates: list[OntologyPredicate]
+) -> str:
+    """Serialize a set of classes and predicates into a Turtle (.ttl) ontology.
+
+    Produces a standards-compliant RDF ontology: classes become ``owl:Class``,
+    predicates become ``owl:ObjectProperty`` or ``owl:DatatypeProperty`` (the
+    latter when declared as such or when every range URI is an XSD datatype),
+    with ``rdfs:label``, ``rdfs:comment``, ``rdfs:domain`` and ``rdfs:range``.
+    """
+    from rdflib import Graph as RDFGraph, RDFS, OWL, XSD, URIRef, RDF, Literal
+
+    g = RDFGraph()
+    g.bind("rdfs", RDFS)
+    g.bind("owl", OWL)
+    g.bind("xsd", XSD)
+
+    for entity_type in classes:
+        if entity_type.uri:
+            class_uri = URIRef(entity_type.uri)
+            g.add((class_uri, RDF.type, OWL.Class))
+            if entity_type.label:
+                g.add((class_uri, RDFS.label, Literal(entity_type.label)))
+            if entity_type.description:
+                g.add((class_uri, RDFS.comment, Literal(entity_type.description)))
+
+    def is_datatype(entity_type: EntityType) -> bool:
+        if entity_type.uri:
+            return entity_type.uri.startswith(str(XSD))
+        return False
+
+    for predicate in predicates:
+        if predicate.uri:
+            prop_uri = URIRef(predicate.uri)
+
+            is_data_prop = False
+            if predicate.property_type == "owl:DatatypeProperty":
+                is_data_prop = True
+            elif predicate.range:
+                if all(is_datatype(r) for r in predicate.range):
+                    is_data_prop = True
+
+            prop_type = OWL.DatatypeProperty if is_data_prop else OWL.ObjectProperty
+            g.add((prop_uri, RDF.type, prop_type))
+
+            if predicate.label:
+                g.add((prop_uri, RDFS.label, Literal(predicate.label)))
+            if predicate.description:
+                g.add((prop_uri, RDFS.comment, Literal(predicate.description)))
+
+            for domain in predicate.domain:
+                if domain.uri:
+                    g.add((prop_uri, RDFS.domain, URIRef(domain.uri)))
+            for range_ in predicate.range:
+                if range_.uri:
+                    g.add((prop_uri, RDFS.range, URIRef(range_.uri)))
+
+    return g.serialize(format="turtle")

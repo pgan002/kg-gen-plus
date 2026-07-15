@@ -18,7 +18,7 @@ from fastapi import (
     Request,
 )
 from pydantic import ValidationError
-from rdflib import Graph as RDFGraph, RDFS, OWL, XSD, URIRef, RDF, Literal
+from rdflib import Graph as RDFGraph
 
 from app.apis.deps import get_kg_gen
 from app.jobs import JobStatus, job_store
@@ -28,10 +28,9 @@ from app.schemas import (
     GenerationMetadata,
     DeduplicationMetadata,
 )
-from app.utils import parse_ontology
+from app.utils import parse_ontology, serialize_ontology_to_ttl
 from kg_gen.kg_gen import KGGen
 from kg_gen.models import (
-    EntityType,
     Ontology,
     Graph,
     InputData,
@@ -52,52 +51,7 @@ async def convert_ontology(input_data: OntologyConversionInput) -> Response:
     including their domains and ranges, and generates a standards-compliant RDF
     ontology that can be used for Knowledge Graph generation.
     """
-    g = RDFGraph()
-    g.bind("rdfs", RDFS)
-    g.bind("owl", OWL)
-    g.bind("xsd", XSD)
-
-    for entity_type in input_data.classes:
-        if entity_type.uri:
-            class_uri = URIRef(entity_type.uri)
-            g.add((class_uri, RDF.type, OWL.Class))
-            if entity_type.label:
-                g.add((class_uri, RDFS.label, Literal(entity_type.label)))
-            if entity_type.description:
-                g.add((class_uri, RDFS.comment, Literal(entity_type.description)))
-
-    def is_datatype(entity_type: EntityType) -> bool:
-        if entity_type.uri:
-            return entity_type.uri.startswith(str(XSD))
-        return False
-
-    for predicate in input_data.predicates:
-        if predicate.uri:
-            prop_uri = URIRef(predicate.uri)
-
-            is_data_prop = False
-            if predicate.property_type == "owl:DatatypeProperty":
-                is_data_prop = True
-            elif predicate.range:
-                if all(is_datatype(r) for r in predicate.range):
-                    is_data_prop = True
-
-            prop_type = OWL.DatatypeProperty if is_data_prop else OWL.ObjectProperty
-            g.add((prop_uri, RDF.type, prop_type))
-
-            if predicate.label:
-                g.add((prop_uri, RDFS.label, Literal(predicate.label)))
-            if predicate.description:
-                g.add((prop_uri, RDFS.comment, Literal(predicate.description)))
-
-            for domain in predicate.domain:
-                if domain.uri:
-                    g.add((prop_uri, RDFS.domain, URIRef(domain.uri)))
-            for range_ in predicate.range:
-                if range_.uri:
-                    g.add((prop_uri, RDFS.range, URIRef(range_.uri)))
-
-    ttl_content = g.serialize(format="turtle")
+    ttl_content = serialize_ontology_to_ttl(input_data.classes, input_data.predicates)
 
     return Response(content=ttl_content, media_type="application/x-turtle")
 

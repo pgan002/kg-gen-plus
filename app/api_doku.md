@@ -1,9 +1,10 @@
 # KG Explorer App
 
-This application provides two main functionalities:
+This application provides three main functionalities:
 
 1.  **Web APIs (at `/api`)**: A set of endpoints to generate graphs from text, and to parse and convert ontologies.
 2.  **Graphical User UI (at `/ui`)**: A user interface to visually investigate the generated graphs.
+3.  **MCP server (at `/mcp`)**: A Model Context Protocol server exposing the deterministic building blocks (ontology parsing, predicate suggestion, conformance/schema validation, graph serialization, deduplication) for agent-driven extraction. See the "MCP server" section below.
 
 ## How to use the application
 
@@ -56,3 +57,29 @@ until `status` is `completed`, then `GET /api/jobs/{job_id}/result`.
 To investigate a graph visually, you first have to generate a graph and then call `/ui/add_graph` to add the graph to the visualizer.
 
 After adding the graph, go to the `/ui` endpoint. In the user interface, you can open the graph by using the "Open Existing Graph" functionality.
+
+## MCP server
+
+A Model Context Protocol (MCP) server is mounted **in-process** at `/mcp`
+(streamable HTTP transport), so it starts and stops together with this app — no
+separate process to run. It offers an alternative, **agent-in-the-loop** path:
+the agent performs the cognitive work (NER, entity typing, relation extraction),
+while the MCP tools handle the deterministic parts.
+
+Tools exposed: `parse_ontology`, `list_target_types`, `suggest_predicates`,
+`validate_conformance`, `validate_graph_schema`, `serialize_graph`,
+`convert_ontology`, `suggest_clusters`, `apply_clusters`. The server is
+**stateless** — pass the ontology Turtle to each tool that needs it.
+
+Deduplication is split across two tools so the agent reviews merges instead of
+trusting embeddings blindly: `suggest_clusters` proposes candidate duplicate
+clusters (entities and edges) from local embeddings, the agent inspects and
+edits them, then `apply_clusters` merges the reviewed clusters into the graph.
+
+Point any MCP client at `<base-url>/mcp`. The accompanying `kg-extract` skill
+(`skills/kg-extract/`) describes the extraction workflow for the agent. The MCP
+server can also be run standalone with `fastmcp run mcp/server.py`.
+
+> Requires the optional `mcp` extra (`pip install 'kg-gen[mcp]'`). If it is not
+> installed, the `/mcp` endpoint is simply not mounted and the rest of the app
+> works normally.

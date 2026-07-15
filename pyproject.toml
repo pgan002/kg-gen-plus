@@ -1,6 +1,10 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "kg-gen"
-version = "0.9.0rc1"
+version = "0.9.0rc2"
 authors = [{ name = "Belinda Mo", email = "justanexperimentpark@gmail.com" }]
 description = "Extract a knowledge graph using LLMs from any text"
 readme = "README.md"
@@ -36,6 +40,11 @@ dependencies = [
     "dspy>=3.2.1",
 ]
 
+[project.optional-dependencies]
+# Optional MCP server support. Install with `pip install 'kg-gen[mcp]'` or, with
+# uv, `uv sync --extra mcp`. Enables the in-process MCP server mounted at /mcp.
+mcp = ["fastmcp>=2.10.6", "mcp>=1.12.1"]
+
 [dependency-groups]
 dev = [
     "pre-commit>=4.3.0",
@@ -50,11 +59,18 @@ dev = [
     "mlflow>=3.6.0",
     "streamlit>=1.51.0",
     "seaborn>=0.13.2",
+    "nltk>=3.9",
 ]
-mcp = ["fastmcp>=2.10.6", "mcp>=1.12.1"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kg_gen"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "mcp/tests"]
+# All tests (including the MCP tool tests) live under tests/. pythonpath makes
+# the src package, the repo root (for `app`), and the mcp/ dir (for `tools`)
+# importable so the whole suite runs with a single `pytest` invocation.
+testpaths = ["tests"]
+pythonpath = [".", "src", "mcp"]
 
 [tool.uv.sources]
 torch = [
