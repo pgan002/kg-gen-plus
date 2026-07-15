@@ -11,6 +11,8 @@ This application provides two main functionalities:
 
 Use the web APIs at `/api` to generate a graph from your text or ontology.
 
+**Note:** Knowledge Graph generation is an LLM-based process. While the system attempts to follow the provided ontology, conformance (types, domains, ranges) is best-effort and not strictly guaranteed.
+
 ### 2. Visualize the graph
 
 To investigate a graph visually, you first have to generate a graph and then call `/ui/add_graph` to add the graph to the visualizer.

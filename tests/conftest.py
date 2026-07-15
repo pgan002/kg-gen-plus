@@ -28,7 +28,15 @@ class MockLM(dspy.LM):
         if not prompt:
             prompt = kwargs.get("prompt", "")
         # Simulate different responses based on the prompt content
-        if "Extract key entities" in prompt:
+        if "Extract key entities" in prompt and "predict their type/class" in prompt:
+            response_content = (
+                "[[ ## typed_entities ## ]]\n"
+                '[{"surface_form": "entity1", "uri": "Q1", "type": {"label": "type1", "uri": "U1"}}, '
+                '{"surface_form": "entity2", "uri": "Q2", "type": {"label": "type2", "uri": "U2"}}]\n'
+                "[[ ## completed ## ]]"
+            )
+            usage = {"prompt_tokens": 12, "completion_tokens": 22, "total_tokens": 34}
+        elif "Extract key entities" in prompt:
             response_content = '[[ ## entities ## ]]\n[{"surface_form": "entity1", "uri": "Q1"}, {"surface_form": "entity2", "uri": "Q2"}]\n[[ ## completed ## ]]'
             usage = {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30}
         elif "predict their type/class" in prompt:
@@ -40,7 +48,7 @@ class MockLM(dspy.LM):
             )
             usage = {"prompt_tokens": 15, "completion_tokens": 25, "total_tokens": 40}
         elif "Extract subject-predicate-object triples" in prompt:
-            response_content = '[[ ## relations ## ]]\n[{"subject": {"surface_form": "entity1", "uri": "Q1"}, "predicate": {"surface_form": "related_to", "uri": "P1"}, "object": {"surface_form": "entity2", "uri": "Q2"}}]\n[[ ## completed ## ]]'
+            response_content = '[[ ## reasoning ## ]]\nI will connect entity1 and entity2.\n[[ ## relations ## ]]\n[{"subject": {"surface_form": "entity1", "uri": "Q1"}, "predicate": {"surface_form": "related_to", "uri": "P1"}, "object": {"surface_form": "entity2", "uri": "Q2"}}]\n[[ ## completed ## ]]'
             usage = {"prompt_tokens": 20, "completion_tokens": 30, "total_tokens": 50}
         else:
             response_content = "{}"

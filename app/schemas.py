@@ -34,6 +34,12 @@ class GenerationMetadata(BaseModel):
         None,
         description="The temperature to use for generation. Higher values mean more creative but less predictable results.",
     )
+    max_tokens: int = Field(
+        16000,
+        gt=0,
+        description="Maximum number of tokens the model may generate per call. "
+        "Increase if responses are being truncated (see the LM truncation warning).",
+    )
     entity_context: Optional[str] = Field(
         None,
         description="Use this field to provide additional instruction for processing entities, "
@@ -48,17 +54,43 @@ class GenerationMetadata(BaseModel):
         False, description="Allows to control thinking in models like qwen"
     )
     enforce_type_conformance: bool = Field(
-        False, description="Enforce entity type conformance"
+        False,
+        description="Encourage entity type conformance (not enforced)",
     )
     enforce_domain_conformance: bool = Field(
-        True, description="Enforce predicate domain conformance"
+        True,
+        description="Encourage predicate domain conformance. Note: best-effort, not strictly enforced.",
     )
     enforce_range_conformance: bool = Field(
-        True, description="Enforce predicate range conformance"
+        True,
+        description="Encourage predicate range conformance. Note: best-effort, not strictly enforced.",
     )
     enforce_predicate_conformance: bool = Field(
         False,
-        description="Enforce predicate conformance. If True, all predicates should come from ontology (if provided).",
+        description="Encourage predicate conformance. Note: best-effort, not strictly enforced.",
+    )
+    deduplicate: bool = Field(
+        True,
+        description="Whether to deduplicate the generated graph."
+    )
+    retrieval_model: Optional[str] = Field(
+        "sentence-transformers/all-MiniLM-L6-v2",
+        description="The retrieval model to use for embedding.",
+    )
+    entity_threshold: float = Field(
+        0.8,
+        ge=0,
+        le=1,
+        description="Entity similarity threshold for deduplication.",
+    )
+    predicate_threshold: float = Field(
+        0.9,
+        ge=0,
+        le=1,
+        description="Predicate similarity threshold for deduplication.",
+    )
+    n_parallel: int = Field(
+        10, description="The number of parallel calls to the LLM for graph generation."
     )
 
 
@@ -70,13 +102,13 @@ class DeduplicationMetadata(BaseModel):
         "sentence-transformers/all-MiniLM-L6-v2",
         description="The retrieval model to use for producing embedding.",
     )
-    entity_threshold: Optional[float] = Field(
+    entity_threshold: float = Field(
         0.9,
         ge=0,
         le=1,
         description="Entity similarity threshold for deduplication.",
     )
-    predicate_threshold: Optional[float] = Field(
+    predicate_threshold: float = Field(
         0.75,
         ge=0,
         le=1,

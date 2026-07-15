@@ -2,7 +2,6 @@ import json
 from pathlib import Path
 from typing import Iterator, Optional
 
-import httpx
 import rdflib
 from pydantic import BaseModel, Field
 
@@ -14,15 +13,6 @@ class MusiqueChunk(BaseModel):
     source_doc: str
     content: str
     terms: Optional[list[TypedEntity]] = Field(default_factory=list)
-
-
-class ExtractedTerm(BaseModel):
-    term: str
-    pref_label: str
-    alt_labels: list[str]
-    definition: str
-    lang: str = "en"
-    rank: int = 0
 
 
 def iter_musique_chunks_jsonl(
@@ -91,24 +81,3 @@ def parse_ontology(onto_path: Path | str) -> Ontology:
             ontology.predicates.add(predicate)
 
     return ontology
-
-
-async def extract_terms_for_text(text: str) -> list[ExtractedTerm]:
-    """Extracts terms for a single piece of text by sending to the external service async."""
-    url = "http://dsx-gws-rai-docker-dmo-apl-n-01:8089/extract_from_text"
-    headers = {
-        "accept": "application/json",
-        "Content-Type": "application/json",
-    }
-    params = {
-        # "categories": "",
-        # "questions": "",
-        "model": "gpt-mini-4o",
-        "window_size": "24000",
-        "window_overlap_size": "1000",
-    }
-    async with httpx.AsyncClient(timeout=None) as client:
-        response = await client.post(url, json=text, params=params, headers=headers)
-    response.raise_for_status()
-    out = [ExtractedTerm(**item) for item in response.json()]
-    return out

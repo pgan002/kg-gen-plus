@@ -56,11 +56,12 @@ xsd_to_python_type = {
     XSD.string: EntityType(label="str", uri=str(XSD.string)),
     XSD.integer: EntityType(label="int", uri=str(XSD.integer)),
     XSD.decimal: EntityType(label="float", uri=str(XSD.decimal)),
-    XSD.double: EntityType(label="float", uri=str(XSD.boolean)),
+    XSD.double: EntityType(label="float", uri=str(XSD.double)),
     XSD.boolean: EntityType(label="bool", uri=str(XSD.boolean)),
     XSD.date: EntityType(label="date", uri=str(XSD.date)),
     XSD.dateTime: EntityType(label="datetime", uri=str(XSD.dateTime)),
     XSD.time: EntityType(label="time", uri=str(XSD.time)),
+    XSD.gYear: EntityType(label="gYear", uri=str(XSD.gYear)),
 }
 python_type_to_xsd = {v: k for k, v in xsd_to_python_type.items()}
 
@@ -102,13 +103,15 @@ def parse_ontology(onto_file: TextIO | BinaryIO) -> tuple[Ontology, rdflib.Graph
             class_map[class_uri] = entity_type
 
     # Second pass: identify all predicates and their domain/range
-    properties = set(
+    object_properties = set(
         g.subjects(predicate=rdflib.RDF.type, object=rdflib.OWL.ObjectProperty)
     )
-    properties.update(
+    datatype_properties = set(
         g.subjects(predicate=rdflib.RDF.type, object=rdflib.OWL.DatatypeProperty)
     )
-    for pred_uri in properties:
+    all_properties = object_properties | datatype_properties
+
+    for pred_uri in all_properties:
         if isinstance(pred_uri, rdflib.URIRef):
             label = g.value(subject=pred_uri, predicate=rdflib.RDFS.label)
             if label:
@@ -117,10 +120,16 @@ def parse_ontology(onto_file: TextIO | BinaryIO) -> tuple[Ontology, rdflib.Graph
                 label = pred_uri.split("/")[-1].split("#")[-1]
 
             description = g.value(subject=pred_uri, predicate=rdflib.RDFS.comment)
+            prop_type = (
+                "owl:DatatypeProperty"
+                if pred_uri in datatype_properties
+                else "owl:ObjectProperty"
+            )
             predicate = OntologyPredicate(
                 label=label,
                 uri=str(pred_uri),
                 description=str(description) if description else None,
+                property_type=prop_type,
             )
             # Get domain
             for domain_uri in g.objects(subject=pred_uri, predicate=rdflib.RDFS.domain):

@@ -1,137 +1,125 @@
 import asyncio
+import json
 import logging
-import time
 from pathlib import Path
-from io import StringIO
+
+import aiohttp
 
 from benchmarks.MuSiQue.musique_config import (
-    llm_model,
-    retrieval_model,
+    musique_chunks_path,
+    musique_onto_path,
+    KG_GEN_URL,
+    KG_GENERATION_PARAMS,
+    X_API_KEY,
     i_start,
     i_end,
     output_base_path,
-    musique_chunks_path,
-    musique_onto_path,
-    num_workers,
 )
-from benchmarks.MuSiQue.musique_utils import (
-    iter_musique_chunks_jsonl,
-    parse_ontology,
-    MusiqueChunk,
-    extract_terms_for_text,
-)
-from kg_gen.kg_gen import KGGen
-from kg_gen.models import Graph, InputData, Ontology, KGGenStats, TypedEntity
+from benchmarks.MuSiQue.musique_utils import iter_musique_chunks_jsonl
+
+output_stem = "musique_kg"
 
 
-async def _process_single_chunk(
-    item: MusiqueChunk, kg: KGGen, onto: Ontology
-) -> tuple[Graph, KGGenStats, str]:
+async def call_kg_generation_service(
+    session: aiohttp.ClientSession,
+    corpus_jsonl: str,
+    ontology_content: bytes,
+) -> dict:
+    """Send the whole corpus to the kg-gen single parallel endpoint.
+
+    kg-gen performs entity extraction, typing, relation extraction, aggregation
+    and deduplication server-side (parallelised via ``n_parallel``) and returns
+    a single KnowledgeGraph. External term extraction is no longer used.
     """
-    Processes a single MusiqueChunk item, capturing logs in a string buffer.
-    Returns the generated graph, usage statistics, and captured log messages.
-    """
-    log_stream = StringIO()
-    # Create a temporary logger for this chunk
-    chunk_logger = logging.getLogger(f"chunk_{item.chunk_id}")
-    chunk_logger.setLevel(logging.INFO)
-    handler = logging.StreamHandler(log_stream)
-    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-    handler.setFormatter(formatter)
-    chunk_logger.addHandler(handler)
-    chunk_logger.propagate = False  # Prevent duplicate logging to the root logger
+    logging.info("Calling KG generation service for the full corpus...")
 
-    try:
-        chunk_logger.info(f"Processing chunk {item.chunk_id}")
-        chunk_logger.info(f"Extracting terms for item {item.chunk_id}...")
-        start_time = time.time()
-        item_entities = await extract_terms_for_text(item.content)
-        out_terms = []
-        for term in item_entities:
-            term_as_typed_ent = TypedEntity(
-                surface_form=term.term, uri=None, description=term.definition, type=None
-            )
-            out_terms.append(term_as_typed_ent)
-        item.terms = out_terms
-
-        chunk_logger.info(
-            f"Extracted {len(item.terms)} terms for {item.chunk_id}. it took {time.time() - start_time:0.2f}s"
-        )
-
-        g, usage = await kg.generate(
-            input_data=InputData(text=item.content, id=item.chunk_id, terms=item.terms),
-            types=list(onto.classes),
-            predicate_domain_range=list(onto.predicates),
-        )
-        chunk_logger.info(f"Graph generated for {item.chunk_id}. {g.stats()}")
-        return g, usage, log_stream.getvalue()
-    finally:
-        # Clean up the handler and logger
-        chunk_logger.removeHandler(handler)
-        handler.close()
-
-
-async def process_file(test_path: Path, kg: KGGen, onto: Ontology) -> None:
-    gs: list[Graph] = []
-    total_usage = KGGenStats()
-
-    main_logger = logging.getLogger()
-    main_logger.info(f"Starting parallel processing with {num_workers} workers.")
-
-    # Use a Semaphore to limit the number of concurrent tasks
-    sem = asyncio.Semaphore(num_workers)
-
-    async def _process_with_sem(item):
-        async with sem:
-            return await _process_single_chunk(item, kg, onto)
-
-    tasks = []
-    for i, item in enumerate(iter_musique_chunks_jsonl(test_path), start=1):
-        if i < i_start:
-            continue
-        if i > i_end:
-            break
-
-        tasks.append(asyncio.create_task(_process_with_sem(item)))
-
-    for task in asyncio.as_completed(tasks):
-        try:
-            g, usage, chunk_logs = await task
-            gs.append(g)
-            total_usage += usage
-            main_logger.info(
-                f"\n--- Logs for chunk  ---\n{chunk_logs.strip()}\n--- End logs for chunk ---\n"
-            )
-            main_logger.info(
-                f"Finished processing chunk {len(gs)}/{len(tasks)}. Chunk total usage: {usage.overall_usage}"
-            )
-        except Exception as exc:
-            main_logger.error(f"A chunk generated an exception: {exc}")
-
-    main_logger.info(
-        f"All relevant chunks processed. Final total usage: {total_usage.overall_usage}"
+    form_data = aiohttp.FormData()
+    form_data.add_field(
+        "ontology_file",
+        ontology_content,
+        filename="ontology.ttl",
+        content_type="text/turtle",
+    )
+    form_data.add_field(
+        "corpus_file",
+        corpus_jsonl,
+        filename="corpus.jsonl",
+        content_type="application/x-ndjson",
     )
 
-    if gs:
-        agg_g = kg.aggregate(gs)
-        kg.export_graph(graph=agg_g, output_path=f"{output_base_path}.json")
-        kg.visualize(agg_g, f"{output_base_path}.html", False)
-        main_logger.info(
-            f"Knowledge graph exported to {output_base_path}.json and visualized at {output_base_path}.html"
-        )
-    return
+    headers = {"X-API-Key": X_API_KEY} if X_API_KEY else None
+
+    async with session.post(
+        KG_GEN_URL, params=KG_GENERATION_PARAMS, data=form_data, headers=headers
+    ) as response:
+        response.raise_for_status()
+        graph = await response.json()
+        logging.info("Successfully generated the knowledge graph.")
+        return graph
+
+
+def build_corpus_jsonl(data_path: Path) -> str:
+    """Build a JSONL corpus (one ``{"id", "text"}`` per line) from the chunks.
+
+    Terms are intentionally omitted: kg-gen extracts and types entities itself.
+    """
+    lines = []
+    for i, chunk in enumerate(iter_musique_chunks_jsonl(data_path), start=1):
+        if i < i_start or i > i_end:
+            continue
+        lines.append(json.dumps({"id": chunk.chunk_id, "text": chunk.content}))
+    return "\n".join(lines)
+
+
+async def main(data_path: Path, ontology_path: Path, output_stem: str):
+    """Main async function to process the MuSiQue corpus."""
+    try:
+        ontology_content = ontology_path.read_bytes()
+    except FileNotFoundError:
+        logging.error(f"Ontology file not found at {ontology_path}")
+        return
+
+    corpus_jsonl = build_corpus_jsonl(data_path)
+    num_docs = corpus_jsonl.count("\n") + 1 if corpus_jsonl else 0
+    if not num_docs:
+        logging.warning("No chunks to process for the configured slice.")
+        return
+    logging.info(f"Collected {num_docs} chunks to process.")
+
+    # No client-side timeout: server-side generation of a full corpus is slow.
+    timeout = aiohttp.ClientTimeout(total=None)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        try:
+            final_graph = await call_kg_generation_service(
+                session, corpus_jsonl, ontology_content
+            )
+        except aiohttp.ClientError as exc:
+            logging.error(f"KG generation request failed: {exc}")
+            return
+
+    if not final_graph:
+        logging.warning("No graph was returned.")
+        return
+
+    # results_dir = musique_chunks_path.parent / "results"
+    # results_dir.mkdir(exist_ok=True)
+    output_path = (
+        output_base_path / f"{output_stem}__{ontology_path.stem}_final_graph.json"
+    )
+    with open(output_path, "w") as f:
+        json.dump(final_graph, f, indent=2)
+    logging.info(f"Final knowledge graph saved to {output_path}")
 
 
 if __name__ == "__main__":
-    kg_gen = KGGen(
-        model=llm_model,
-        temperature=1.0,
-        retrieval_model=retrieval_model,
-    )
-
-    onto = parse_ontology(musique_onto_path)
-    if musique_chunks_path.exists():
-        logging.info(f"Processing {musique_chunks_path.name} with {llm_model = }")
-        asyncio.run(process_file(test_path=musique_chunks_path, kg=kg_gen, onto=onto))
+    if musique_onto_path.exists():
+        logging.info(f"Starting processing MuSiQue with {musique_onto_path.name}")
+        asyncio.run(
+            main(
+                data_path=musique_chunks_path,
+                ontology_path=musique_onto_path,
+                output_stem=output_stem,
+            )
+        )
     else:
-        logging.error(f"Input file not found: {musique_chunks_path}")
+        logging.error(f"Ontology file not found: {musique_onto_path}")
