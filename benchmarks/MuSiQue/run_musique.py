@@ -1,9 +1,17 @@
-import asyncio
+"""Submit MuSiQue KG generation as a background job (step 1 of 2).
+
+This script builds the corpus, submits it to the async kg-gen endpoint, and
+records the returned job id to a stable file (``job_record_path``). Because the
+work runs server-side as a background job, this process can exit immediately;
+run ``fetch_musique.py`` later to poll for progress and download the result.
+"""
+
 import json
 import logging
+import time
 from pathlib import Path
 
-import aiohttp
+import requests
 
 from benchmarks.MuSiQue.musique_config import (
     musique_chunks_path,
@@ -14,48 +22,89 @@ from benchmarks.MuSiQue.musique_config import (
     i_start,
     i_end,
     output_base_path,
+    job_record_path,
 )
 from benchmarks.MuSiQue.musique_utils import iter_musique_chunks_jsonl
 
 output_stem = "musique_kg"
 
+# The async endpoints live alongside KG_GEN_URL under the same `/api` root, e.g.
+# ".../api/generate" -> ".../api/generate_async" and ".../api/jobs/{id}".
+_API_ROOT = KG_GEN_URL.rsplit("/", 1)[0]
+GENERATE_ASYNC_URL = f"{_API_ROOT}/generate_async"
+JOBS_URL = f"{_API_ROOT}/jobs"
 
-async def call_kg_generation_service(
-    session: aiohttp.ClientSession,
+# How often fetch_musique.py polls the job status while generation runs.
+POLL_INTERVAL_SECONDS = 15
+
+
+def submit_kg_generation_job(
     corpus_jsonl: str,
     ontology_content: bytes,
-) -> dict:
-    """Send the whole corpus to the kg-gen single parallel endpoint.
+) -> str:
+    """Submit the corpus to the async kg-gen endpoint and return the job id.
 
     kg-gen performs entity extraction, typing, relation extraction, aggregation
-    and deduplication server-side (parallelised via ``n_parallel``) and returns
-    a single KnowledgeGraph. External term extraction is no longer used.
+    and deduplication server-side (parallelised via ``n_parallel``). Because the
+    work runs as a background job, it keeps going even if this client
+    disconnects, and the result can be fetched later.
     """
-    logging.info("Calling KG generation service for the full corpus...")
+    logging.info("Submitting KG generation job for the full corpus...")
 
-    form_data = aiohttp.FormData()
-    form_data.add_field(
-        "ontology_file",
-        ontology_content,
-        filename="ontology.ttl",
-        content_type="text/turtle",
-    )
-    form_data.add_field(
-        "corpus_file",
-        corpus_jsonl,
-        filename="corpus.jsonl",
-        content_type="application/x-ndjson",
-    )
-
+    files = {
+        "ontology_file": ("ontology.ttl", ontology_content, "text/turtle"),
+        "corpus_file": ("corpus.jsonl", corpus_jsonl, "application/x-ndjson"),
+    }
     headers = {"X-API-Key": X_API_KEY} if X_API_KEY else None
 
-    async with session.post(
-        KG_GEN_URL, params=KG_GENERATION_PARAMS, data=form_data, headers=headers
-    ) as response:
+    response = requests.post(
+        GENERATE_ASYNC_URL,
+        params=KG_GENERATION_PARAMS,
+        files=files,
+        headers=headers,
+        timeout=(30, 300),
+    )
+    response.raise_for_status()
+    payload = response.json()
+    job_id = payload["job_id"]
+    logging.info(f"Job submitted: id={job_id} total_docs={payload.get('total_docs')}")
+    return job_id
+
+
+def wait_for_job(job_id: str) -> None:
+    """Poll the job status until it completes, logging tqdm-like progress."""
+    status_url = f"{JOBS_URL}/{job_id}"
+    while True:
+        response = requests.get(status_url, timeout=(30, 60))
         response.raise_for_status()
-        graph = await response.json()
-        logging.info("Successfully generated the knowledge graph.")
-        return graph
+        status = response.json()
+
+        state = status["status"]
+        pct = status.get("percent_complete")
+        eta = status.get("eta_seconds")
+        logging.info(
+            f"Job {job_id}: {state} "
+            f"{status.get('processed_docs')}/{status.get('total_docs')} docs "
+            f"({pct if pct is not None else '?'}%) "
+            f"elapsed={status.get('elapsed_seconds')}s "
+            f"ETA={eta if eta is not None else '?'}s"
+        )
+
+        if state == "completed":
+            return
+        if state == "failed":
+            raise RuntimeError(f"KG generation job failed: {status.get('error')}")
+
+        time.sleep(POLL_INTERVAL_SECONDS)
+
+
+def fetch_job_result(job_id: str) -> dict:
+    """Fetch the generated KnowledgeGraph for a completed job."""
+    response = requests.get(f"{JOBS_URL}/{job_id}/result", timeout=(30, 300))
+    response.raise_for_status()
+    graph = response.json()
+    logging.info("Successfully fetched the generated knowledge graph.")
+    return graph
 
 
 def build_corpus_jsonl(data_path: Path) -> str:
@@ -71,8 +120,25 @@ def build_corpus_jsonl(data_path: Path) -> str:
     return "\n".join(lines)
 
 
-async def main(data_path: Path, ontology_path: Path, output_stem: str):
-    """Main async function to process the MuSiQue corpus."""
+def record_job(job_id: str, output_path: Path, num_docs: int) -> None:
+    """Persist the job id (and where its result should be saved) to disk.
+
+    fetch_musique.py reads this file to know which job to poll and where to
+    write the downloaded graph.
+    """
+    record = {
+        "job_id": job_id,
+        "num_docs": num_docs,
+        "output_path": str(output_path),
+        "jobs_url": JOBS_URL,
+    }
+    with open(job_record_path, "w") as f:
+        json.dump(record, f, indent=2)
+    logging.info(f"Recorded job {job_id} to {job_record_path}")
+
+
+def main(data_path: Path, ontology_path: Path, output_stem: str):
+    """Submit the MuSiQue corpus as a background job and record its id."""
     try:
         ontology_content = ontology_path.read_bytes()
     except FileNotFoundError:
@@ -86,40 +152,28 @@ async def main(data_path: Path, ontology_path: Path, output_stem: str):
         return
     logging.info(f"Collected {num_docs} chunks to process.")
 
-    # No client-side timeout: server-side generation of a full corpus is slow.
-    timeout = aiohttp.ClientTimeout(total=None)
-    async with aiohttp.ClientSession(timeout=timeout) as session:
-        try:
-            final_graph = await call_kg_generation_service(
-                session, corpus_jsonl, ontology_content
-            )
-        except aiohttp.ClientError as exc:
-            logging.error(f"KG generation request failed: {exc}")
-            return
-
-    if not final_graph:
-        logging.warning("No graph was returned.")
+    try:
+        job_id = submit_kg_generation_job(corpus_jsonl, ontology_content)
+    except requests.RequestException as exc:
+        logging.error(f"KG generation request failed: {exc}")
         return
 
-    # results_dir = musique_chunks_path.parent / "results"
-    # results_dir.mkdir(exist_ok=True)
     output_path = (
         output_base_path / f"{output_stem}__{ontology_path.stem}_final_graph.json"
     )
-    with open(output_path, "w") as f:
-        json.dump(final_graph, f, indent=2)
-    logging.info(f"Final knowledge graph saved to {output_path}")
+    record_job(job_id, output_path, num_docs)
+    logging.info(
+        "Submission complete. Run fetch_musique.py to poll and download the result."
+    )
 
 
 if __name__ == "__main__":
     if musique_onto_path.exists():
         logging.info(f"Starting processing MuSiQue with {musique_onto_path.name}")
-        asyncio.run(
-            main(
-                data_path=musique_chunks_path,
-                ontology_path=musique_onto_path,
-                output_stem=output_stem,
-            )
+        main(
+            data_path=musique_chunks_path,
+            ontology_path=musique_onto_path,
+            output_stem=output_stem,
         )
     else:
         logging.error(f"Ontology file not found: {musique_onto_path}")

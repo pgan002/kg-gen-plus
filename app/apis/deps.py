@@ -18,6 +18,7 @@ def get_kg_gen(
     retrieval_model: Optional[str] = None,
     model: str = "openai/gpt-5.4-mini",
     max_tokens: int = 16000,
+    temperature: float = 0.0,
     enforce_type_conformance: bool = False,
     enforce_domain_conformance: bool = True,
     enforce_range_conformance: bool = True,
@@ -28,7 +29,7 @@ def get_kg_gen(
     It creates a new instance if the parameters are different from the cached one.
     This allows for dynamic model selection per API call.
     """
-    cache_key = f"{model}-{max_tokens}-{api_base}-{api_key}-{enforce_type_conformance}-{enforce_domain_conformance}-{enforce_range_conformance}-{enforce_predicate_conformance}"
+    cache_key = f"{model}-{max_tokens}-{temperature}-{api_base}-{api_key}-{enforce_type_conformance}-{enforce_domain_conformance}-{enforce_range_conformance}-{enforce_predicate_conformance}"
 
     cached = _kg_gen_cache.get(cache_key)
     if cached is not None:
@@ -38,6 +39,7 @@ def get_kg_gen(
     instance = KGGen(
         model=model,
         max_tokens=max_tokens,
+        temperature=temperature,
         api_base=api_base,
         api_key=api_key,
         retrieval_model=retrieval_model,

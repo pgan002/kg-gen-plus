@@ -11,6 +11,10 @@ musique_onto_path = musique_base_data_path / "musique_ontology_refined.ttl"
 output_base_path = musique_base_data_path / "results" / f"musique_kg_{timestamp}"
 output_base_path.parent.mkdir(exist_ok=True)
 
+# Stable (non-timestamped) location where the submit script records the async
+# job id, so the separate fetch script can pick it up in a later run.
+job_record_path = musique_base_data_path / "results" / "musique_kg_job.json"
+
 # Slice items (1-based, inclusive) to process.
 i_start = 0
 i_end = 10000
@@ -45,11 +49,14 @@ KG_GENERATION_PARAMS = {
     "n_parallel": str(NUM_WORKERS),
     # A small non-zero temperature reduces repetition loops that cause local
     # models to run to the token limit at temperature 0.0.
-    "temperature": "0.3",
+    "temperature": "0.4",
     # Headroom above the 16000 default to avoid truncated extractions. Keep this
     # within the model's context window (prompt + output). Lower if your model
     # rejects it.
-    "max_tokens": "32000",
+    "max_tokens": "48000",
+    "entity_threshold": 0.9,
+    "predicate_threshold": 0.9,
+    "retrieval_model": "mixedbread-ai/mxbai-embed-large-v1",
 }
 
 

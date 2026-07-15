@@ -1,4 +1,4 @@
-from typing import Union, Optional, Any
+from typing import Union, Optional, Any, Callable
 import asyncio
 import time
 from rdflib import Graph as RDFGraph
@@ -42,6 +42,27 @@ def _get_shared_sentence_transformer(model_name: str) -> SentenceTransformer:
     if model_name not in _SENTENCE_TRANSFORMER_CACHE:
         _SENTENCE_TRANSFORMER_CACHE[model_name] = SentenceTransformer(model_name)
     return _SENTENCE_TRANSFORMER_CACHE[model_name]
+
+
+def _log_generation_progress(done: int, total: int, start_time: float) -> None:
+    """Emit a tqdm-like progress line for parallel document generation.
+
+    Logs on the first and last document and roughly every 5% in between, so the
+    number of log lines stays bounded (~20) regardless of corpus size.
+    """
+    step = max(1, total // 20)
+    if not (done == 1 or done == total or done % step == 0):
+        return
+
+    elapsed = time.time() - start_time
+    rate = done / elapsed if elapsed > 0 else 0.0
+    eta = (total - done) / rate if rate > 0 else float("inf")
+    pct = 100.0 * done / total if total else 100.0
+    eta_str = f"{eta:.1f}s" if eta != float("inf") else "?"
+    kggen_logger.info(
+        f"[generate] {done}/{total} docs ({pct:.1f}%) "
+        f"elapsed={elapsed:.1f}s rate={rate:.2f} doc/s ETA={eta_str}"
+    )
 
 
 # Monkey-patch dspy.predict.refine.OfferFeedback to avoid type mismatch warnings.
@@ -190,6 +211,7 @@ class KGGen:
         n_parallel: int = 10,
         entity_similarity_threshold: float = 0.8,
         edge_similarity_threshold: float = 0.9,
+        progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> tuple[Graph, KGGenStats]:
         # Normalize parameters
         enforce_type_conformance = (
@@ -335,10 +357,22 @@ class KGGen:
         if isinstance(input_data, list):
             """Generates a Knowledge Graph from multiple input documents in parallel."""
             semaphore = asyncio.Semaphore(n_parallel)
+            total = len(input_data)
+            # asyncio runs these coroutines on a single thread, so the plain
+            # counter increment below needs no lock (there is no await between
+            # the read and the write).
+            progress = {"done": 0}
+            progress_start = time.time()
 
             async def process_with_semaphore(item: InputData):
                 async with semaphore:
-                    return await _process_single(item)
+                    result = await _process_single(item)
+                progress["done"] += 1
+                done = progress["done"]
+                _log_generation_progress(done, total, progress_start)
+                if progress_callback is not None:
+                    progress_callback(done, total)
+                return result
 
             tasks = [process_with_semaphore(i) for i in input_data]
             if not tasks:
@@ -346,6 +380,7 @@ class KGGen:
                     typed_entities=set(), relations_wo_class_assertions=[]
                 ), KGGenStats()
 
+            kggen_logger.info(f"[generate] starting on {total} docs, {n_parallel = }")
             results = await asyncio.gather(*tasks)
 
             graphs = []
