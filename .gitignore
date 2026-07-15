@@ -31,3 +31,5 @@ benchmarks/data
 benchmarks/wk/data
 benchmarks/wk/.env
 .junie
+.claude
+/misc

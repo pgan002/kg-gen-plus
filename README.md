@@ -88,6 +88,23 @@ curl -s "http://localhost:5000/api/jobs/<job_id>"
 curl -s "http://localhost:5000/api/jobs/<job_id>/result"
 ```
 
+## MCP server (agent-in-the-loop)
+
+Besides the batch HTTP API, an [MCP](https://modelcontextprotocol.io) server is
+mounted in-process at **`/mcp`** and starts together with the app. It powers an
+interactive, agent-driven extraction flow: the agent does NER, entity typing, and
+relation extraction, while the MCP tools handle the deterministic parts —
+ontology parsing, predicate suggestion, conformance/schema validation, graph
+serialization, and deduplication.
+
+Point any MCP client at `http://localhost:5000/mcp`. The companion
+[`kg-extract` skill](skills/kg-extract/SKILL.md) documents the workflow and the
+expected ontology format. The server can also run standalone with
+`fastmcp run mcp/server.py`. It requires the optional `mcp`
+extra (`pip install 'kg-gen[mcp]'`); without it the `/mcp` endpoint is simply not
+mounted. See [`app/api_doku.md`](app/api_doku.md) and
+[`docs/skill-mcp-plan.md`](misc/skill-mcp-plan.md) for details.
+
 ## Using `kg-gen` as a library
 
 Install it:

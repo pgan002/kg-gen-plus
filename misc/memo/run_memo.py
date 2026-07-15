@@ -4,13 +4,19 @@ from pathlib import Path
 from kg_gen import KGGen
 from memo.auth_handler import get_keycloak_token
 
-def read_sample_items(input_path: str | Path = Path(__file__).parent / "data" / "sample_items.json"):
+
+def read_sample_items(
+    input_path: str | Path = Path(__file__).parent / "data" / "sample_items.json",
+):
     with open(input_path, "r") as f:
         data = json.load(f)["result"]
-    output_text = '\n\n'.join(f"**{point['title']}**\n{point['creator']}\n{point['text']}"
-                              for key, point in data.items())
+    output_text = "\n\n".join(
+        f"**{point['title']}**\n{point['creator']}\n{point['text']}"
+        for key, point in data.items()
+    )
     # print(output_text)
     return output_text
+
 
 if __name__ == "__main__":
     # Fetch the token first
@@ -23,7 +29,7 @@ if __name__ == "__main__":
         # Append /v1 to access Ollama's OpenAI-compatible API
         api_base="https://ollama.dev.memorise.sdu.dk/v1",
         # Pass the token directly to KGGen
-        api_key=keycloak_token
+        api_key=keycloak_token,
     )
     #
     sample_data = read_sample_items()

@@ -33,8 +33,10 @@ today live buried inside the engine become skill instructions the agent can see 
   **new interactive path** optimized for precision and ontology conformance on a handful of
   documents, and for interactive ontology authoring. Both sit on the same underlying package,
   so there is **no logic duplication**.
-- **Deduplication is an MCP tool.** Embedding-based cross-document merging stays available. The
-  MCP server reuses a process-wide shared embedding model, so there is no extra memory cost
+- **Deduplication is two MCP tools, not one.** Embedding-based cross-document merging stays
+  available, but it no longer merges unattended: `suggest_clusters` proposes candidate clusters
+  from embeddings, the agent reviews them, and `apply_clusters` merges only what was reviewed.
+  The MCP server reuses a process-wide shared embedding model, so there is no extra memory cost
   beyond one instance.
 
 ## Proposed MCP tool inventory
@@ -42,16 +44,21 @@ today live buried inside the engine become skill instructions the agent can see 
 Every tool is a **thin, deterministic wrapper** over logic that already exists (no LLM inside any
 tool).
 
+The server is **stateless** — it holds no parsed ontology between calls, so every tool that
+needs the ontology takes the Turtle text (`ontology_ttl`) again. Simpler and safe for concurrent
+use; the small cost is re-parsing the TTL per call.
+
 | MCP tool | What it does | Requirement it serves |
 | :--- | :--- | :--- |
-| `parse_ontology(ttl) -> {classes, predicates}` | Parse a Turtle ontology into structured classes and predicates | Process the input ontology |
-| `list_target_types(ontology) -> [EntityType]` | Return the entity types (with descriptions and class hierarchy) the agent should extract | Create target NE types to extract |
-| `suggest_predicates(found_entity_types, ontology) -> [OntologyPredicate]` | Given the types the agent actually found, return only the predicates whose domain/range are compatible | **Highest-value tool** — narrows the agent's relation-extraction search space |
-| `validate_conformance(typed_entities, relations, ontology) -> {score, errors}` | Score how well entities/relations conform to the ontology and return human-readable errors | Validate output; drive the agent's self-correction loop |
-| `validate_graph_schema(graph_json) -> {valid, errors}` | Structural validation of the output graph | Schema validation |
-| `serialize_graph(typed_entities, relations, ontology) -> KnowledgeGraph` | Build the canonical output: URI reconciliation, literal-vs-object detection, datatype guessing, ontology-extension detection | Produce the final graph |
+| `parse_ontology(ontology_ttl) -> Ontology{classes, predicates}` | Parse a Turtle ontology into structured classes and predicates | Process the input ontology |
+| `list_target_types(ontology_ttl) -> [EntityType]` | Return the entity types the agent should extract | Create target NE types to extract |
+| `suggest_predicates(ontology_ttl, found_entity_types) -> [OntologyPredicate]` | Given the types the agent found, return the predicates whose domain **and** range are both satisfied (literal-range predicates always kept) | **Highest-value tool** — narrows the agent's relation-extraction search space |
+| `validate_conformance(typed_entities, relations, ontology_ttl) -> {score, conformant, errors}` | Score how well entities/relations conform to the ontology and return human-readable errors | Validate output; drive the agent's self-correction loop |
+| `validate_graph_schema(graph) -> {valid, errors}` | Structural validation of the output graph payload | Schema validation |
+| `serialize_graph(typed_entities, relations, ontology_ttl) -> KnowledgeGraph` | Build the canonical output: URI reconciliation, literal-vs-object detection, datatype guessing, ontology-extension detection | Produce the final graph |
 | `convert_ontology(classes, predicates) -> ttl` | Serialize classes/predicates (including discovered extensions) back to Turtle | Emit ontology / extensions as TTL |
-| `deduplicate(graph, thresholds) -> graph` | Embedding-based merging of near-duplicate entities and edges | Cross-document entity/edge merging |
+| `suggest_clusters(typed_entities, relations, thresholds, retrieval_model) -> {entity_clusters, edge_clusters}` | Propose candidate duplicate-entity/edge clusters from local embeddings; merges nothing | First half of dedup — surfaces candidates for the agent to check |
+| `apply_clusters(typed_entities, relations, entity_clusters, edge_clusters) -> KnowledgeGraph` | Merge the agent-reviewed clusters into the canonical graph, aggregating provenance | Second half of dedup — commits only what the agent approved |
 
 ## Proposed Skill workflow
 
@@ -67,7 +74,8 @@ conformance feedback loop, written as agent instructions):
 5. Call `validate_conformance`; if the score is below 1.0, feed the returned errors into a
    re-extraction pass. This replaces an opaque internal retry with an explicit, visible cycle the
    agent controls.
-6. Call `serialize_graph` → optionally `deduplicate` → optionally `convert_ontology` for extensions.
+6. Call `serialize_graph` → optionally `suggest_clusters` → review the clusters →
+   `apply_clusters` → optionally `convert_ontology` for extensions.
 
 ## End-to-end flow
 
@@ -82,8 +90,11 @@ conformance feedback loop, written as agent instructions):
                  │        (MCP)                                    (MCP)               extraction]  │
                  │        │                                                             (agent)     │
                  │        ▼                                                                         │
-                 │   deduplicate ─► convert_ontology (extensions) ─► KnowledgeGraph                │
-                 │      (MCP)             (MCP)                                                     │
+                 │   suggest_clusters ─► [review clusters] ─► apply_clusters ─► convert_ontology    │
+                 │        (MCP)              (agent)             (MCP)         (extensions, MCP)    │
+                 │                                                    │                              │
+                 │                                                    ▼                              │
+                 │                                              KnowledgeGraph                       │
                  └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -150,9 +161,10 @@ up things that were hard or impossible before.
 - **Cost and latency.** Multiple tool round-trips plus a possible re-extraction loop can be slower and
   more expensive per document than a single engine call. Worth measuring; the conformance loop may
   need a retry cap.
-- **Stateful ontology handle.** Predicate suggestion needs the parsed RDF graph (for class hierarchy),
-  not just the flat type list. Open question: pass an ontology handle/id between tool calls, re-parse
-  the TTL each call, or cache server-side keyed by ontology hash? Leaning toward a server-side cache.
+- **Ontology re-parsing (decided: stateless).** Predicate suggestion needs the parsed RDF graph (for
+  class hierarchy), not just the flat type list. We chose to keep the server stateless and re-parse the
+  Turtle on each call rather than hold session state — simpler and concurrency-safe. If TTL re-parsing
+  ever shows up as a hotspot, add a small in-process parse cache keyed by ontology hash.
 - **Identity/dedup semantics.** Types, predicates, and entities are identified by label/surface-form,
   so round-tripping through the tools silently merges same-label items. Usually desirable, but must be
   documented so results aren't surprising.

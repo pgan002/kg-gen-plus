@@ -22,6 +22,7 @@ oauth = OAuth2Session(
 _cached_token = None
 _token_expires_at = 0
 
+
 def get_keycloak_token():
     global _cached_token, _token_expires_at
 
@@ -34,7 +35,7 @@ def get_keycloak_token():
             client_id=CLIENT_ID,
             client_secret=CLIENT_SECRET,
             # Request the audience required by the oauth2-proxy
-            audience="oauth2-proxy-api"
+            audience="oauth2-proxy-api",
         )
         _cached_token = token_data["access_token"]
         # Keycloak usually returns 'expires_in' (seconds). Default to 300s if missing.
@@ -42,9 +43,11 @@ def get_keycloak_token():
 
     return _cached_token
 
+
 # --- 2. Wrap LiteLLM Core Functions ---
 original_completion = litellm.completion
 original_acompletion = litellm.acompletion
+
 
 def completion_with_auth(*args, **kwargs):
     """Inject the token as the standard api_key."""
@@ -52,9 +55,11 @@ def completion_with_auth(*args, **kwargs):
     kwargs["api_key"] = get_keycloak_token()
     return original_completion(*args, **kwargs)
 
+
 async def acompletion_with_auth(*args, **kwargs):
     kwargs["api_key"] = get_keycloak_token()
     return await original_acompletion(*args, **kwargs)
+
 
 litellm.completion = completion_with_auth
 litellm.acompletion = acompletion_with_auth

@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "kg-gen-local": {
+      "type": "http",
+      "url": "http://localhost:5000/mcp"
+    },
+    "kg-gen-rai": {
+      "type": "http",
+      "url": "http://dsx-gws-rai-docker-dmo-apl-n-01:8087/mcp"
+    }
+  }
+}

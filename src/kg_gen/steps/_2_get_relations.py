@@ -343,6 +343,62 @@ def get_all_superclasses(g: RDFGraph, type_uri: URIRef) -> set[URIRef]:
     return superclasses
 
 
+def filter_predicates_by_entity_types(
+    entity_types: list[EntityType],
+    predicate_domain_range: list[OntologyPredicate],
+    ontology: Optional[RDFGraph] = None,
+    enforce_domain_conformance: bool = True,
+    enforce_range_conformance: bool = True,
+) -> list[OntologyPredicate]:
+    """Return only the predicates whose domain/range are compatible with the
+    given entity types.
+
+    A predicate is kept when its domain matches (or is unspecified, or domain
+    conformance is not enforced) *and* its range matches (or is a simple XSD
+    datatype, or is unspecified, or range conformance is not enforced). Domain
+    and range matches consider the entity types' superclasses, so a predicate
+    declared on a superclass is kept for a subclass entity.
+
+    This is the same filtering the relation-extraction step applies internally;
+    it is factored out so the MCP `suggest_predicates` tool can reuse it.
+    """
+    entity_types_with_superclasses: set = set()
+    if ontology is not None:
+        label_to_uri = {
+            str(label): uri
+            for uri, _, label in ontology.triples((None, RDFS.label, None))
+        }
+        for t in entity_types:
+            if t and t.label in label_to_uri:
+                type_uri = label_to_uri[t.label]
+                entity_types_with_superclasses.update(
+                    get_all_superclasses(ontology, type_uri)
+                )
+
+    filtered_predicates = []
+    for p in predicate_domain_range:
+        domain_uris = {URIRef(d.uri) for d in p.domain if d.uri}
+        range_uris = {URIRef(r.uri) for r in p.range if r.uri}
+        # Include if domain is compatible or not specified
+        domain_match = (
+            not domain_uris
+            or not entity_types_with_superclasses.isdisjoint(domain_uris)
+            or not enforce_domain_conformance
+        )
+        # Include if range is a simple datatype or is compatible
+        range_is_simple = any(str(r).startswith(str(XSD)) for r in range_uris)
+        range_match = (
+            not range_uris
+            or range_is_simple
+            or not entity_types_with_superclasses.isdisjoint(range_uris)
+            or not enforce_range_conformance
+        )
+
+        if domain_match and range_match:
+            filtered_predicates.append(p)
+    return filtered_predicates
+
+
 async def get_relations_typed(
     input_text: str,
     typed_entities: list[TypedEntity],
@@ -360,41 +416,14 @@ async def get_relations_typed(
 ) -> list[Relation]:
     assert n_retries > 0, "n_retries must be greater than 0"
 
-    entity_types_with_superclasses = set()
-    if ontology is not None:
-        label_to_uri = {
-            str(label): uri
-            for uri, _, label in ontology.triples((None, RDFS.label, None))
-        }
-        for e in typed_entities:
-            if e.type and e.type.label in label_to_uri:
-                type_uri = label_to_uri[e.type.label]
-                entity_types_with_superclasses.update(
-                    get_all_superclasses(ontology, type_uri)
-                )
-
     if predicate_domain_range:
-        filtered_predicates = []
-        for p in predicate_domain_range:
-            domain_uris = {URIRef(d.uri) for d in p.domain if d.uri}
-            range_uris = {URIRef(r.uri) for r in p.range if r.uri}
-            # Include if domain is compatible or not specified
-            domain_match = (
-                not domain_uris
-                or not entity_types_with_superclasses.isdisjoint(domain_uris)
-                or not enforce_domain_conformance
-            )
-            # Include if range is a simple datatype or is compatible
-            range_is_simple = any(str(r).startswith(str(XSD)) for r in range_uris)
-            range_match = (
-                not range_uris
-                or range_is_simple
-                or not entity_types_with_superclasses.isdisjoint(range_uris)
-                or not enforce_range_conformance
-            )
-
-            if domain_match and range_match:
-                filtered_predicates.append(p)
+        filtered_predicates = filter_predicates_by_entity_types(
+            entity_types=[e.type for e in typed_entities if e.type],
+            predicate_domain_range=predicate_domain_range,
+            ontology=ontology,
+            enforce_domain_conformance=enforce_domain_conformance,
+            enforce_range_conformance=enforce_range_conformance,
+        )
     else:
         filtered_predicates = None
 

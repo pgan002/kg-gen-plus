@@ -30,11 +30,44 @@ async def config_logger():
 description_path = Path(__file__).parent / "api_doku.md"
 api_description = description_path.read_text()
 
+logger = logging.getLogger(__name__)
+
+
+def _load_mcp_asgi_app():
+    """Load the kg-gen MCP server and return its ASGI app for in-process mounting.
+
+    The MCP server lives at ``mcp/server.py`` (kept non-importable-as-package to
+    avoid shadowing the installed ``mcp`` SDK), so it is loaded by file path.
+    Returns ``None`` if the optional ``fastmcp`` dependency is not installed, so
+    the HTTP API still starts without it.
+    """
+    import importlib.util
+
+    mcp_server_path = Path(__file__).parent.parent / "mcp" / "server.py"
+    spec = importlib.util.spec_from_file_location("kg_mcp_server", mcp_server_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    # path="/" so the endpoint is exactly the mount point ("/mcp").
+    return module.mcp.http_app(path="/")
+
+
+try:
+    mcp_asgi_app = _load_mcp_asgi_app()
+except Exception as exc:  # pragma: no cover - depends on optional extra
+    mcp_asgi_app = None
+    logger.warning("MCP server not mounted (install 'kg-gen[mcp]'): %s", exc)
+
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(app_: FastAPI):
     await config_logger()
-    yield
+    # The mounted MCP app has its own lifespan (session manager); run it nested
+    # so it starts/stops together with the FastAPI app.
+    if mcp_asgi_app is not None:
+        async with mcp_asgi_app.lifespan(app_):
+            yield
+    else:
+        yield
 
 
 def get_version() -> str:
@@ -72,6 +105,11 @@ async def docs_redirect():
 
 app.include_router(kgc_router)
 app.include_router(ui_router)
+
+# Mount the kg-gen MCP server (streamable HTTP) in-process, so it starts and
+# stops together with the FastAPI app. Available at /mcp when fastmcp is installed.
+if mcp_asgi_app is not None:
+    app.mount("/mcp", mcp_asgi_app)
 
 
 # Serve static files (CSS, JS, etc.) - must be mounted after all routes
