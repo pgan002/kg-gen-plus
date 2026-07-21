@@ -148,15 +148,23 @@ def run_semhash_deduplication(
     model: Encoder = None,
     entity_similarity_threshold: float = 0.9,
     edge_similarity_threshold: float = 0.75,
+    deduplicate_edges: bool = True,
 ) -> Graph:
     """
     Deduplicate the graph.
+
+    Args:
+        deduplicate_edges: Whether to also semantically cluster predicates. Skip
+            this when predicates already come from a fixed ontology vocabulary,
+            since they are canonical by construction and clustering them by
+            embedding similarity risks merging distinct ontology predicates.
     """
     # Deduplicate each graph components
     entities_dedup = DeduplicateList(entity_similarity_threshold)
     entities_dedup.deduplicate(list(graph.typed_entities), model=model)
-    edges_dedup = DeduplicateList(edge_similarity_threshold)
-    edges_dedup.deduplicate(list(graph.edges), model=model)
+    if deduplicate_edges:
+        edges_dedup = DeduplicateList(edge_similarity_threshold)
+        edges_dedup.deduplicate(list(graph.edges), model=model)
 
     def get_canonical_entity(
         entity: EntityOrSubclass, dedup_list: DeduplicateList
@@ -176,8 +184,15 @@ def run_semhash_deduplication(
         """
         new_subject = get_canonical_entity(relation.subject, entities_dedup)
         new_object = get_canonical_entity(relation.object, entities_dedup)
-        new_predicate = get_canonical_entity(relation.predicate, edges_dedup)
-        return Relation(subject=new_subject, predicate=new_predicate, object=new_object)
+        if deduplicate_edges:
+            new_predicate = get_canonical_entity(relation.predicate, edges_dedup)
+            return Relation(
+                subject=new_subject, predicate=new_predicate, object=new_object
+            )
+        else:
+            return Relation(
+                subject=new_subject, predicate=relation.predicate, object=new_object
+            )
 
     # Deduplicate the graph
     entity2canonical: dict[TypedEntity, TypedEntity] = {
@@ -195,12 +210,16 @@ def run_semhash_deduplication(
     canonical_relation2cluster = defaultdict(list)
     for relation, canonical in relation2canonical.items():
         canonical_relation2cluster[canonical].append(relation)
-    edge2canonical: dict[Entity, Entity] = {
-        edge: get_canonical_entity(edge, edges_dedup) for edge in graph.edges
-    }
-    canonical_edge2cluster = defaultdict(list)
-    for edge, canonical in edge2canonical.items():
-        canonical_edge2cluster[canonical.surface_form].append(edge)
+    #
+    if deduplicate_edges:
+        edge2canonical: dict[Entity, Entity] = {
+            edge: get_canonical_entity(edge, edges_dedup) for edge in graph.edges
+        }
+        canonical_edge2cluster = defaultdict(list)
+        for edge, canonical in edge2canonical.items():
+            canonical_edge2cluster[canonical.surface_form].append(edge)
+    else:
+        canonical_edge2cluster = dict()
 
     # new_entities = list(canonical2cluster.keys())
     for canonical_entity in new_entities:
