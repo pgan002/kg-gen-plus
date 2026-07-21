@@ -100,7 +100,7 @@ Notes:
 6. **Produce the final graph.** Call `serialize_graph` to build the canonical
    knowledge graph (with URI reconciliation and literal detection). Then
    optionally:
-   - `suggest_clusters` + `apply_clusters` to merge near-duplicate entities/edges
+   - `suggest_clusters` + `apply_clusters` to merge near-duplicate entities
      (see below).
    - `convert_ontology` to emit any newly discovered types/predicates as Turtle.
    - `validate_graph_schema` if you want to double-check the final payload.
@@ -110,10 +110,12 @@ Notes:
 Deduplication is two tools, not one, because embeddings alone should not decide
 what gets merged — **you** review every proposed cluster before anything changes.
 
-1. **`suggest_clusters`** — proposes candidate duplicate clusters for entities
-   and edges (predicates) using local sentence embeddings (no LLM). Nothing is
-   merged yet; it returns `entity_clusters` and `edge_clusters`, each a list of
-   `{members, representative}`.
+1. **`suggest_clusters`** — proposes candidate duplicate clusters for
+   **entities only**, using local sentence embeddings (no LLM). Predicates are
+   not clustered here: they already come from the ontology's controlled
+   vocabulary (via `suggest_predicates`), so they're canonical by construction
+   and don't need semantic deduplication. Nothing is merged yet; it returns
+   `entity_clusters`, a list of `{members, representative}`.
 2. **You review the clusters.** For each proposed cluster:
    - Does every member really mean the same thing (e.g. "USA" and "United
      States")? Drop the ones that don't belong.
@@ -122,22 +124,22 @@ what gets merged — **you** review every proposed cluster before anything chang
      different member, or a new label, if not.
    - It's fine to discard a cluster entirely (pass it through unchanged, or
      just omit it) if you disagree with the proposal.
-3. **`apply_clusters`** — takes your reviewed `entity_clusters` and
-   `edge_clusters` (plus the original `typed_entities`/`relations`) and merges
-   them into the canonical graph, aggregating provenance. Pass an empty list
-   for either kind to skip that merge.
+3. **`apply_clusters`** — takes your reviewed `entity_clusters` (plus the
+   original `typed_entities`/`relations`) and merges them into the canonical
+   graph, aggregating provenance. It also accepts `edge_clusters` if you want
+   to manually merge specific predicates yourself; pass an empty list for
+   either kind to skip that merge.
 
 Tune `suggest_clusters` with:
 
 | Parameter | Default | Meaning |
 | :--- | :--- | :--- |
 | `entity_similarity_threshold` | `0.8` | Cosine similarity above which two **entities** are proposed as a cluster. Higher = stricter (fewer candidates); lower = more aggressive. |
-| `edge_similarity_threshold` | `0.9` | Same, for **predicates/edges**. Keep this higher than the entity threshold so distinct relations are not proposed together. |
 | `retrieval_model` | `sentence-transformers/all-MiniLM-L6-v2` | The embedding model. `null` falls back to the library's built-in encoder. |
 
 Guidance: start with the defaults. If distinct things keep showing up as
-candidates, **raise** the thresholds; if obvious duplicates aren't proposed at
-all, **lower** them — but the threshold only affects what gets *proposed*, you
+candidates, **raise** the threshold; if obvious duplicates aren't proposed at
+all, **lower** it — but the threshold only affects what gets *proposed*, you
 still decide what actually merges.
 
 ## Notes

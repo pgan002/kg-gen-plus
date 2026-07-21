@@ -402,11 +402,16 @@ class KGGen:
             final_graph, final_stats = await _process_single(input_data)
 
         if deduplicate:
-            kggen_logger.info("Performing deduplication.")
+            # Predicates are drawn from the ontology's controlled vocabulary, so
+            # they are already canonical; only entity surface forms need
+            # semantic clustering when an ontology guides extraction.
+            deduplicate_edges = ontology is None
+            kggen_logger.info(f"Performing deduplication ({deduplicate_edges = }).")
             final_graph, dedup_stats = self.deduplicate(
                 final_graph,
                 entity_similarity_threshold=entity_similarity_threshold,
                 edge_similarity_threshold=edge_similarity_threshold,
+                deduplicate_edges=deduplicate_edges,
             )
             final_stats.deduplicate = dedup_stats
 
@@ -432,6 +437,7 @@ class KGGen:
         graph: Graph,
         entity_similarity_threshold: float = 0.8,
         edge_similarity_threshold: float = 0.9,
+        deduplicate_edges: bool = True,
     ) -> tuple[Graph, StepStats]:
         start_time = time.time()
         if not graph.entities and not graph.edges:
@@ -441,6 +447,7 @@ class KGGen:
             model=self.retrieval_model,
             entity_similarity_threshold=entity_similarity_threshold,
             edge_similarity_threshold=edge_similarity_threshold,
+            deduplicate_edges=deduplicate_edges,
         )
         stats = StepStats(
             execution_time=time.time() - start_time,

@@ -178,7 +178,13 @@ class EntityCluster(BaseModel):
 
 
 class EdgeCluster(BaseModel):
-    """Same as ``EntityCluster``, but for predicates/edges."""
+    """Same shape as ``EntityCluster``, but for predicates/edges.
+
+    Not proposed by ``suggest_clusters`` (predicates already come from the
+    ontology's controlled vocabulary, so they don't need semantic
+    deduplication) — this exists for callers who want to hand ``apply_clusters``
+    manually authored edge merges.
+    """
 
     members: list[Entity]
     representative: Entity
@@ -213,13 +219,15 @@ def _cluster(items, threshold: float, model) -> list[tuple]:
 
 def suggest_clusters(
     typed_entities: list[TypedEntity],
-    relations: list[Relation],
     entity_similarity_threshold: float = 0.8,
-    edge_similarity_threshold: float = 0.9,
     retrieval_model: Optional[str] = "sentence-transformers/all-MiniLM-L6-v2",
 ) -> ClusterProposal:
-    """Propose candidate duplicate clusters for entities and edges (predicates)
-    using local embeddings. This only proposes — nothing is merged.
+    """Propose candidate duplicate clusters for entities using local embeddings.
+    This only proposes — nothing is merged.
+
+    Predicates are not clustered here: they come from the ontology's
+    controlled vocabulary (see ``suggest_predicates``), so they are already
+    canonical and don't need semantic deduplication.
 
     The agent, not the embedding model, has the final say: review each
     cluster (drop members that don't belong, split it, or change the
@@ -232,9 +240,6 @@ def suggest_clusters(
         Cosine-similarity threshold above which two entities are proposed as a
         cluster. Higher = stricter (fewer candidates); lower = more aggressive.
         Default 0.8.
-    edge_similarity_threshold:
-        Same, for predicates/edges. Predicates usually need a higher threshold
-        than entities so distinct relations aren't proposed together. Default 0.9.
     retrieval_model:
         Sentence-transformers model used to embed surface forms. ``None`` falls
         back to the deduplication library's built-in default encoder.
@@ -245,21 +250,11 @@ def suggest_clusters(
 
         model = _get_shared_sentence_transformer(retrieval_model)
 
-    graph = Graph(
-        typed_entities=set(typed_entities), relations_wo_class_assertions=relations
-    )
-
     entity_clusters = [
         EntityCluster(representative=rep, members=members)
         for rep, members in _cluster(typed_entities, entity_similarity_threshold, model)
     ]
-    edge_clusters = [
-        EdgeCluster(representative=rep, members=members)
-        for rep, members in _cluster(
-            list(graph.edges), edge_similarity_threshold, model
-        )
-    ]
-    return ClusterProposal(entity_clusters=entity_clusters, edge_clusters=edge_clusters)
+    return ClusterProposal(entity_clusters=entity_clusters, edge_clusters=[])
 
 
 def apply_clusters(

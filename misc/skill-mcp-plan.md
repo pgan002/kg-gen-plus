@@ -57,7 +57,7 @@ use; the small cost is re-parsing the TTL per call.
 | `validate_graph_schema(graph) -> {valid, errors}` | Structural validation of the output graph payload | Schema validation |
 | `serialize_graph(typed_entities, relations, ontology_ttl) -> KnowledgeGraph` | Build the canonical output: URI reconciliation, literal-vs-object detection, datatype guessing, ontology-extension detection | Produce the final graph |
 | `convert_ontology(classes, predicates) -> ttl` | Serialize classes/predicates (including discovered extensions) back to Turtle | Emit ontology / extensions as TTL |
-| `suggest_clusters(typed_entities, relations, thresholds, retrieval_model) -> {entity_clusters, edge_clusters}` | Propose candidate duplicate-entity/edge clusters from local embeddings; merges nothing | First half of dedup — surfaces candidates for the agent to check |
+| `suggest_clusters(typed_entities, entity_similarity_threshold, retrieval_model) -> {entity_clusters}` | Propose candidate duplicate-entity clusters from local embeddings; merges nothing. Predicates aren't clustered — they already come from the ontology's controlled vocabulary | First half of dedup — surfaces candidates for the agent to check |
 | `apply_clusters(typed_entities, relations, entity_clusters, edge_clusters) -> KnowledgeGraph` | Merge the agent-reviewed clusters into the canonical graph, aggregating provenance | Second half of dedup — commits only what the agent approved |
 
 ## Proposed Skill workflow
