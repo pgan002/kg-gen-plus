@@ -73,8 +73,10 @@ Tools exposed: `parse_ontology`, `list_target_types`, `suggest_predicates`,
 
 Deduplication is split across two tools so the agent reviews merges instead of
 trusting embeddings blindly: `suggest_clusters` proposes candidate duplicate
-clusters (entities and edges) from local embeddings, the agent inspects and
-edits them, then `apply_clusters` merges the reviewed clusters into the graph.
+entity clusters from local embeddings (predicates are not clustered — they
+already come from the ontology's controlled vocabulary), the agent inspects
+and edits the proposal, then `apply_clusters` merges the reviewed clusters
+into the graph.
 
 Point any MCP client at `<base-url>/mcp`. The accompanying `kg-extract` skill
 (`skills/kg-extract/`) describes the extraction workflow for the agent. The MCP

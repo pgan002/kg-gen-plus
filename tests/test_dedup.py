@@ -222,6 +222,53 @@ def test_semhash_deduplication_lowthreshold_mpnet(kg: KGGen):
     )
 
 
+def test_deduplicate_edges_false_leaves_predicates_untouched(kg: KGGen):
+    """
+    With deduplicate_edges=False, predicates must not be clustered even with a
+    permissive threshold that would otherwise merge them (as it does in
+    test_semhash_deduplication_lowthreshold_mpnet above) — this is the mode
+    used for ontology-guided extraction, where predicates are already
+    canonical and should be left alone.
+    """
+    graph = Graph(
+        typed_entities={
+            TypedEntity(surface_form="Person"),
+            TypedEntity(surface_form="person"),
+            TypedEntity(surface_form="CEO"),
+            TypedEntity(surface_form="Chief Executive Officer"),
+        },
+        relations_wo_class_assertions=[
+            Relation(
+                subject=TypedEntity(surface_form="Person"),
+                predicate=Entity(surface_form="manages"),
+                object=TypedEntity(surface_form="CEO"),
+            ),
+            Relation(
+                subject=TypedEntity(surface_form="person"),
+                predicate=Entity(surface_form="Manages"),
+                object=TypedEntity(surface_form="Chief Executive Officer"),
+            ),
+        ],
+    )
+
+    deduplicated, stats = kg.deduplicate(
+        graph=graph,
+        entity_similarity_threshold=0.5,
+        edge_similarity_threshold=0.25,
+        deduplicate_edges=False,
+    )
+
+    # Entities still get clustered.
+    deduped_person = [
+        e for e in deduplicated.entities if e.surface_form.lower() == "person"
+    ]
+    assert len(deduped_person) == 1, "Case variations should be merged to one"
+
+    # Edges are left exactly as they were, despite the permissive threshold.
+    assert len(deduplicated.edges) == 2
+    assert not deduplicated.edge_clusters
+
+
 def test_deduplication_preserves_provenance(kg: KGGen):
     """
     Test that deduplication preserves and merges provenance_ids of entities and relations.
