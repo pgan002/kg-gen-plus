@@ -29,7 +29,7 @@ def get_kg_gen(
     It creates a new instance if the parameters are different from the cached one.
     This allows for dynamic model selection per API call.
     """
-    cache_key = f"{model}-{max_tokens}-{temperature}-{api_base}-{api_key}-{enforce_type_conformance}-{enforce_domain_conformance}-{enforce_range_conformance}-{enforce_predicate_conformance}"
+    cache_key = f"{model}-{max_tokens}-{temperature}-{api_base}-{api_key}-{retrieval_model}-{enforce_type_conformance}-{enforce_domain_conformance}-{enforce_range_conformance}-{enforce_predicate_conformance}"
 
     cached = _kg_gen_cache.get(cache_key)
     if cached is not None:
