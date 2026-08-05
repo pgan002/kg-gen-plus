@@ -6,9 +6,11 @@ loads a sentence-transformers model and is therefore not run offline here).
 handed, it does not compute them), so it is tested directly. ``tools`` is
 importable because ``mcp/`` is on ``pythonpath`` (see pyproject pytest config)."""
 
+import json
+
 import tools
 from kg_gen.models import Entity, EntityType, Relation, TypedEntity
-from tools import EdgeCluster, EntityCluster
+from tools import EdgeCluster, EntityCluster, GraphWriteResult
 
 # A tiny ontology: Person and Organization classes, one object property
 # (works_for: Person -> Organization) and one datatype property
@@ -163,6 +165,103 @@ def test_apply_clusters_merges_entities_edges_and_provenance():
     # Provenance from both merged mentions of "Ada" is aggregated.
     ada_out = next(e for e in kg.entities.values() if e.surface_form == "Ada")
     assert sorted(ada_out.provenance_ids) == ["d1", "d2"]
+
+
+def test_resolve_list_passes_through_actual_list_and_loads_from_file(tmp_path):
+    items = [PERSON, ORG]
+    assert tools._resolve_list(items, EntityType) is items
+
+    path = tmp_path / "types.json"
+    path.write_text(json.dumps([t.model_dump() for t in items]))
+    loaded = tools._resolve_list(str(path), EntityType)
+    assert loaded == items
+
+
+def test_validate_conformance_accepts_file_paths(tmp_path):
+    person = TypedEntity(surface_form="Ada", type=PERSON)
+    org = TypedEntity(surface_form="Acme", type=ORG)
+    good = Relation(
+        subject=Entity(surface_form="Ada"),
+        predicate=Entity(surface_form="works_for"),
+        object=Entity(surface_form="Acme"),
+    )
+
+    entities_path = tmp_path / "entities.json"
+    entities_path.write_text(json.dumps([person.model_dump(), org.model_dump()]))
+    relations_path = tmp_path / "relations.json"
+    relations_path.write_text(json.dumps([good.model_dump()]))
+
+    report = tools.validate_conformance(str(entities_path), str(relations_path), ONTOLOGY_TTL)
+    assert report.conformant and report.score == 1.0
+
+
+def test_serialize_graph_accepts_file_paths_and_writes_output_file(tmp_path):
+    person = TypedEntity(surface_form="Ada", type=PERSON)
+    org = TypedEntity(surface_form="Acme", type=ORG)
+    rel = Relation(
+        subject=Entity(surface_form="Ada"),
+        predicate=Entity(surface_form="works_for"),
+        object=Entity(surface_form="Acme"),
+    )
+
+    entities_path = tmp_path / "entities.json"
+    entities_path.write_text(json.dumps([person.model_dump(), org.model_dump()]))
+    relations_path = tmp_path / "relations.json"
+    relations_path.write_text(json.dumps([rel.model_dump()]))
+
+    # Inline result (no output_file): unchanged behavior.
+    kg = tools.serialize_graph(str(entities_path), str(relations_path), ONTOLOGY_TTL)
+    assert len(kg.relations) == 1
+
+    # File-output mode: a small summary comes back, and the graph is on disk.
+    out_path = tmp_path / "graph.json"
+    result = tools.serialize_graph(
+        str(entities_path), str(relations_path), ONTOLOGY_TTL, output_file=str(out_path)
+    )
+    assert isinstance(result, GraphWriteResult)
+    assert result.num_relations == 1
+    assert result.output_file == str(out_path)
+    on_disk = json.loads(out_path.read_text())
+    assert len(on_disk["relations"]) == 1
+
+
+def test_apply_clusters_accepts_file_paths_and_writes_output_file(tmp_path):
+    ada = TypedEntity(surface_form="Ada", type=PERSON, provenance_ids=["d1"])
+    lovelace = TypedEntity(surface_form="A. Lovelace", type=PERSON, provenance_ids=["d2"])
+    acme = TypedEntity(surface_form="Acme", type=ORG)
+    rel1 = Relation(
+        subject=ada, predicate=Entity(surface_form="works for"), object=acme,
+        provenance_ids=["d1"],
+    )
+    rel2 = Relation(
+        subject=lovelace, predicate=Entity(surface_form="works for"), object=acme,
+        provenance_ids=["d2"],
+    )
+    entity_clusters = [EntityCluster(members=[ada, lovelace], representative=ada)]
+
+    entities_path = tmp_path / "entities.json"
+    entities_path.write_text(json.dumps([ada.model_dump(), lovelace.model_dump(), acme.model_dump()]))
+    relations_path = tmp_path / "relations.json"
+    relations_path.write_text(json.dumps([rel1.model_dump(), rel2.model_dump()]))
+    clusters_path = tmp_path / "clusters.json"
+    clusters_path.write_text(json.dumps([c.model_dump() for c in entity_clusters]))
+
+    out_path = tmp_path / "merged.json"
+    result = tools.apply_clusters(
+        typed_entities=str(entities_path),
+        relations=str(relations_path),
+        entity_clusters=str(clusters_path),
+        edge_clusters=[],
+        ontology_ttl=ONTOLOGY_TTL,
+        output_file=str(out_path),
+    )
+
+    assert isinstance(result, GraphWriteResult)
+    assert result.num_entities == 2
+    on_disk = json.loads(out_path.read_text())
+    surface_forms = {e["surface_form"] for e in on_disk["entities"].values()}
+    assert surface_forms == {"Ada", "Acme"}
+    assert len(on_disk["relations"]) == 1
 
 
 def test_apply_clusters_no_clusters_is_a_passthrough():

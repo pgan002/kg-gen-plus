@@ -365,13 +365,20 @@ class KGGen:
             progress_start = time.time()
 
             async def process_with_semaphore(item: InputData):
-                async with semaphore:
-                    result = await _process_single(item)
-                progress["done"] += 1
-                done = progress["done"]
-                _log_generation_progress(done, total, progress_start)
-                if progress_callback is not None:
-                    progress_callback(done, total)
+                # Progress must advance (and be reported) even when this
+                # document raises -- otherwise one failing document leaves
+                # the job's progress/percent_complete permanently short of
+                # 100%, since gather() below tolerates individual failures
+                # and keeps going instead of aborting the whole batch.
+                try:
+                    async with semaphore:
+                        result = await _process_single(item)
+                finally:
+                    progress["done"] += 1
+                    done = progress["done"]
+                    _log_generation_progress(done, total, progress_start)
+                    if progress_callback is not None:
+                        progress_callback(done, total)
                 return result
 
             tasks = [process_with_semaphore(i) for i in input_data]
@@ -381,13 +388,42 @@ class KGGen:
                 ), KGGenStats()
 
             kggen_logger.info(f"[generate] starting on {total} docs, {n_parallel = }")
-            results = await asyncio.gather(*tasks)
+            # return_exceptions=True: one document producing a malformed/
+            # truncated LM response (e.g. a JSONAdapter parse failure) must not
+            # discard every other document's already-successful results. Each
+            # failure is recorded in failed_documents instead; the request
+            # only fails outright if *every* document failed.
+            results = await asyncio.gather(*tasks, return_exceptions=True)
 
             graphs = []
             total_gen_stats = KGGenStats()
-            for graph, gen_stats in results:
+            failed_documents: list[dict[str, str]] = []
+            for item, result in zip(input_data, results):
+                if isinstance(result, BaseException):
+                    kggen_logger.error(
+                        f"[generate] document {item.id!r} failed and was skipped: {result}"
+                    )
+                    failed_documents.append({"id": item.id, "error": str(result)})
+                    continue
+                graph, gen_stats = result
                 graphs.append(graph)
                 total_gen_stats += gen_stats
+
+            if not graphs:
+                failure_summary = "; ".join(
+                    f"{f['id']}: {f['error']}" for f in failed_documents
+                )
+                raise RuntimeError(
+                    f"KGGen failed on every document ({len(failed_documents)}/{total}): "
+                    f"{failure_summary}"
+                )
+
+            if failed_documents:
+                kggen_logger.warning(
+                    f"[generate] {len(failed_documents)}/{total} document(s) failed "
+                    f"and were skipped: {[f['id'] for f in failed_documents]}"
+                )
+            total_gen_stats.failed_documents = failed_documents
 
             kggen_logger.info(
                 f"Graphs generation complete: {len(graphs) = }, "
