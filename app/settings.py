@@ -87,3 +87,33 @@ MAX_PAYLOAD_BYTES: int = _int_env("KGGEN_MAX_PAYLOAD_BYTES", 64 * 1024 * 1024)
 
 def redis_enabled() -> bool:
     return REDIS_URL is not None
+
+
+def _bool_env(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return default
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
+# --- logging ---------------------------------------------------------------
+
+# Where rotating log files go. Only used when file logging is enabled; the
+# container points this at a named volume so log files are never written to a
+# host-shared path (see the ownership note in docs/logging.md).
+LOG_DIR: str = os.environ.get("KGGEN_LOG_DIR", "logs")
+
+# Per-file rotation ceiling and how many rotated copies to keep, so a long-lived
+# deployment cannot fill its disk. Worst case on disk is roughly
+# LOG_MAX_BYTES * (1 + LOG_BACKUP_COUNT) per configured file.
+LOG_MAX_BYTES: int = _int_env("KGGEN_LOG_MAX_BYTES", 10 * 1024 * 1024)
+LOG_BACKUP_COUNT: int = _int_env("KGGEN_LOG_BACKUP_COUNT", 3)
+
+
+# Whether to write log *files* at all, on top of stdout. Default depends on the
+# process: the API is a single process and can safely own its files, whereas
+# several worker replicas share one volume and Python's RotatingFileHandler is
+# not safe across processes -- concurrent rotations clobber each other. Workers
+# therefore log to stdout only unless this is explicitly turned on.
+def log_to_files(default: bool) -> bool:
+    return _bool_env("KGGEN_LOG_TO_FILES", default)

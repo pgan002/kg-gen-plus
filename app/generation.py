@@ -10,6 +10,7 @@ from __future__ import annotations
 import io
 from typing import Optional
 
+import dspy
 from fastapi import HTTPException
 from pydantic import ValidationError
 from rdflib import Graph as RDFGraph
@@ -21,6 +22,23 @@ from app.schemas import GenerationMetadata
 from app.utils import parse_ontology
 from kg_gen.kg_gen import KGGen
 from kg_gen.models import InputData, KnowledgeGraph, Ontology
+
+
+def configure_dspy_cache() -> None:
+    """Turn DSPy's LM caches off for any process that runs generation.
+
+    Lives here, next to the code that drives the LM, because *every* such process
+    needs it and they must not drift apart. The API used to set this at the bottom
+    of ``app.server``; the worker does not import that module, so it would
+    otherwise silently inherit DSPy's defaults -- a **30 GB** on-disk cache
+    (``DSPY_CACHE_LIMIT``) of prompts and completions, i.e. document text at rest,
+    plus a 1,000,000-entry in-memory cache. The worker is where all LM calls
+    happen now, so that is exactly the wrong process to leave on defaults.
+    """
+    dspy.configure_cache(
+        enable_disk_cache=False,
+        enable_memory_cache=False,
+    )
 
 
 def prepare_generation_inputs(

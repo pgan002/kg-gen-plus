@@ -191,7 +191,9 @@ def test_validate_conformance_accepts_file_paths(tmp_path):
     relations_path = tmp_path / "relations.json"
     relations_path.write_text(json.dumps([good.model_dump()]))
 
-    report = tools.validate_conformance(str(entities_path), str(relations_path), ONTOLOGY_TTL)
+    report = tools.validate_conformance(
+        str(entities_path), str(relations_path), ONTOLOGY_TTL
+    )
     assert report.conformant and report.score == 1.0
 
 
@@ -227,20 +229,28 @@ def test_serialize_graph_accepts_file_paths_and_writes_output_file(tmp_path):
 
 def test_apply_clusters_accepts_file_paths_and_writes_output_file(tmp_path):
     ada = TypedEntity(surface_form="Ada", type=PERSON, provenance_ids=["d1"])
-    lovelace = TypedEntity(surface_form="A. Lovelace", type=PERSON, provenance_ids=["d2"])
+    lovelace = TypedEntity(
+        surface_form="A. Lovelace", type=PERSON, provenance_ids=["d2"]
+    )
     acme = TypedEntity(surface_form="Acme", type=ORG)
     rel1 = Relation(
-        subject=ada, predicate=Entity(surface_form="works for"), object=acme,
+        subject=ada,
+        predicate=Entity(surface_form="works for"),
+        object=acme,
         provenance_ids=["d1"],
     )
     rel2 = Relation(
-        subject=lovelace, predicate=Entity(surface_form="works for"), object=acme,
+        subject=lovelace,
+        predicate=Entity(surface_form="works for"),
+        object=acme,
         provenance_ids=["d2"],
     )
     entity_clusters = [EntityCluster(members=[ada, lovelace], representative=ada)]
 
     entities_path = tmp_path / "entities.json"
-    entities_path.write_text(json.dumps([ada.model_dump(), lovelace.model_dump(), acme.model_dump()]))
+    entities_path.write_text(
+        json.dumps([ada.model_dump(), lovelace.model_dump(), acme.model_dump()])
+    )
     relations_path = tmp_path / "relations.json"
     relations_path.write_text(json.dumps([rel1.model_dump(), rel2.model_dump()]))
     clusters_path = tmp_path / "clusters.json"

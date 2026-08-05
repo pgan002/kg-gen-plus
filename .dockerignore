@@ -1,0 +1,43 @@
+# Keep the build context small and keep host-generated artefacts out of images.
+# Without this every `docker build` uploads the whole working tree (including
+# .venv and any benchmark data) to the daemon, and log files written by a
+# previous container run get baked into the next image along with their uid --
+# the cause of the log-file ownership clashes. See docs/logging.md.
+
+.venv/
+venv/
+.git/
+.gitignore
+
+# Log files: the image creates an empty /workspace/logs instead (see Dockerfile),
+# and at runtime it is a named volume.
+logs/
+*.log
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ty_cache/
+
+# Local caches and scratch data.
+cache/
+.dspy_cache/
+outputs/
+musk_example/
+
+.env
+.env.*
+!.env.example
+
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Docs and slides are not needed at runtime.
+misc/
+docs/
+*.md
+!README.md

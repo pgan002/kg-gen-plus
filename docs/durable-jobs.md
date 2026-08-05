@@ -117,24 +117,33 @@ in testing) and both the status hash and the result expire after
 `KGGEN_RESULT_TTL_SECONDS`. Corpora over `KGGEN_MAX_PAYLOAD_BYTES` are rejected
 with 413 rather than allowed to consume an unbounded slice of Redis memory.
 
-## The DSPy cache is a separate disk consumer
+## The DSPy cache
 
-Independent of jobs, DSPy writes an on-disk cache of LM **prompts and
-completions** -- i.e. document text and extracted content -- to
-`DSPY_CACHEDIR`. It is bounded, but DSPy's own default limit is **30 GB**.
-It is a `diskcache.FanoutCache`, so it evicts LRU once over the limit rather
-than growing forever.
+DSPy can write an on-disk cache of LM **prompts and completions** -- i.e.
+document text and extracted content -- to `DSPY_CACHEDIR`, plus an in-memory
+cache. Left on defaults that is a **30 GB** disk ceiling (`DSPY_CACHE_LIMIT`) and
+a 1,000,000-entry memory cache; it is a `diskcache.FanoutCache`, so it evicts LRU
+at the limit rather than growing forever, but 30 GB of prompts at rest is not
+what you want by default.
 
-* `DSPY_CACHE_LIMIT=<bytes>` -- set the ceiling. `docker-compose.yml` now sets
-  1 GB rather than inheriting the 30 GB default.
-* To turn the disk cache off entirely, call
-  `dspy.configure_cache(enable_disk_cache=False)` at startup, or construct
-  `KGGen(disable_cache=True)`.
+**Both caches are disabled here**, via `configure_dspy_cache()` in
+`app/generation.py`, called by the API (`app/server.py`) *and* by the worker
+(`app/worker.py`). The API already did this; the worker needed it explicitly,
+because it does not import `app.server` and would otherwise have inherited the
+defaults -- and the worker is where every LM call now happens.
 
-One gotcha: the in-**memory** half of that cache defaults to `memory_max_entries
-= 1_000_000` and is not settable by environment variable -- only via an explicit
-`dspy.configure_cache(...)` call. Worth lowering if worker RSS grows over a long
-run.
+`DSPY_CACHE_LIMIT` is still set to 1 GB in `docker-compose.yml` as a belt-and-
+braces bound, so re-enabling the cache cannot silently reintroduce a 30 GB one.
+Note the memory-cache size is *not* settable by environment variable at all --
+only through an explicit `dspy.configure_cache(...)`, which is another reason the
+call is centralised rather than duplicated per entrypoint.
+
+## Logs
+
+See [logging.md](logging.md). Two points that matter for the worker split
+specifically: worker replicas log to **stdout only** (Python's
+`RotatingFileHandler` is not safe across processes sharing a volume), and both
+container stdout and any log files are size-bounded.
 
 ## Sizing workers
 

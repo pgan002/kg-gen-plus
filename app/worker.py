@@ -29,12 +29,14 @@ from fastapi import HTTPException
 
 from app import settings
 from app.generation import (
+    configure_dspy_cache,
     execute_generation,
     kg_gen_from_params,
     prepare_generation_inputs,
 )
 from app.job_queue import RedisJobQueue
 from app.kggen_logger import kggen_logger
+from app.logging_setup import configure_logging
 from app.schemas import GenerationMetadata
 
 
@@ -217,16 +219,15 @@ async def main() -> None:
 
 def run() -> None:
     """Console entrypoint (``python -m app.worker``)."""
-    import logging.config
-    from pathlib import Path
-
-    import yaml
-
-    config_path = Path(__file__).parent / "logging.yaml"
-    if config_path.exists():
-        with open(config_path) as f:
-            logging.config.dictConfig(yaml.safe_load(f.read()))
-
+    # files_by_default=False: worker replicas share one log volume, and Python's
+    # RotatingFileHandler is not safe across processes -- two workers rotating the
+    # same file will clobber each other. Workers log to stdout, which the
+    # container runtime already collects and bounds. Set KGGEN_LOG_TO_FILES=1 to
+    # override when running a single worker.
+    configure_logging(role="worker", files_by_default=False)
+    # Same cache posture as the API (see configure_dspy_cache): without this the
+    # worker would inherit DSPy's 30 GB on-disk prompt/completion cache.
+    configure_dspy_cache()
     asyncio.run(main())
 
 

@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import dspy
 import toml
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-import yaml
 from starlette.responses import RedirectResponse
 
 import logging
@@ -18,15 +16,17 @@ from fastapi.staticfiles import StaticFiles
 from app import settings
 from app.apis.kg_construct import kgc_router
 from app.apis.ui import ui_router
+from app.generation import configure_dspy_cache
 from app.job_queue import get_queue, reset_queue
+from app.logging_setup import configure_logging
 from app.schemas import HeartBeatResponse
 from app.utils import APP_DIR
 
 
 async def config_logger():
-    with open(Path(__file__).parent / "logging.yaml") as f:
-        config = yaml.safe_load(f.read())
-        logging.config.dictConfig(config)
+    # files_by_default=True: the API is a single process, so it can own its log
+    # files without racing another process's rotation.
+    configure_logging(role="api", files_by_default=True)
 
 
 description_path = Path(__file__).parent / "api_doku.md"
@@ -147,7 +147,4 @@ if mcp_asgi_app is not None:
 # Serve static files (CSS, JS, etc.) - must be mounted after all routes
 app.mount("/ui", StaticFiles(directory=APP_DIR / "static", html=True), name="static")
 
-dspy.configure_cache(
-    enable_disk_cache=False,
-    enable_memory_cache=False,
-)
+configure_dspy_cache()

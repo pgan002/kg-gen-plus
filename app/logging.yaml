@@ -1,3 +1,9 @@
+# Formatters, levels and logger->handler wiring live here. The *file* handlers
+# below are rewritten at startup by app/logging_setup.py, which resolves
+# KGGEN_LOG_DIR, switches them to RotatingFileHandler with size limits, suffixes
+# the filename with the process role, and drops them entirely if the directory is
+# not writable (so a permission problem degrades to stdout instead of failing
+# startup). Filenames here are therefore bare names, not paths.
 version: 1
 disable_existing_loggers: False
 formatters:
@@ -7,18 +13,15 @@ handlers:
   main_log_file:
     formatter: default
     class: logging.FileHandler
-    filename: logs/main.log
-    mode: a
+    filename: main.log
   access_log_file:
     formatter: default
     class: logging.FileHandler
-    filename: logs/access.log
-    mode: a
+    filename: access.log
   uvicorn_log_file:
     formatter: default
     class: logging.FileHandler
-    filename: logs/uvicorn.log
-    mode: a
+    filename: uvicorn.log
   console:
     formatter: default
     class: logging.StreamHandler
