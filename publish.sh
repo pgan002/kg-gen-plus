@@ -13,9 +13,10 @@ fi
 
 # --- checks -----------------------------------------------------------------
 # Everything below this block mutates something you cannot easily take back: a
-# commit, a pushed image, a tag (and the tag is what triggers the CI build/push
-# job). So run the checks first, while failing still costs nothing. `set -e`
-# aborts on the first failure.
+# commit, an image pushed to the registry, and a tag. There is no CI pipeline
+# behind this any more -- this script *is* the release -- so these checks are
+# the only thing standing between a broken tree and a published image. Run them
+# first, while failing still costs nothing. `set -e` aborts on the first failure.
 #
 # SKIP_TESTS=1 ./publish.sh escapes this, for the case where you have just run
 # the suite yourself and only want the release mechanics.
