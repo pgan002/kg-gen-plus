@@ -50,10 +50,16 @@ mcp.tool(tools.list_target_types)
 mcp.tool(tools.suggest_predicates)
 mcp.tool(tools.validate_conformance)
 mcp.tool(tools.validate_graph_schema)
-mcp.tool(tools.serialize_graph)
+# These two return `KnowledgeGraph | GraphWriteResult`. FastMCP can't tell a
+# Union of object schemas is itself an object schema, so by default it wraps
+# the structured output as {"result": ...} -- and an agent asked to copy the
+# tool's result "verbatim" sometimes copies that envelope literally, leaving
+# callers that read top-level "entities"/"relations" keys silently empty.
+# output_schema=None disables the wrapping: the raw dict is returned as-is.
+mcp.tool(tools.serialize_graph, output_schema=None)
 mcp.tool(tools.convert_ontology)
 mcp.tool(tools.suggest_clusters)
-mcp.tool(tools.apply_clusters)
+mcp.tool(tools.apply_clusters, output_schema=None)
 
 
 if __name__ == "__main__":

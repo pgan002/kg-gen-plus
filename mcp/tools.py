@@ -12,8 +12,9 @@ than the server holding parsed state between calls.
 
 from __future__ import annotations
 
+import json
 from collections import defaultdict
-from typing import Optional
+from typing import Optional, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
@@ -54,6 +55,59 @@ class SchemaValidationResult(BaseModel):
     errors: list[str]
 
 
+class GraphWriteResult(BaseModel):
+    """Returned by ``serialize_graph``/``apply_clusters`` instead of the full
+    ``KnowledgeGraph`` when the caller passes ``output_file``: the graph was
+    written to disk rather than returned inline, so a large result never has
+    to pass back through the caller's own context/output tokens.
+    """
+
+    num_entities: int
+    num_relations: int
+    output_file: str
+
+
+_ListItemT = TypeVar("_ListItemT", bound=BaseModel)
+
+
+def _resolve_list(value: list[_ListItemT] | str, model: type[_ListItemT]) -> list[_ListItemT]:
+    """Resolve a tool argument that is either the actual list already, or (as
+    a plain string) a **path to a JSON file** containing that list.
+
+    This lets a caller with a large ``typed_entities``/``relations``/cluster
+    list pass a file path instead of retyping the whole thing as literal
+    tool-call output -- on a real large corpus that retyping can exceed the
+    calling model's own output-token limit (confirmed in practice: an
+    apply_clusters call carrying ~300 relations inline hit exactly this wall).
+    A normal call with an actual JSON array still works exactly as before;
+    this is purely additive. See SKILL.md's "Large inputs" section.
+    """
+    if isinstance(value, str):
+        with open(value) as f:
+            raw = json.load(f)
+        return [model.model_validate(item) for item in raw]
+    return value
+
+
+def _maybe_write_output(
+    graph: KnowledgeGraph, output_file: Optional[str]
+) -> "KnowledgeGraph | GraphWriteResult":
+    """Return ``graph`` unchanged if ``output_file`` is falsy (the default,
+    fully backward compatible). Otherwise write it to disk as JSON and return
+    a small ``GraphWriteResult`` summary instead -- so a large final graph
+    doesn't have to pass back through the caller's own context.
+    """
+    if not output_file:
+        return graph
+    with open(output_file, "w") as f:
+        f.write(graph.model_dump_json(indent=2))
+    return GraphWriteResult(
+        num_entities=len(graph.entities),
+        num_relations=len(graph.relations),
+        output_file=output_file,
+    )
+
+
 def parse_ontology(ontology_ttl: str) -> Ontology:
     """Parse a Turtle ontology into structured classes and predicates."""
     onto, _ = parse_ontology_from_string(ontology_ttl)
@@ -90,8 +144,8 @@ def suggest_predicates(
 
 
 def validate_conformance(
-    typed_entities: list[TypedEntity],
-    relations: list[Relation],
+    typed_entities: list[TypedEntity] | str,
+    relations: list[Relation] | str,
     ontology_ttl: Optional[str] = None,
     enforce_domain_conformance: bool = True,
     enforce_range_conformance: bool = True,
@@ -102,7 +156,14 @@ def validate_conformance(
 
     Returns a score in ``[0, 1]`` (1.0 = fully conformant) and a list of
     human-readable violations the agent can use to correct its extraction.
+
+    ``typed_entities``/``relations`` each accept either the list directly, or
+    a path to a JSON file containing that list (see ``_resolve_list``) --
+    useful once either list is large.
     """
+    typed_entities = _resolve_list(typed_entities, TypedEntity)
+    relations = _resolve_list(relations, Relation)
+
     predicate_domain_range = None
     allowed_types = None
     if ontology_ttl:
@@ -137,15 +198,25 @@ def validate_graph_schema(graph: dict) -> SchemaValidationResult:
 
 
 def serialize_graph(
-    typed_entities: list[TypedEntity],
-    relations: list[Relation],
+    typed_entities: list[TypedEntity] | str,
+    relations: list[Relation] | str,
     ontology_ttl: Optional[str] = None,
-) -> KnowledgeGraph:
+    output_file: Optional[str] = None,
+) -> "KnowledgeGraph | GraphWriteResult":
     """Build the canonical output graph from extracted entities and relations.
 
     Handles URI reconciliation against the ontology, literal-vs-object detection,
     XSD datatype guessing, and ontology-extension detection.
+
+    ``typed_entities``/``relations`` each accept either the list directly, or
+    a path to a JSON file containing that list -- useful once either list is
+    large. If ``output_file`` is given, the resulting graph is written there
+    instead of being returned inline, and this returns a small
+    ``GraphWriteResult`` summary instead of the full ``KnowledgeGraph``.
     """
+    typed_entities = _resolve_list(typed_entities, TypedEntity)
+    relations = _resolve_list(relations, Relation)
+
     onto = None
     if ontology_ttl:
         onto, _ = parse_ontology_from_string(ontology_ttl)
@@ -154,7 +225,7 @@ def serialize_graph(
         typed_entities=set(typed_entities),
         relations_wo_class_assertions=relations,
     )
-    return graph.to_knowledge_graph(KGGenStats(), onto)
+    return _maybe_write_output(graph.to_knowledge_graph(KGGenStats(), onto), output_file)
 
 
 def convert_ontology(
@@ -218,7 +289,7 @@ def _cluster(items, threshold: float, model) -> list[tuple]:
 
 
 def suggest_clusters(
-    typed_entities: list[TypedEntity],
+    typed_entities: list[TypedEntity] | str,
     entity_similarity_threshold: float = 0.8,
     retrieval_model: Optional[str] = "sentence-transformers/all-MiniLM-L6-v2",
 ) -> ClusterProposal:
@@ -236,6 +307,12 @@ def suggest_clusters(
 
     Parameters
     ----------
+    typed_entities:
+        Either the list directly, or a path to a JSON file containing that
+        list -- useful once it's large (e.g. clustering across many
+        documents at once; see SKILL.md's "Large inputs" section). The
+        returned proposal only includes clusters with more than one member,
+        so it's typically much smaller than the input regardless.
     entity_similarity_threshold:
         Cosine-similarity threshold above which two entities are proposed as a
         cluster. Higher = stricter (fewer candidates); lower = more aggressive.
@@ -244,6 +321,8 @@ def suggest_clusters(
         Sentence-transformers model used to embed surface forms. ``None`` falls
         back to the deduplication library's built-in default encoder.
     """
+    typed_entities = _resolve_list(typed_entities, TypedEntity)
+
     model = None
     if retrieval_model:
         from kg_gen.kg_gen import _get_shared_sentence_transformer
@@ -258,12 +337,13 @@ def suggest_clusters(
 
 
 def apply_clusters(
-    typed_entities: list[TypedEntity],
-    relations: list[Relation],
-    entity_clusters: list[EntityCluster],
-    edge_clusters: list[EdgeCluster],
+    typed_entities: list[TypedEntity] | str,
+    relations: list[Relation] | str,
+    entity_clusters: list[EntityCluster] | str,
+    edge_clusters: list[EdgeCluster] | str,
     ontology_ttl: Optional[str] = None,
-) -> KnowledgeGraph:
+    output_file: Optional[str] = None,
+) -> "KnowledgeGraph | GraphWriteResult":
     """Merge entities/edges per the (agent-reviewed) clusters and rebuild the
     canonical graph. This is the deterministic half of deduplication — it does
     not compute similarity itself, it just applies decisions already made
@@ -274,7 +354,23 @@ def apply_clusters(
     anything not named in a cluster passes through unchanged. Provenance from
     every merged entity/relation is aggregated onto the result. Pass an empty
     list for either cluster kind to skip that merge entirely.
+
+    Every list argument accepts either the list directly, or a path to a JSON
+    file containing that list. This matters most here: merging across many
+    documents means ``typed_entities``/``relations`` can be hundreds of items,
+    and retyping them as literal tool-call output can exceed the calling
+    model's own output-token limit (confirmed in practice on a real ~300-
+    relation merge). If ``output_file`` is given, the merged graph is written
+    there instead of being returned inline, returning a small
+    ``GraphWriteResult`` summary instead of the full ``KnowledgeGraph`` — the
+    result can be just as large as the input. See SKILL.md's "Large inputs"
+    section for guidance on when to use file paths instead of inline data.
     """
+    typed_entities = _resolve_list(typed_entities, TypedEntity)
+    relations = _resolve_list(relations, Relation)
+    entity_clusters = _resolve_list(entity_clusters, EntityCluster)
+    edge_clusters = _resolve_list(edge_clusters, EdgeCluster)
+
     entity_map = {
         member.surface_form: cluster.representative
         for cluster in entity_clusters
@@ -339,4 +435,4 @@ def apply_clusters(
             if len(c.members) > 1
         },
     )
-    return graph.to_knowledge_graph(KGGenStats(), onto)
+    return _maybe_write_output(graph.to_knowledge_graph(KGGenStats(), onto), output_file)

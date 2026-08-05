@@ -378,6 +378,14 @@ class KGGenStats(BaseModel):
     deduplicate: Optional[StepStats] = None
     class_usage: dict[str, int] = Field(default_factory=dict)
     predicate_usage: dict[str, int] = Field(default_factory=dict)
+    failed_documents: list[dict[str, str]] = Field(
+        default_factory=list,
+        description="Documents whose extraction raised and were skipped, as "
+        "{'id': <InputData.id>, 'error': str(exc)}. Only populated when "
+        "generate() is given a list of documents: if at least one (but not "
+        "all) fails, the rest of the batch still completes and the failures "
+        "are reported here instead of the whole request failing.",
+    )
 
     @computed_field
     @property
@@ -427,6 +435,7 @@ class KGGenStats(BaseModel):
             deduplicate=new_deduplicate,
             class_usage=new_class_usage,
             predicate_usage=new_predicate_usage,
+            failed_documents=self.failed_documents + other.failed_documents,
         )
         return new_stats
 

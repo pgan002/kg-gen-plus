@@ -142,6 +142,35 @@ candidates, **raise** the threshold; if obvious duplicates aren't proposed at
 all, **lower** it — but the threshold only affects what gets *proposed*, you
 still decide what actually merges.
 
+## Large inputs: use file paths, not inline data
+
+`validate_conformance`, `serialize_graph`, `suggest_clusters`, and
+`apply_clusters` all accept `typed_entities`/`relations`/`entity_clusters`/
+`edge_clusters` either as the list directly, or as a **string that's a path to
+a JSON file** containing that list — the tool reads the file itself instead of
+requiring you to retype the data as tool-call output. `serialize_graph` and
+`apply_clusters` also accept an `output_file` path: if given, the merged/
+serialized graph is written there instead of being returned inline, and you
+get back a small summary (`num_entities`/`num_relations`/`output_file`) instead
+of the full graph.
+
+**Use file paths once a list would run into the hundreds of items** (a long
+document, or especially merging across several documents at once). Retyping
+a large `typed_entities`/`relations` list as literal tool-call output is not
+just slow and expensive — it can silently or loudly fail outright. On a real
+multi-document merge, an `apply_clusters` call carrying ~300 relations inline
+exceeded the output-token limit; a stronger model hit a hard API error trying
+to route around it via a subagent, while a weaker model just quietly
+submitted an empty relations list instead. Neither is a model problem — it's
+a hard ceiling no amount of retyping avoids.
+
+Practical pattern for a large job: write each stage's output to a file with
+the Write tool (or let `output_file` do it for you), then pass that path into
+the next tool call rather than the data itself. For a single normal-sized
+document this doesn't matter and inline data is simpler — reach for file
+paths specifically when a list is large enough that reproducing it verbatim
+would be a real amount of your own output.
+
 ## Notes
 
 - Prefer types and predicates from the provided ontology. When you must go beyond
