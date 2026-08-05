@@ -48,6 +48,7 @@ loggers:
   kg_gen_app:
     level: DEBUG
     handlers: [ console, main_log_file ]
+    propagate: no
   openai:
     level: WARNING
   httpcore:

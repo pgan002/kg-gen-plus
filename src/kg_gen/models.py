@@ -195,7 +195,13 @@ class TextEntities(dspy.Signature):
 
 class ExtractTypedEntities(dspy.Signature):
     """Extract key entities from the source text and predict their type/class. Extracted entities are subjects or objects.
-    This is for an extraction task, please be THOROUGH and accurate to the reference text."""
+    This is for an extraction task, please be THOROUGH and accurate to the reference text.
+
+    When `types_to_extract` is provided, assign each entity a type whose label
+    is EXACTLY one of the provided type labels, copied verbatim. Do not invent
+    new type names or substitute a generic synonym (e.g. do not output "Person"
+    when the provided type is "human", or "Event" for "recurring sporting event
+    edition"). Choose the single best-fitting provided type for each entity."""
 
     source_text: str = dspy.InputField()
     context: Optional[str] = dspy.InputField(
@@ -204,10 +210,10 @@ class ExtractTypedEntities(dspy.Signature):
     )
     types_to_extract: Optional[list[EntityType] | str] = dspy.InputField(
         default_factory=list,
-        desc="List of entity types or string describing the types to extract. If empty, all entity types are extracted.",
+        desc="List of entity types (each with a label) or a string describing the types. When a list is provided, every entity's type label MUST be copied verbatim from this list; do not create or rename labels. If empty, all entity types are extracted.",
     )
     typed_entities: list[TypedEntity] = dspy.OutputField(
-        desc="THOROUGH list of key entities and their types/classes. Every type should come from a list of types, if provided."
+        desc="THOROUGH list of key entities and their types/classes. When types_to_extract is a list, every type label MUST match one of the provided labels exactly (verbatim); do not invent or rename types."
     )
 
 
@@ -229,8 +235,11 @@ class EntitiesResponse(BaseModel):
 class TypedEntities(dspy.Signature):
     """
     Find the mentions of the given entities in the source_text and predict their type/class.
-    If types are provided, only use these types as target types/classes. Otherwise, if no types are provided,
-    predict your own types.
+    If types are provided, assign each entity a type whose label is EXACTLY one
+    of the provided type labels, copied verbatim -- do not invent new type names
+    or substitute a generic synonym (e.g. do not output "Person" when the
+    provided type is "human"). Choose the single best-fitting provided type.
+    Otherwise, if no types are provided, predict your own types.
     """
 
     entities: list[str] = dspy.InputField()
@@ -240,11 +249,11 @@ class TypedEntities(dspy.Signature):
     )
     types: list[EntityType] | str | None = dspy.InputField(
         default=None,
-        desc="List of entity types or string describing the types to extract. If empty, all entity types are extracted.",
+        desc="List of entity types (each with a label) or a string describing the types. When a list is provided, every entity's type label MUST be copied verbatim from this list; do not create or rename labels. If empty, all entity types are extracted.",
     )
     source_text: str = dspy.InputField()
     typed_entities: list[TypedEntity] = dspy.OutputField(
-        desc="List of all entities and their types/classes. Every type should come from a list of types, if provided."
+        desc="List of all entities and their types/classes. When types is a list, every type label MUST match one of the provided labels exactly (verbatim); do not invent or rename types."
     )
 
 
@@ -309,9 +318,14 @@ class ExtractTextRelations(dspy.Signature):
     Rules:
     1. Only use entities provided in `entities_with_types`.
     2. Only use predicates provided in `allowed_predicates`.
-    3. Ensure domain/range conformance:
+    3. Respect predicate direction. Each predicate states which type the
+       SUBJECT must have (its domain) and which type the OBJECT must have (its
+       range):
        - The subject's type must match the predicate's domain.
        - The object's type must match the predicate's range.
+       - Do not swap subject and object, even when the sentence mentions the
+         object before the subject (e.g. "X took pole position at event Y" maps
+         to subject=Y, object=X when that predicate's subject type is the event).
     4. Be thorough, accurate, and faithful to the source text.
     """
 
@@ -320,7 +334,8 @@ class ExtractTextRelations(dspy.Signature):
         desc="List of available entities and their types in 'Entity (Type)' format."
     )
     allowed_predicates: str = dspy.InputField(
-        desc="List of allowed predicates and their domain/range constraints in 'Predicate: [Domain] -> [Range]' format."
+        desc="List of allowed predicates with their subject/object type roles in "
+        "'Predicate: subject is [Domain], object is [Range]' format."
     )
     context: Optional[str] = dspy.InputField(
         default=None,

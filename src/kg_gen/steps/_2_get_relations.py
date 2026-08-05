@@ -25,12 +25,22 @@ def _format_entities(entities: List[TypedEntity]) -> str:
 
 
 def _format_predicates(predicates: List[OntologyPredicate]) -> str:
-    """Format predicates for the prompt."""
+    """Format predicates for the prompt.
+
+    States the subject/object roles explicitly (subject = domain, object =
+    range) so the model does not invert the triple direction, and appends each
+    predicate's description (from ``rdfs:comment`` in the ontology) when present
+    so it can disambiguate predicates by their definition rather than label
+    alone.
+    """
     lines = []
     for p in predicates:
         domains = ", ".join([d.label for d in p.domain]) or "Any"
         ranges = ", ".join([r.label for r in p.range]) or "Any"
-        lines.append(f"- {p.label}: [{domains}] -> [{ranges}]")
+        line = f"- {p.label}: subject is [{domains}], object is [{ranges}]"
+        if p.description:
+            line += f" ({p.description})"
+        lines.append(line)
     return "\n".join(lines)
 
 
