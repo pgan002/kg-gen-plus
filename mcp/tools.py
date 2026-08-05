@@ -70,7 +70,9 @@ class GraphWriteResult(BaseModel):
 _ListItemT = TypeVar("_ListItemT", bound=BaseModel)
 
 
-def _resolve_list(value: list[_ListItemT] | str, model: type[_ListItemT]) -> list[_ListItemT]:
+def _resolve_list(
+    value: list[_ListItemT] | str, model: type[_ListItemT]
+) -> list[_ListItemT]:
     """Resolve a tool argument that is either the actual list already, or (as
     a plain string) a **path to a JSON file** containing that list.
 
@@ -225,7 +227,9 @@ def serialize_graph(
         typed_entities=set(typed_entities),
         relations_wo_class_assertions=relations,
     )
-    return _maybe_write_output(graph.to_knowledge_graph(KGGenStats(), onto), output_file)
+    return _maybe_write_output(
+        graph.to_knowledge_graph(KGGenStats(), onto), output_file
+    )
 
 
 def convert_ontology(
@@ -435,4 +439,6 @@ def apply_clusters(
             if len(c.members) > 1
         },
     )
-    return _maybe_write_output(graph.to_knowledge_graph(KGGenStats(), onto), output_file)
+    return _maybe_write_output(
+        graph.to_knowledge_graph(KGGenStats(), onto), output_file
+    )
