@@ -12,8 +12,76 @@ services:
       - .env
     environment:
       - "DSPY_CACHEDIR=/workspace/cache/dspy_cache"
+      # Bound the DSPy on-disk LM cache. DSPy's own default is 30 GB, and the
+      # cache holds prompts and completions -- i.e. document text -- so keep it
+      # small unless you want that much user content at rest. Set to 0 and pair
+      # with enable_disk_cache=False to turn it off entirely.
+      - "DSPY_CACHE_LIMIT=${DSPY_CACHE_LIMIT:-1073741824}"
+      # Point the API at Redis so /generate_async publishes durable jobs instead
+      # of running them on the API event loop. Unset this to fall back to the
+      # in-process behaviour (jobs lost on restart).
+      - "KGGEN_REDIS_URL=redis://redis:6379/0"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Runs the actual generation. Scale with `docker compose up -d --scale worker=N`
+  # rather than raising KGGEN_WORKER_CONCURRENCY: each concurrent job holds its
+  # corpus and intermediate graph in RAM on top of a ~600 MB shared
+  # embedding/ML baseline, so replicas give more predictable memory behaviour.
+  worker:
+    image: ${IMAGE_NAME}:0.12.0rc2
+    entrypoint: ["python", "-m", "app.worker"]
+    volumes:
+      - kggen-logs:/workspace/logs:rw
+      - kggen-hf-cache:/workspace/cache:rw
+    env_file:
+      - .env
+    environment:
+      - "DSPY_CACHEDIR=/workspace/cache/dspy_cache"
+      - "DSPY_CACHE_LIMIT=${DSPY_CACHE_LIMIT:-1073741824}"
+      - "KGGEN_REDIS_URL=redis://redis:6379/0"
+      - "KGGEN_WORKER_CONCURRENCY=${KGGEN_WORKER_CONCURRENCY:-1}"
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      replicas: ${KGGEN_WORKER_REPLICAS:-1}
+      resources:
+        limits:
+          # ~600 MB baseline (torch + sentence-transformers + the embedding
+          # model) plus headroom for one job's corpus/graph. Raise alongside
+          # KGGEN_WORKER_CONCURRENCY, or if corpora are large.
+          memory: ${KGGEN_WORKER_MEMORY:-3g}
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: kg-gen-redis
+    # Persistence is off by default: nothing is written to disk, and jobs survive
+    # API/worker restarts and crashes but not a Redis restart. Note the payload
+    # holds document text and any client-supplied X-API-Key, so enabling
+    # persistence puts both on Redis's disk -- see docs/durable-jobs.md.
+    #   in-memory (default): --save "" --appendonly no
+    #   durable:             --appendonly yes
+    command: >
+      redis-server
+      ${REDIS_PERSISTENCE_ARGS:---save "" --appendonly no}
+      --maxmemory ${REDIS_MAXMEMORY:-2gb}
+      --maxmemory-policy noeviction
+    volumes:
+      - kggen-redis:/data:rw
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     restart: unless-stopped
 
 volumes:
   kggen-hf-cache:
   kggen-logs:
+  # Only actually written to when REDIS_PERSISTENCE_ARGS enables persistence;
+  # declared unconditionally so switching it on needs no compose edit.
+  kggen-redis:

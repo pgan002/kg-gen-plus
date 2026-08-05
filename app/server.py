@@ -15,8 +15,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app import settings
 from app.apis.kg_construct import kgc_router
 from app.apis.ui import ui_router
+from app.job_queue import get_queue, reset_queue
 from app.schemas import HeartBeatResponse
 from app.utils import APP_DIR
 
@@ -58,16 +60,46 @@ except Exception as exc:  # pragma: no cover - depends on optional extra
     logger.warning("MCP server not mounted (install 'kg-gen[mcp]'): %s", exc)
 
 
+async def _init_job_queue() -> None:
+    """Prepare the durable job queue, when one is configured.
+
+    Creating the consumer group here (rather than lazily on first enqueue) means a
+    wrong ``KGGEN_REDIS_URL`` shows up as a startup warning instead of a failed
+    request. Startup is not aborted: `/generate` and the read-only endpoints work
+    without Redis, so a broker blip should not take the whole API down.
+    """
+    queue = get_queue()
+    if queue is None:
+        logger.info(
+            "KGGEN_REDIS_URL not set: /generate_async runs jobs in-process "
+            "(jobs will not survive a restart)"
+        )
+        return
+    try:
+        await queue.ensure_group()
+        logger.info("Durable job queue ready at %s", settings.REDIS_URL)
+    except Exception as exc:
+        logger.error(
+            "Could not initialise the durable job queue at %s: %s",
+            settings.REDIS_URL,
+            exc,
+        )
+
+
 @asynccontextmanager
 async def lifespan(app_: FastAPI):
     await config_logger()
+    await _init_job_queue()
     # The mounted MCP app has its own lifespan (session manager); run it nested
     # so it starts/stops together with the FastAPI app.
-    if mcp_asgi_app is not None:
-        async with mcp_asgi_app.lifespan(app_):
+    try:
+        if mcp_asgi_app is not None:
+            async with mcp_asgi_app.lifespan(app_):
+                yield
+        else:
             yield
-    else:
-        yield
+    finally:
+        await reset_queue()
 
 
 def get_version() -> str:

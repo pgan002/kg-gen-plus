@@ -11,7 +11,13 @@ client = TestClient(app)
 
 @pytest.fixture
 def mock_kg_gen():
-    with patch("app.apis.kg_construct.get_kg_gen") as mocked_get:
+    # Patched in both modules: the generation helpers live in app.generation
+    # (shared with the background worker), while /aggregate_and_deduplicate still
+    # calls get_kg_gen directly from the router module.
+    with (
+        patch("app.generation.get_kg_gen") as mocked_get,
+        patch("app.apis.kg_construct.get_kg_gen", new=mocked_get),
+    ):
         kg_gen = MagicMock()
         kg_gen.generate = AsyncMock()
         kg_gen.aggregate = MagicMock()

@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-import io
 import time
 
-from rdflib.exceptions import ParserError
 from typing import Optional, Annotated
 
 from fastapi import (
@@ -18,9 +16,20 @@ from fastapi import (
     Request,
 )
 from pydantic import ValidationError
-from rdflib import Graph as RDFGraph
 
+from app import settings
 from app.apis.deps import get_kg_gen
+from app.generation import (
+    execute_generation,
+    kg_gen_from_params,
+    prepare_generation_inputs,
+)
+from app.job_queue import (
+    JobFailed,
+    JobNotFinished,
+    JobNotFound,
+    get_queue,
+)
 from app.jobs import JobStatus, job_store
 from app.kggen_logger import kggen_logger
 from app.schemas import (
@@ -29,11 +38,9 @@ from app.schemas import (
     DeduplicationMetadata,
 )
 from app.utils import parse_ontology, serialize_ontology_to_ttl
-from kg_gen.kg_gen import KGGen
 from kg_gen.models import (
     Ontology,
     Graph,
-    InputData,
     KnowledgeGraph,
     OntologyExtensions,
 )
@@ -81,123 +88,6 @@ async def parse_ontology_api(
     return onto
 
 
-def _prepare_generation_inputs(
-    corpus_bytes: bytes,
-    ontology_bytes: Optional[bytes],
-) -> tuple[
-    list[InputData],
-    Optional[Ontology],
-    Optional[RDFGraph],
-    Optional[list],
-    Optional[list],
-]:
-    """Parse the ontology and corpus into the objects ``kg_gen.generate`` needs.
-
-    Raises ``HTTPException`` on malformed input so callers can surface a 4xx to
-    the client synchronously, before any (potentially long-running) generation.
-    """
-    onto: Optional[Ontology] = None
-    rdflib_onto: Optional[RDFGraph] = None
-    types = None
-    predicates = None
-    if ontology_bytes:
-        try:
-            onto, rdflib_onto = parse_ontology(io.BytesIO(ontology_bytes))
-            types = list(onto.classes)
-            predicates = list(onto.predicates)
-        except (ParserError, SyntaxError) as exc:
-            raise HTTPException(
-                status_code=400, detail=f"Could not parse the provided ontology: {exc}"
-            )
-
-    if onto:
-        kggen_logger.info(
-            f"With ontology: {len(onto.classes) = }, {len(onto.predicates) = }"
-        )
-    else:
-        kggen_logger.info("No ontology provided")
-
-    inputs: list[InputData] = []
-    for line in corpus_bytes.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            inputs.append(InputData.model_validate_json(line))
-        except ValidationError as e:
-            raise HTTPException(
-                status_code=422, detail=f"Invalid document format: {e.errors()}"
-            )
-    kggen_logger.info(f"Loaded {len(inputs)} document(s) from corpus")
-    return inputs, onto, rdflib_onto, types, predicates
-
-
-def _build_stats_headers(total_gen_stats) -> dict[str, str]:
-    """Build the ``X-KG-Gen-*`` response headers from generation stats."""
-    overall = total_gen_stats.overall_usage
-    headers = {
-        "X-KG-Gen-Stats": total_gen_stats.model_dump_json(),
-        "X-KG-Gen-Time": str(overall.execution_time),
-        "X-KG-Gen-Input-Tokens": str(overall.lm_usage.prompt_tokens),
-        "X-KG-Gen-Output-Tokens": str(overall.lm_usage.completion_tokens),
-    }
-    if total_gen_stats.deduplicate:
-        headers["X-KG-Gen-Dedup-Stats"] = total_gen_stats.deduplicate.model_dump_json()
-    return headers
-
-
-async def _execute_generation(
-    kg_gen: KGGen,
-    inputs: list[InputData],
-    onto: Optional[Ontology],
-    rdflib_onto: Optional[RDFGraph],
-    types: Optional[list],
-    predicates: Optional[list],
-    generation_params: GenerationMetadata,
-    progress_callback=None,
-) -> tuple[KnowledgeGraph, dict[str, str]]:
-    """Run generation and return the KnowledgeGraph plus stat headers."""
-    final_graph, total_gen_stats = await kg_gen.generate(
-        input_data=inputs,
-        n_parallel=generation_params.n_parallel,
-        ontology=rdflib_onto,
-        types=types,
-        predicate_domain_range=predicates,
-        entity_context=generation_params.entity_context or "",
-        relation_context=generation_params.relation_context or "",
-        deduplicate=generation_params.deduplicate,
-        temperature=generation_params.temperature,
-        enforce_type_conformance=generation_params.enforce_type_conformance,
-        enforce_domain_conformance=generation_params.enforce_domain_conformance,
-        enforce_range_conformance=generation_params.enforce_range_conformance,
-        enforce_predicate_conformance=generation_params.enforce_predicate_conformance,
-        entity_similarity_threshold=generation_params.entity_threshold,
-        edge_similarity_threshold=generation_params.predicate_threshold,
-        progress_callback=progress_callback,
-    )
-    kg = final_graph.to_knowledge_graph(total_gen_stats, onto)
-    return kg, _build_stats_headers(total_gen_stats)
-
-
-def _kg_gen_from_params(
-    generation_params: GenerationMetadata, x_api_key: Optional[str]
-) -> KGGen:
-    return get_kg_gen(
-        api_key=x_api_key,
-        api_base=generation_params.api_base,
-        model=generation_params.model,
-        max_tokens=generation_params.max_tokens,
-        temperature=generation_params.temperature
-        if generation_params.temperature is not None
-        else 0.0,
-        retrieval_model=generation_params.retrieval_model,
-        enforce_type_conformance=generation_params.enforce_type_conformance,
-        enforce_domain_conformance=generation_params.enforce_domain_conformance,
-        enforce_range_conformance=generation_params.enforce_range_conformance,
-        enforce_predicate_conformance=generation_params.enforce_predicate_conformance,
-    )
-
-
 @kgc_router.post("/generate", tags=["KG Construction"])
 async def generate_graph(
     response: Response,
@@ -236,7 +126,7 @@ async def generate_graph(
     corpus_bytes = await corpus_file.read()
     ontology_bytes = await ontology_file.read() if ontology_file else None
 
-    inputs, onto, rdflib_onto, types, predicates = _prepare_generation_inputs(
+    inputs, onto, rdflib_onto, types, predicates = prepare_generation_inputs(
         corpus_bytes, ontology_bytes
     )
     kggen_logger.info(
@@ -251,11 +141,11 @@ async def generate_graph(
             stats={},
         )
 
-    kg_gen = _kg_gen_from_params(generation_params, x_api_key)
+    kg_gen = kg_gen_from_params(generation_params, x_api_key)
     kggen_logger.info(f"Generating graph via KGGen: {generation_params.model = }")
 
     try:
-        kg, headers = await _execute_generation(
+        kg, headers = await execute_generation(
             kg_gen, inputs, onto, rdflib_onto, types, predicates, generation_params
         )
     except ValidationError as exc:
@@ -292,26 +182,64 @@ async def generate_graph_async(
     Start Knowledge Graph generation as a background job.
 
     The uploaded files are validated and read up front (so malformed input still
-    returns a 4xx immediately), then generation runs on the server event loop and
-    continues even if the client disconnects. Returns a `job_id`; poll
+    returns a 4xx immediately). Returns a `job_id`; poll
     `GET /api/jobs/{job_id}` for progress and fetch the graph from
     `GET /api/jobs/{job_id}/result` once the status is `completed`.
+
+    Where the work runs depends on deployment:
+
+    * `KGGEN_REDIS_URL` set -- the job is published to a durable Redis stream and
+      executed by a separate worker process. It survives an API restart, and a
+      worker crash mid-job causes the job to be redelivered and re-run.
+    * unset -- the job runs on this process's event loop (the original
+      behaviour). It continues if the client disconnects, but is lost on restart.
     """
     if corpus_file.filename is not None and not corpus_file.filename.endswith(".jsonl"):
         raise HTTPException(status_code=400, detail="Corpus must be a .jsonl file")
 
     # Read the uploads now: the file handles are tied to this request and are
-    # closed once it returns, so the background task cannot read them later.
+    # closed once it returns, so neither a background task nor a worker could
+    # read them later.
     corpus_bytes = await corpus_file.read()
     ontology_bytes = await ontology_file.read() if ontology_file else None
 
-    inputs, onto, rdflib_onto, types, predicates = _prepare_generation_inputs(
+    if len(corpus_bytes) > settings.MAX_PAYLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                f"Corpus is {len(corpus_bytes)} bytes, over the "
+                f"{settings.MAX_PAYLOAD_BYTES} byte limit "
+                "(KGGEN_MAX_PAYLOAD_BYTES)"
+            ),
+        )
+
+    # Validate here even on the queued path: the client gets its 4xx
+    # synchronously, and the worker re-parses the raw bytes rather than having
+    # rdflib graphs and Pydantic models serialised across the process boundary.
+    inputs, onto, rdflib_onto, types, predicates = prepare_generation_inputs(
         corpus_bytes, ontology_bytes
     )
     if not inputs:
         raise HTTPException(status_code=400, detail="Corpus contains no documents")
 
-    kg_gen = _kg_gen_from_params(generation_params, x_api_key)
+    queue = get_queue()
+    if queue is not None:
+        job_id = await queue.enqueue(
+            total_docs=len(inputs),
+            corpus_bytes=corpus_bytes,
+            ontology_bytes=ontology_bytes,
+            generation_params=generation_params.model_dump(mode="json"),
+            api_key=x_api_key,
+        )
+        return {
+            "job_id": job_id,
+            "status": JobStatus.pending.value,
+            "total_docs": len(inputs),
+            "status_url": str(request.url_for("get_job_status", job_id=job_id)),
+            "result_url": str(request.url_for("get_job_result", job_id=job_id)),
+        }
+
+    kg_gen = kg_gen_from_params(generation_params, x_api_key)
 
     job = job_store.create()
     job.total_docs = len(inputs)
@@ -324,7 +252,7 @@ async def generate_graph_async(
             f"via KGGen: {generation_params.model = }"
         )
         try:
-            kg, headers = await _execute_generation(
+            kg, headers = await execute_generation(
                 kg_gen,
                 inputs,
                 onto,
@@ -363,16 +291,27 @@ async def generate_graph_async(
 async def list_jobs() -> list[dict]:
     """List all tracked background generation jobs, newest first.
 
-    Only jobs still held in the in-memory store are returned (see the note on
-    `/generate_async`): finished jobs may be evicted once the store is full, and
-    all jobs are lost on a server restart.
+    With Redis configured, jobs are listed from the shared store and survive
+    restarts (each expiring after `KGGEN_RESULT_TTL_SECONDS`). Without it, only
+    jobs still held in this process's in-memory store are returned: finished jobs
+    may be evicted once the store is full, and all jobs are lost on a restart.
     """
+    queue = get_queue()
+    if queue is not None:
+        return await queue.list_statuses()
     return [job.to_status_dict() for job in job_store.list()]
 
 
 @kgc_router.get("/jobs/{job_id}", tags=["KG Construction"], name="get_job_status")
 async def get_job_status(job_id: str) -> dict:
     """Return the status and tqdm-like progress of a background generation job."""
+    queue = get_queue()
+    if queue is not None:
+        try:
+            return await queue.get_status(job_id)
+        except JobNotFound:
+            raise HTTPException(status_code=404, detail=f"Unknown job: {job_id}")
+
     job = job_store.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail=f"Unknown job: {job_id}")
@@ -388,6 +327,22 @@ async def get_job_result(job_id: str, response: Response) -> KnowledgeGraph:
     Returns 404 for an unknown job, 409 while it is still pending/running, and
     re-raises the original error status if the job failed.
     """
+    queue = get_queue()
+    if queue is not None:
+        try:
+            graph, headers = await queue.get_result(job_id)
+        except JobNotFound:
+            raise HTTPException(status_code=404, detail=f"Unknown job: {job_id}")
+        except JobFailed as exc:
+            raise HTTPException(
+                status_code=exc.status_code, detail=f"Job failed: {exc.error}"
+            )
+        except JobNotFinished as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+        for key, value in headers.items():
+            response.headers[key] = value
+        return graph
+
     job = job_store.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail=f"Unknown job: {job_id}")
