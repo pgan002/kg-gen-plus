@@ -60,6 +60,11 @@ docker compose config | grep -q "dockerfile: Dockerfile" || {
 
 # --- release ----------------------------------------------------------------
 git add pyproject.toml
+# uv.lock records the project's own version too, so `uv version` has already
+# rewritten it. Commit it with pyproject.toml or the two disagree on main, and
+# the next uv invocation re-resolves or reports a dirty lock out of nowhere.
+uv lock
+git add uv.lock
 # Updates every `image: ${IMAGE_NAME}:<version>` line, which is both the server
 # and the worker -- they intentionally share one image and must not drift apart.
 sed -i "s/\(image: \${IMAGE_NAME}:\)[0-9].*/\1${PACKAGE_VERSION}/" docker-compose.yml
