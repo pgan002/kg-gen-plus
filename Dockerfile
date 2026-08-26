@@ -43,7 +43,11 @@ COPY ./src /workspace/src
 ENV PYTHONPATH="/workspace/src:$PYTHONPATH"
 COPY ./app /workspace/app
 COPY ./mcp /workspace/mcp
-COPY ./logs /workspace/logs
+# Create the log directory rather than COPYing the host's ./logs: copying baked
+# whatever log files happened to be lying around into every image (14 MB in
+# practice) along with their host uid, which is the source of the "cannot write
+# log file" ownership clashes. At runtime this path is a named volume anyway.
+RUN mkdir -p /workspace/logs
 COPY pyproject.toml /workspace
 RUN chown -R "${user}":"${group}" /workspace
 

@@ -166,8 +166,11 @@ def validate_conformance(
 
     predicate_domain_range = None
     allowed_types = None
+    # Keep the RDF graph, not just the extracted classes/predicates: domain and
+    # range conformance needs it to honour rdfs:subClassOf.
+    rdf_ontology = None
     if ontology_ttl:
-        onto, _ = parse_ontology_from_string(ontology_ttl)
+        onto, rdf_ontology = parse_ontology_from_string(ontology_ttl)
         predicate_domain_range = list(onto.predicates)
         allowed_types = list(onto.classes)
 
@@ -180,6 +183,7 @@ def validate_conformance(
         enforce_predicate_conformance=enforce_predicate_conformance,
         enforce_type_conformance=enforce_type_conformance,
         allowed_types=allowed_types,
+        ontology=rdf_ontology,
     )
     errors = errors_str.split("; ") if errors_str else []
     return ConformanceReport(score=score, conformant=score >= 1.0, errors=errors)

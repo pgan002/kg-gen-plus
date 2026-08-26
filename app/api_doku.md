@@ -43,14 +43,24 @@ tqdm-like form (`[generate] 45/200 docs (22.5%) elapsed=12.3s ETA=41.9s`).
 Typical flow: `POST /api/generate_async`, then poll `GET /api/jobs/{job_id}`
 until `status` is `completed`, then `GET /api/jobs/{job_id}/result`.
 
-> **⚠️ Caveat — jobs are stored in memory.** The job store lives in the server
-> process, which is correct for the current single-worker deployment. As a
-> consequence: (1) all jobs and their results are **lost on a server restart**;
-> (2) the store is **bounded** — once full, the oldest *finished* jobs are
-> evicted, so fetch results reasonably promptly; and (3) it will **not work
-> across multiple workers/replicas** (a job created on one worker is invisible
-> to the others). If the service is scaled out, this needs a shared backend
-> (e.g. Redis or a database).
+Where jobs are stored depends on whether `KGGEN_REDIS_URL` is configured.
+
+**With Redis (recommended, and the `docker-compose.yml` default).** Jobs go to a
+durable Redis stream and are executed by separate worker processes. Jobs and
+results survive an API or worker restart; a worker that dies mid-job causes the
+job to be redelivered and re-run automatically; and job state is shared across
+every API replica and worker. A job that fails repeatedly is given up on after
+`KGGEN_MAX_ATTEMPTS` (reported as `attempts` in the status response). Status
+hashes and results expire after `KGGEN_RESULT_TTL_SECONDS` (24 h by default), so
+still fetch results reasonably promptly. See
+[docs/durable-jobs.md](../docs/durable-jobs.md).
+
+> **⚠️ Caveat — without `KGGEN_REDIS_URL`, jobs are stored in memory.** The job
+> store lives in the server process. As a consequence: (1) all jobs and their
+> results are **lost on a server restart**; (2) the store is **bounded** — once
+> full, the oldest *finished* jobs are evicted; and (3) it will **not work across
+> multiple workers/replicas** (a job created on one worker is invisible to the
+> others).
 
 ### 2. Visualize the graph
 
