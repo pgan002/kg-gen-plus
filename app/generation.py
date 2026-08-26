@@ -133,6 +133,7 @@ async def execute_generation(
         enforce_predicate_conformance=generation_params.enforce_predicate_conformance,
         entity_similarity_threshold=generation_params.entity_threshold,
         edge_similarity_threshold=generation_params.predicate_threshold,
+        deduplicate_with_embeddings=generation_params.deduplicate_with_embeddings,
         progress_callback=progress_callback,
     )
     kg = final_graph.to_knowledge_graph(total_gen_stats, onto)

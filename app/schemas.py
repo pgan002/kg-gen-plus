@@ -53,8 +53,13 @@ class GenerationMetadata(BaseModel):
     enable_thinking: Optional[bool] = Field(
         False, description="Allows to control thinking in models like qwen"
     )
+    # All four default to True: when a caller supplies an ontology, the natural
+    # expectation is that it is honoured, and having two of the four default off
+    # meant an ontology-guided request silently allowed invented types and
+    # predicates unless the caller knew to ask. They have no effect when no
+    # ontology is supplied.
     enforce_type_conformance: bool = Field(
-        False,
+        True,
         description="Encourage entity type conformance. Note: best-effort, not strictly enforced.",
     )
     enforce_domain_conformance: bool = Field(
@@ -66,11 +71,24 @@ class GenerationMetadata(BaseModel):
         description="Encourage predicate range conformance. Note: best-effort, not strictly enforced.",
     )
     enforce_predicate_conformance: bool = Field(
-        False,
-        description="Encourage predicate conformance. Note: best-effort, not strictly enforced.",
+        True,
+        description="Encourage predicate conformance: only predicates from the "
+        "ontology may be used. Note that when no ontology predicate is compatible "
+        "with a document's entity types, this yields no relations for that "
+        "document rather than inventing one.",
     )
     deduplicate: bool = Field(
-        True, description="Whether to deduplicate the generated graph."
+        True,
+        description="Whether to merge duplicate entities in the generated graph. "
+        "Note the whole corpus is aggregated into a single graph either way; this "
+        "only controls the duplicate-merging pass.",
+    )
+    deduplicate_with_embeddings: bool = Field(
+        False,
+        description="Add a semantic (embedding) pass on top of the string-based "
+        "merge. Off by default: it dominates runtime -- 86% of the wall clock on "
+        "a 200-document run -- while producing under 2% of the merges, and it "
+        "needs no LLM, so it is cheaper to run offline on a saved graph.",
     )
     retrieval_model: Optional[str] = Field(
         "sentence-transformers/all-MiniLM-L6-v2",
@@ -95,7 +113,17 @@ class GenerationMetadata(BaseModel):
 
 class DeduplicationMetadata(BaseModel):
     deduplicate: bool = Field(
-        True, description="Whether to deduplicate the generated graph."
+        True,
+        description="Whether to merge duplicate entities in the generated graph. "
+        "Note the whole corpus is aggregated into a single graph either way; this "
+        "only controls the duplicate-merging pass.",
+    )
+    deduplicate_with_embeddings: bool = Field(
+        False,
+        description="Add a semantic (embedding) pass on top of the string-based "
+        "merge. Off by default: it dominates runtime -- 86% of the wall clock on "
+        "a 200-document run -- while producing under 2% of the merges, and it "
+        "needs no LLM, so it is cheaper to run offline on a saved graph.",
     )
     retrieval_model: Optional[str] = Field(
         "sentence-transformers/all-MiniLM-L6-v2",

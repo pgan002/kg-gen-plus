@@ -1,11 +1,17 @@
+import re
 import unicodedata
 from collections import defaultdict
+from typing import Iterable
 
 from semhash.utils import Encoder
 
 from kg_gen.models import Graph, Relation, Entity, TypedEntity, EntityOrSubclass
 from semhash import SemHash
 import inflect
+
+
+# Upper-case runs, optionally with dots/ampersands/hyphens: "CBS", "U.S.", "AT&T".
+_ACRONYM_RE = re.compile(r"^[A-Z0-9.&-]+$")
 
 
 class DeduplicateList:
@@ -42,14 +48,40 @@ class DeduplicateList:
         Singularize a text.
         """
         # singularize each token when it looks like a plural noun
-        tokens = []
-        for tok in text.split():
-            sing = self.inflect_engine.singular_noun(tok)
-            tokens.append(sing if isinstance(sing, str) and sing else tok)
-        return " ".join(tokens).strip()
+        return " ".join(self._singularize_token(t) for t in text.split()).strip()
+
+    def _singularize_token(self, token: str) -> str:
+        """Singularize one token, leaving alone the things that are not plurals.
+
+        Surface forms are grouped by their singular form *before* any embedding
+        comparison, so anything this collapses is merged unconditionally, at any
+        threshold. That makes over-eager singularization worse than missing a
+        plural: it silently fuses two distinct entities.
+        """
+        # Numerals are not nouns. Singularizing them turns the decade "1970s"
+        # into the year "1970" -- a distinction temporal questions turn on.
+        if any(character.isdigit() for character in token):
+            return token
+        # Acronyms are not plurals: inflect renders "CBS" as "CB".
+        if len(token) > 1 and _ACRONYM_RE.match(token):
+            return token
+
+        singular = self.inflect_engine.singular_noun(token)
+        if not isinstance(singular, str) or not singular:
+            return token
+        # inflect returns its own False *stringified* for a hyphenated compound
+        # whose leading part it cannot singularize, so "Governor-General" and
+        # "Secretary-General" both come back as "False-General" and collapse
+        # into a single entity. Any hyphenated title sharing a suffix does.
+        if "False" in singular and "False" not in token:
+            return token
+        return singular
 
     def deduplicate(
-        self, items: list[TypedEntity] | list[Entity], model: Encoder = None
+        self,
+        items: list[TypedEntity] | list[Entity],
+        model: Encoder = None,
+        use_embeddings: bool = True,
     ):
         """
         Deduplicate a list of items using semantic hashing.
@@ -57,32 +89,70 @@ class DeduplicateList:
 
         Args:
             items: List of items to deduplicate
+            model: Encoder for the embedding pass; unused when ``use_embeddings``
+                is False.
+            use_embeddings: Run the semantic pass on top of the string grouping.
+                Off is markedly cheaper -- embedding every surface form is the
+                dominant cost of deduplication, and on a 200-document MuSiQue run
+                it was 86% of the job's wall clock while accounting for under 2%
+                of the merges. See ``run_semhash_deduplication``.
         """
         self.total_items = len(items)
 
         if not items:
             return
 
-        # 1. Normalize and singularize each item's surface form
+        # 1. Normalize, singularize and case-fold each item's surface form. The
+        # result is the grouping key: everything sharing one is merged before any
+        # embedding comparison. Case-folding belongs here rather than being left
+        # to semantic similarity -- "Person"/"person" is a string fact, and
+        # spending an embedding on it is both slower and less reliable.
         singular_to_record = {}
         record_to_singular = {}
+        key_to_forms: dict[str, set[str]] = defaultdict(set)
 
         for item in items:
             normalized = self.normalize(item.surface_form)
             singular = self.singularize(normalized)
-            self.original_map[item.surface_form] = singular
-            self.items_map[singular] = item.surface_form
+            key = singular.casefold()
+            self.original_map[item.surface_form] = key
             self.surface_form2entity_map[item.surface_form] = item
+            key_to_forms[key].add(item.surface_form)
 
-            if singular not in singular_to_record:
-                # Include the description in the semantic representation if it exists
+            if key not in singular_to_record:
+                # Include the description in the semantic representation if it
+                # exists. The record keeps the original casing: it is what gets
+                # embedded, and case carries signal for the encoder.
                 record = singular
                 description = item.description
                 if description:
                     record = f"{singular} - {description}"
 
-                singular_to_record[singular] = record
-                record_to_singular[record] = singular
+                singular_to_record[key] = record
+                record_to_singular[record] = key
+
+        # Elect a stable representative per key: the lexicographically smallest
+        # surface form, matching how a cluster representative is chosen below.
+        # Items arrive from a set, whose iteration order varies with the hash
+        # seed, so "last one wins" would make the output differ between runs.
+        for key, forms in key_to_forms.items():
+            self.items_map[key] = min(forms)
+
+        if not use_embeddings:
+            # The grouping above is already a merge: items_map holds one surface
+            # form per singular form, so every item sharing a singular form
+            # resolves to the same canonical entity. That accounts for the large
+            # majority of real-world duplicates ("Cats"/"Cat", the same name
+            # typed two ways) at no embedding cost.
+            self.deduplicated = list(singular_to_record)
+            self.deduplicated_items = len(self.deduplicated)
+            self.duplicate_items = self.total_items - self.deduplicated_items
+            self.reduction = (
+                (self.duplicate_items / self.total_items) * 100
+                if self.total_items > 0
+                else 0
+            )
+            return
 
         # 2. Run semantic hashing
         records_list = list(singular_to_record.values())
@@ -143,12 +213,27 @@ class DeduplicateList:
         return f"Total items: {self.total_items}; Deduplicated items: {self.deduplicated_items}; Duplicate items: {self.duplicate_items}; Reduction: {self.reduction:.1f}"
 
 
+def _merge_provenance(id_lists: "Iterable[list[str]]") -> list[str]:
+    """Union of provenance id lists, first-seen order, without duplicates.
+
+    Matches what ``KGGen.aggregate`` already does when it merges entities across
+    documents, so the two paths agree on what an entity's provenance means. Order
+    is preserved to keep output stable between runs.
+    """
+    merged: dict[str, None] = {}
+    for ids in id_lists:
+        for provenance_id in ids:
+            merged[provenance_id] = None
+    return list(merged)
+
+
 def run_semhash_deduplication(
     graph: Graph,
     model: Encoder = None,
     entity_similarity_threshold: float = 0.9,
     edge_similarity_threshold: float = 0.75,
     deduplicate_edges: bool = True,
+    use_embeddings: bool = False,
 ) -> Graph:
     """
     Deduplicate the graph.
@@ -158,13 +243,32 @@ def run_semhash_deduplication(
             this when predicates already come from a fixed ontology vocabulary,
             since they are canonical by construction and clustering them by
             embedding similarity risks merging distinct ontology predicates.
+        use_embeddings: Whether to run the semantic pass on top of the string
+            grouping. Defaults to off, because it is expensive and buys little.
+            Measured on a 200-document MuSiQue run at ``entity_threshold=0.97``:
+            embedding every surface form took 56 minutes, 86% of the job's wall
+            clock, and produced 38 clusters -- of which 32 merged identical
+            surface forms and 3 merged a plural with its singular, both of which
+            the string grouping does for free. The 3 that genuinely needed
+            embeddings were 2 correct merges and one wrong one ("John Green"
+            with his own novel "Looking for Alaska"). Lowering the threshold does
+            not help: precision of the additional merges falls to 30-40%.
+
+            Turn it on for a small corpus, or to find alias pairs that string
+            matching cannot ("North Yemen" / "Yemen Arab Republic"). Because it
+            needs no LLM, it is also cheap to run offline afterwards on a saved
+            graph rather than inline.
     """
     # Deduplicate each graph components
     entities_dedup = DeduplicateList(entity_similarity_threshold)
-    entities_dedup.deduplicate(list(graph.typed_entities), model=model)
+    entities_dedup.deduplicate(
+        list(graph.typed_entities), model=model, use_embeddings=use_embeddings
+    )
     if deduplicate_edges:
         edges_dedup = DeduplicateList(edge_similarity_threshold)
-        edges_dedup.deduplicate(list(graph.edges), model=model)
+        edges_dedup.deduplicate(
+            list(graph.edges), model=model, use_embeddings=use_embeddings
+        )
 
     def get_canonical_entity(
         entity: EntityOrSubclass, dedup_list: DeduplicateList
@@ -221,18 +325,30 @@ def run_semhash_deduplication(
     else:
         canonical_edge2cluster = dict()
 
-    # new_entities = list(canonical2cluster.keys())
+    # Assign each surviving entity the union of its cluster's provenance.
+    #
+    # Iterate the canonical objects *once*. ``new_entities`` holds one entry per
+    # pre-deduplication entity, so a canonical appears once per cluster member --
+    # and since the canonical is itself in its own cluster, re-assigning while
+    # walking that list folded its own already-merged list back in on every
+    # repeat, inflating provenance with duplicates (a 2-member cluster came out
+    # with 3 ids). Dropping the repeats also removes work quadratic in cluster
+    # size.
+    seen_canonicals: set[int] = set()
     for canonical_entity in new_entities:
+        if id(canonical_entity) in seen_canonicals:
+            continue
+        seen_canonicals.add(id(canonical_entity))
         cluster = canonical2cluster[canonical_entity.surface_form]
-        cluster_prov = sum(
-            [ent.provenance_ids for ent in cluster if isinstance(ent, TypedEntity)], []
+        canonical_entity.provenance_ids = _merge_provenance(
+            ent.provenance_ids for ent in cluster if isinstance(ent, TypedEntity)
         )
-        canonical_entity.provenance_ids = cluster_prov
     new_relations = list(set(relation2canonical.values()))
     for canonical_relation in new_relations:
         cluster = canonical_relation2cluster[canonical_relation]
-        cluster_prov = sum([rel.provenance_ids for rel in cluster], [])
-        canonical_relation.provenance_ids = cluster_prov
+        canonical_relation.provenance_ids = _merge_provenance(
+            rel.provenance_ids for rel in cluster
+        )
 
     # Update entity_metadata keys to match deduplicated entity names
     new_entity_metadata: dict[TypedEntity, set[str]] | None = None

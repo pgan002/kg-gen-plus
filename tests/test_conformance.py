@@ -327,3 +327,19 @@ def test_filter_and_validate_agree_on_subclasses():
         )
         if predicate.label == "founder":
             assert score == 1.0, f"{predicate.label} was offered but rejected: {errors}"
+
+
+def test_generation_metadata_enforces_all_conformance_by_default():
+    """An ontology-guided request should honour the ontology unless told otherwise.
+
+    Type and predicate conformance used to default to False, so a caller who
+    supplied an ontology still got invented types and predicates unless they knew
+    to switch two extra flags on.
+    """
+    from app.schemas import GenerationMetadata
+
+    meta = GenerationMetadata()
+    assert meta.enforce_type_conformance is True
+    assert meta.enforce_domain_conformance is True
+    assert meta.enforce_range_conformance is True
+    assert meta.enforce_predicate_conformance is True

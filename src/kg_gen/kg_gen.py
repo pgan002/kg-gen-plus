@@ -211,6 +211,7 @@ class KGGen:
         n_parallel: int = 10,
         entity_similarity_threshold: float = 0.8,
         edge_similarity_threshold: float = 0.9,
+        deduplicate_with_embeddings: bool = False,
         progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> tuple[Graph, KGGenStats]:
         # Normalize parameters
@@ -448,6 +449,7 @@ class KGGen:
                 entity_similarity_threshold=entity_similarity_threshold,
                 edge_similarity_threshold=edge_similarity_threshold,
                 deduplicate_edges=deduplicate_edges,
+                use_embeddings=deduplicate_with_embeddings,
             )
             final_stats.deduplicate = dedup_stats
 
@@ -474,7 +476,15 @@ class KGGen:
         entity_similarity_threshold: float = 0.8,
         edge_similarity_threshold: float = 0.9,
         deduplicate_edges: bool = True,
+        use_embeddings: bool = False,
     ) -> tuple[Graph, StepStats]:
+        """Merge duplicate entities (and optionally predicates) in ``graph``.
+
+        ``use_embeddings`` selects the semantic pass on top of the string
+        grouping. It is off by default because it dominates the runtime while
+        contributing a small minority of the merges -- see
+        ``run_semhash_deduplication`` for the measurements.
+        """
         start_time = time.time()
         if not graph.entities and not graph.edges:
             return graph, StepStats(execution_time=0.0)
@@ -484,6 +494,7 @@ class KGGen:
             entity_similarity_threshold=entity_similarity_threshold,
             edge_similarity_threshold=edge_similarity_threshold,
             deduplicate_edges=deduplicate_edges,
+            use_embeddings=use_embeddings,
         )
         stats = StepStats(
             execution_time=time.time() - start_time,
