@@ -267,7 +267,18 @@ def validate_ontology_conformance(
     enforce_predicate_conformance: bool = False,
     enforce_type_conformance: bool = False,
     allowed_types: Optional[list[EntityType]] = None,
+    ontology: Optional[RDFGraph] = None,
 ) -> tuple[float, str]:
+    """Score how well ``relations`` respect the ontology, and describe the misses.
+
+    Pass ``ontology`` whenever the ontology declares a class hierarchy. Domain and
+    range are then satisfied by subclasses, matching the predicates
+    :func:`filter_predicates_by_entity_types` offers the model. Without it this
+    falls back to exact type equality, which *rejects* a relation the prompt
+    invited -- e.g. a "Sports League" subject on a predicate declared over
+    "Organization" -- and, because callers require a perfect score, that discards
+    every relation extracted from the document alongside it.
+    """
     if not predicate_domain_range and not enforce_type_conformance:
         return 1.0, ""
 
@@ -320,7 +331,7 @@ def validate_ontology_conformance(
             and pred_obj.domain
         ):
             total_checks += 1
-            if subj_ent.type not in pred_obj.domain:
+            if not type_satisfies(ontology, subj_ent.type, pred_obj.domain):
                 errors.append(
                     f"Relation {rel.subject} -[{rel.predicate}]-> {rel.object}: Subject type {subj_ent.type.label} not in domain {[d.label for d in pred_obj.domain]}"
                 )
@@ -329,7 +340,7 @@ def validate_ontology_conformance(
 
         if enforce_range_conformance and obj_ent and obj_ent.type and pred_obj.range:
             total_checks += 1
-            if obj_ent.type not in pred_obj.range:
+            if not type_satisfies(ontology, obj_ent.type, pred_obj.range):
                 errors.append(
                     f"Relation {rel.subject} -[{rel.predicate}]-> {rel.object}: Object type {obj_ent.type.label} not in range {[r.label for r in pred_obj.range]}"
                 )
@@ -353,6 +364,60 @@ def get_all_superclasses(g: RDFGraph, type_uri: URIRef) -> set[URIRef]:
     return superclasses
 
 
+def class_closure_uris(
+    ontology: Optional[RDFGraph], entity_type: Optional[EntityType]
+) -> set[URIRef]:
+    """URIs of ``entity_type`` plus all its ancestors via ``rdfs:subClassOf``.
+
+    Returns an empty set when there is no ontology graph or the type cannot be
+    resolved in it; callers must read that as "hierarchy unknown" rather than
+    "matches nothing".
+
+    Resolution prefers ``entity_type.uri`` and falls back to matching
+    ``rdfs:label``. The URI is the more reliable key: extracted types often carry
+    a uri with a null label, and a label lookup spans every labelled subject in
+    the graph, so a predicate sharing a class's label could shadow it.
+    """
+    if ontology is None or entity_type is None:
+        return set()
+
+    if entity_type.uri:
+        candidate = URIRef(entity_type.uri)
+        if (candidate, None, None) in ontology:
+            return get_all_superclasses(ontology, candidate)
+
+    if entity_type.label:
+        # Compare as strings so a language-tagged label still matches.
+        for uri, _, label in ontology.triples((None, RDFS.label, None)):
+            if str(label) == entity_type.label:
+                return get_all_superclasses(ontology, uri)
+
+    return set()
+
+
+def type_satisfies(
+    ontology: Optional[RDFGraph],
+    entity_type: Optional[EntityType],
+    allowed: "set[EntityType] | list[EntityType]",
+) -> bool:
+    """Whether ``entity_type`` satisfies an ``allowed`` domain/range set.
+
+    A subclass satisfies a constraint declared on its superclass. Without a
+    hierarchy to consult this degrades to the exact label comparison that
+    ``EntityType`` equality implements.
+    """
+    if not allowed:
+        return True
+    if entity_type in allowed:
+        return True
+
+    closure = class_closure_uris(ontology, entity_type)
+    if not closure:
+        return False
+    allowed_uris = {URIRef(a.uri) for a in allowed if a.uri}
+    return not closure.isdisjoint(allowed_uris)
+
+
 def filter_predicates_by_entity_types(
     entity_types: list[EntityType],
     predicate_domain_range: list[OntologyPredicate],
@@ -373,17 +438,8 @@ def filter_predicates_by_entity_types(
     it is factored out so the MCP `suggest_predicates` tool can reuse it.
     """
     entity_types_with_superclasses: set = set()
-    if ontology is not None:
-        label_to_uri = {
-            str(label): uri
-            for uri, _, label in ontology.triples((None, RDFS.label, None))
-        }
-        for t in entity_types:
-            if t and t.label in label_to_uri:
-                type_uri = label_to_uri[t.label]
-                entity_types_with_superclasses.update(
-                    get_all_superclasses(ontology, type_uri)
-                )
+    for t in entity_types:
+        entity_types_with_superclasses.update(class_closure_uris(ontology, t))
 
     filtered_predicates = []
     for p in predicate_domain_range:
@@ -469,6 +525,7 @@ async def get_relations_typed(
                 enforce_predicate_conformance=enforce_predicate_conformance,
                 enforce_type_conformance=enforce_type_conformance,
                 allowed_types=allowed_types,
+                ontology=ontology,
             )
 
             if conforms == 1.0:

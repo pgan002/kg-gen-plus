@@ -180,3 +180,150 @@ async def test_kggen_conformance_flags_passed(mock_kg_gen):
         enforce_predicate_conformance=True,
         enforce_type_conformance=True,
     )
+
+
+HIERARCHY_TTL = """
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ex:   <http://example.org/> .
+
+ex:Place        rdf:type owl:Class ; rdfs:label "Place" .
+ex:Country      rdf:type owl:Class ; rdfs:label "Country" ; rdfs:subClassOf ex:Place .
+ex:Organization rdf:type owl:Class ; rdfs:label "Organization" .
+ex:SportsLeague rdf:type owl:Class ; rdfs:label "Sports League" ;
+                rdfs:subClassOf ex:Organization .
+ex:Person       rdf:type owl:Class ; rdfs:label "Person" .
+
+ex:birthPlace rdf:type owl:ObjectProperty ; rdfs:label "birth place" ;
+    rdfs:domain ex:Person ; rdfs:range ex:Place .
+ex:founder rdf:type owl:ObjectProperty ; rdfs:label "founder" ;
+    rdfs:domain ex:Organization ; rdfs:range ex:Person .
+"""
+
+
+def _hierarchy_ontology():
+    from app.utils import parse_ontology_from_string
+
+    onto, graph = parse_ontology_from_string(HIERARCHY_TTL)
+    return list(onto.predicates), graph
+
+
+def test_subclass_satisfies_range_when_ontology_is_passed():
+    """A Country object satisfies a Place range, because Country subClassOf Place.
+
+    Without the graph the check degrades to exact label equality and rejects the
+    relation -- and since callers demand a perfect score, that would throw away
+    every relation found in the same document.
+    """
+    predicates, graph = _hierarchy_ontology()
+    entities = [
+        TypedEntity(surface_form="Alice", type=EntityType(label="Person")),
+        TypedEntity(surface_form="Argentina", type=EntityType(label="Country")),
+    ]
+    relation = Relation(
+        subject=Entity(surface_form="Alice"),
+        predicate=Entity(surface_form="birth place"),
+        object=Entity(surface_form="Argentina"),
+    )
+
+    score, errors = validate_ontology_conformance(
+        typed_entities=entities,
+        relations=[relation],
+        predicate_domain_range=predicates,
+        ontology=graph,
+    )
+    assert score == 1.0, errors
+
+    # Same inputs, no hierarchy available: the subclass is not recognised.
+    score_without, errors_without = validate_ontology_conformance(
+        typed_entities=entities,
+        relations=[relation],
+        predicate_domain_range=predicates,
+    )
+    assert score_without < 1.0
+    assert "not in range" in errors_without
+
+
+def test_subclass_satisfies_domain_when_ontology_is_passed():
+    predicates, graph = _hierarchy_ontology()
+    entities = [
+        TypedEntity(surface_form="La Liga", type=EntityType(label="Sports League")),
+        TypedEntity(surface_form="Alice", type=EntityType(label="Person")),
+    ]
+    relation = Relation(
+        subject=Entity(surface_form="La Liga"),
+        predicate=Entity(surface_form="founder"),
+        object=Entity(surface_form="Alice"),
+    )
+
+    score, errors = validate_ontology_conformance(
+        typed_entities=entities,
+        relations=[relation],
+        predicate_domain_range=predicates,
+        ontology=graph,
+    )
+    assert score == 1.0, errors
+
+
+def test_genuine_domain_range_violation_still_fails_with_hierarchy():
+    """Subclass awareness must not loosen real constraints."""
+    predicates, graph = _hierarchy_ontology()
+    entities = [
+        TypedEntity(surface_form="Argentina", type=EntityType(label="Country")),
+        TypedEntity(surface_form="Alice", type=EntityType(label="Person")),
+    ]
+    # Reversed: a Country cannot be the subject of 'birth place', and a Person
+    # cannot be its object.
+    relation = Relation(
+        subject=Entity(surface_form="Argentina"),
+        predicate=Entity(surface_form="birth place"),
+        object=Entity(surface_form="Alice"),
+    )
+
+    score, errors = validate_ontology_conformance(
+        typed_entities=entities,
+        relations=[relation],
+        predicate_domain_range=predicates,
+        ontology=graph,
+    )
+    assert score == 0.0
+    assert "not in domain" in errors and "not in range" in errors
+
+
+def test_filter_and_validate_agree_on_subclasses():
+    """The predicates offered to the model must be the ones the validator accepts.
+
+    These two used to implement the hierarchy rule separately -- the filter with
+    superclass expansion, the validator with exact equality -- so the prompt
+    invited relations that were then scored as violations.
+    """
+    from kg_gen.steps._2_get_relations import filter_predicates_by_entity_types
+
+    predicates, graph = _hierarchy_ontology()
+    league = EntityType(label="Sports League")
+    person = EntityType(label="Person")
+
+    offered = filter_predicates_by_entity_types(
+        [league, person], predicates, ontology=graph
+    )
+    assert "founder" in [p.label for p in offered]
+
+    entities = [
+        TypedEntity(surface_form="La Liga", type=league),
+        TypedEntity(surface_form="Alice", type=person),
+    ]
+    for predicate in offered:
+        relation = Relation(
+            subject=Entity(surface_form="La Liga"),
+            predicate=Entity(surface_form=predicate.label),
+            object=Entity(surface_form="Alice"),
+        )
+        score, errors = validate_ontology_conformance(
+            typed_entities=entities,
+            relations=[relation],
+            predicate_domain_range=predicates,
+            ontology=graph,
+        )
+        if predicate.label == "founder":
+            assert score == 1.0, f"{predicate.label} was offered but rejected: {errors}"
