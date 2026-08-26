@@ -1,5 +1,6 @@
 import unicodedata
 from collections import defaultdict
+from typing import Iterable
 
 from semhash.utils import Encoder
 
@@ -143,6 +144,20 @@ class DeduplicateList:
         return f"Total items: {self.total_items}; Deduplicated items: {self.deduplicated_items}; Duplicate items: {self.duplicate_items}; Reduction: {self.reduction:.1f}"
 
 
+def _merge_provenance(id_lists: "Iterable[list[str]]") -> list[str]:
+    """Union of provenance id lists, first-seen order, without duplicates.
+
+    Matches what ``KGGen.aggregate`` already does when it merges entities across
+    documents, so the two paths agree on what an entity's provenance means. Order
+    is preserved to keep output stable between runs.
+    """
+    merged: dict[str, None] = {}
+    for ids in id_lists:
+        for provenance_id in ids:
+            merged[provenance_id] = None
+    return list(merged)
+
+
 def run_semhash_deduplication(
     graph: Graph,
     model: Encoder = None,
@@ -221,18 +236,30 @@ def run_semhash_deduplication(
     else:
         canonical_edge2cluster = dict()
 
-    # new_entities = list(canonical2cluster.keys())
+    # Assign each surviving entity the union of its cluster's provenance.
+    #
+    # Iterate the canonical objects *once*. ``new_entities`` holds one entry per
+    # pre-deduplication entity, so a canonical appears once per cluster member --
+    # and since the canonical is itself in its own cluster, re-assigning while
+    # walking that list folded its own already-merged list back in on every
+    # repeat, inflating provenance with duplicates (a 2-member cluster came out
+    # with 3 ids). Dropping the repeats also removes work quadratic in cluster
+    # size.
+    seen_canonicals: set[int] = set()
     for canonical_entity in new_entities:
+        if id(canonical_entity) in seen_canonicals:
+            continue
+        seen_canonicals.add(id(canonical_entity))
         cluster = canonical2cluster[canonical_entity.surface_form]
-        cluster_prov = sum(
-            [ent.provenance_ids for ent in cluster if isinstance(ent, TypedEntity)], []
+        canonical_entity.provenance_ids = _merge_provenance(
+            ent.provenance_ids for ent in cluster if isinstance(ent, TypedEntity)
         )
-        canonical_entity.provenance_ids = cluster_prov
     new_relations = list(set(relation2canonical.values()))
     for canonical_relation in new_relations:
         cluster = canonical_relation2cluster[canonical_relation]
-        cluster_prov = sum([rel.provenance_ids for rel in cluster], [])
-        canonical_relation.provenance_ids = cluster_prov
+        canonical_relation.provenance_ids = _merge_provenance(
+            rel.provenance_ids for rel in cluster
+        )
 
     # Update entity_metadata keys to match deduplicated entity names
     new_entity_metadata: dict[TypedEntity, set[str]] | None = None

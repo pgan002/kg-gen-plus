@@ -53,8 +53,13 @@ class GenerationMetadata(BaseModel):
     enable_thinking: Optional[bool] = Field(
         False, description="Allows to control thinking in models like qwen"
     )
+    # All four default to True: when a caller supplies an ontology, the natural
+    # expectation is that it is honoured, and having two of the four default off
+    # meant an ontology-guided request silently allowed invented types and
+    # predicates unless the caller knew to ask. They have no effect when no
+    # ontology is supplied.
     enforce_type_conformance: bool = Field(
-        False,
+        True,
         description="Encourage entity type conformance. Note: best-effort, not strictly enforced.",
     )
     enforce_domain_conformance: bool = Field(
@@ -66,8 +71,11 @@ class GenerationMetadata(BaseModel):
         description="Encourage predicate range conformance. Note: best-effort, not strictly enforced.",
     )
     enforce_predicate_conformance: bool = Field(
-        False,
-        description="Encourage predicate conformance. Note: best-effort, not strictly enforced.",
+        True,
+        description="Encourage predicate conformance: only predicates from the "
+        "ontology may be used. Note that when no ontology predicate is compatible "
+        "with a document's entity types, this yields no relations for that "
+        "document rather than inventing one.",
     )
     deduplicate: bool = Field(
         True, description="Whether to deduplicate the generated graph."

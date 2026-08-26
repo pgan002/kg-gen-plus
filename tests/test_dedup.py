@@ -367,3 +367,69 @@ def test_deduplication_with_descriptions(kg: KGGen):
     )
     # There should be 2 typed entities after merge: apple
     assert len(deduplicated.typed_entities) == 1
+
+
+def test_merge_provenance_unions_without_duplicates():
+    """Unit-test the provenance merge on its own: union, order-stable, no repeats."""
+    from kg_gen.utils.deduplicate import _merge_provenance
+
+    assert _merge_provenance([["a", "b"], ["b", "c"], []]) == ["a", "b", "c"]
+    assert _merge_provenance([]) == []
+    # Duplicates within a single list are collapsed too.
+    assert _merge_provenance([["a", "a"], ["a"]]) == ["a"]
+
+
+def test_deduplication_does_not_duplicate_provenance(kg: KGGen):
+    """A merged entity's provenance must contain each id exactly once.
+
+    Regression test. ``run_semhash_deduplication`` used to assign cluster
+    provenance while iterating a list that holds each canonical entity once per
+    cluster member; because the canonical is itself in its own cluster, every
+    repeat folded its own already-merged list back in. A two-member cluster came
+    out with three ids.
+
+    Note this asserts on the *list*, not on ``set(...)``. The existing
+    provenance test compares sets, which is why the inflation went unnoticed --
+    the ids were all correct, just repeated.
+    """
+    ceo_1 = TypedEntity(surface_form="CEO", provenance_ids=["p1"])
+    ceo_2 = TypedEntity(surface_form="Chief Executive Officer", provenance_ids=["p2"])
+    employee = TypedEntity(surface_form="employee", provenance_ids=["p3"])
+
+    graph = Graph(
+        typed_entities={ceo_1, ceo_2, employee},
+        relations_wo_class_assertions=[
+            Relation(
+                subject=ceo_1,
+                predicate=Entity(surface_form="manages"),
+                object=employee,
+                provenance_ids=["r1"],
+            ),
+            Relation(
+                subject=ceo_2,
+                predicate=Entity(surface_form="Manager of"),
+                object=employee,
+                provenance_ids=["r2"],
+            ),
+        ],
+    )
+
+    deduplicated, _ = kg.deduplicate(
+        graph=graph, entity_similarity_threshold=0.6, edge_similarity_threshold=0.6
+    )
+
+    for entity in deduplicated.typed_entities:
+        assert len(entity.provenance_ids) == len(set(entity.provenance_ids)), (
+            f"{entity.surface_form!r} has repeated provenance ids: "
+            f"{entity.provenance_ids}"
+        )
+    merged_ceo = next(
+        e for e in deduplicated.typed_entities if "ceo" in e.surface_form.lower()
+    )
+    assert sorted(merged_ceo.provenance_ids) == ["p1", "p2"]
+
+    for relation in deduplicated.relations_wo_class_assertions:
+        assert len(relation.provenance_ids) == len(set(relation.provenance_ids)), (
+            f"relation {relation} has repeated provenance ids: "
+            f"{relation.provenance_ids}"
+        )
