@@ -181,7 +181,10 @@ def test_semhash_deduplication_lowthreshold_mpnet(kg: KGGen):
     )
 
     deduplicated, stats = kg.deduplicate(
-        graph=graph, entity_similarity_threshold=0.5, edge_similarity_threshold=0.25
+        graph=graph,
+        entity_similarity_threshold=0.5,
+        edge_similarity_threshold=0.25,
+        use_embeddings=True,
     )
 
     # SEMHASH should merge case variations
@@ -296,7 +299,10 @@ def test_deduplication_preserves_provenance(kg: KGGen):
     )
 
     deduplicated, _ = kg.deduplicate(
-        graph=graph, entity_similarity_threshold=0.6, edge_similarity_threshold=0.6
+        graph=graph,
+        entity_similarity_threshold=0.6,
+        edge_similarity_threshold=0.6,
+        use_embeddings=True,
     )
 
     # There should be 2 typed entities after merge: one for CEO/Chief Exec, one for employee
@@ -350,7 +356,10 @@ def test_deduplication_with_descriptions(kg: KGGen):
         relations_wo_class_assertions=[],
     )
     deduplicated, _ = kg.deduplicate(
-        graph=graph, entity_similarity_threshold=0.85, edge_similarity_threshold=0.75
+        graph=graph,
+        entity_similarity_threshold=0.85,
+        edge_similarity_threshold=0.75,
+        use_embeddings=True,
     )
     # There should be 2 typed entities after merge: fruit and company
     assert len(deduplicated.typed_entities) == 2
@@ -363,7 +372,10 @@ def test_deduplication_with_descriptions(kg: KGGen):
         relations_wo_class_assertions=[],
     )
     deduplicated, _ = kg.deduplicate(
-        graph=graph, entity_similarity_threshold=0.75, edge_similarity_threshold=0.75
+        graph=graph,
+        entity_similarity_threshold=0.75,
+        edge_similarity_threshold=0.75,
+        use_embeddings=True,
     )
     # There should be 2 typed entities after merge: apple
     assert len(deduplicated.typed_entities) == 1
@@ -415,7 +427,10 @@ def test_deduplication_does_not_duplicate_provenance(kg: KGGen):
     )
 
     deduplicated, _ = kg.deduplicate(
-        graph=graph, entity_similarity_threshold=0.6, edge_similarity_threshold=0.6
+        graph=graph,
+        entity_similarity_threshold=0.6,
+        edge_similarity_threshold=0.6,
+        use_embeddings=True,
     )
 
     for entity in deduplicated.typed_entities:
@@ -433,3 +448,72 @@ def test_deduplication_does_not_duplicate_provenance(kg: KGGen):
             f"relation {relation} has repeated provenance ids: "
             f"{relation.provenance_ids}"
         )
+
+
+def test_string_only_deduplication_merges_without_embeddings(kg: KGGen):
+    """With use_embeddings off, plural/singular and case variants still merge.
+
+    The string grouping is not a no-op: surface forms are keyed by their
+    normalized, singularized form before any embedding comparison, which is where
+    the large majority of real duplicates are caught.
+    """
+    cats = TypedEntity(surface_form="Cats", provenance_ids=["p1"])
+    cat = TypedEntity(surface_form="Cat", provenance_ids=["p2"])
+    dog = TypedEntity(surface_form="Dog", provenance_ids=["p3"])
+    graph = Graph(
+        typed_entities={cats, cat, dog},
+        relations_wo_class_assertions=[
+            Relation(
+                subject=cats,
+                predicate=Entity(surface_form="chases"),
+                object=dog,
+                provenance_ids=["r1"],
+            )
+        ],
+    )
+
+    deduplicated, _ = kg.deduplicate(graph, use_embeddings=False)
+
+    surface_forms = {e.surface_form for e in deduplicated.typed_entities}
+    assert len(deduplicated.typed_entities) == 2, surface_forms
+    merged = next(e for e in deduplicated.typed_entities if e.surface_form != "Dog")
+    assert sorted(merged.provenance_ids) == ["p1", "p2"]
+
+
+def test_string_only_deduplication_keeps_semantic_pairs_apart(kg: KGGen):
+    """Without embeddings, an alias pair that needs semantics stays separate.
+
+    This is the documented cost of the default: "North Yemen" and "Yemen Arab
+    Republic" are the same country, and only the embedding pass can tell.
+    """
+    a = TypedEntity(surface_form="North Yemen")
+    b = TypedEntity(surface_form="Yemen Arab Republic")
+    graph = Graph(typed_entities={a, b}, relations_wo_class_assertions=[])
+
+    deduplicated, _ = kg.deduplicate(graph, use_embeddings=False)
+    assert len(deduplicated.typed_entities) == 2
+
+
+def test_singularization_leaves_numerals_acronyms_and_compounds_alone():
+    """Over-eager singularization merges unconditionally, at any threshold.
+
+    Each of these used to collapse two distinct entities into one: decades into
+    years, an acronym into a shorter one, and -- via inflect stringifying its own
+    False for hyphenated compounds -- every hyphenated title sharing a suffix.
+    """
+    from kg_gen.utils.deduplicate import DeduplicateList
+
+    dedup = DeduplicateList()
+
+    def singular(text: str) -> str:
+        return dedup.singularize(dedup.normalize(text))
+
+    # A decade is not the plural of a year.
+    assert singular("1970s") == "1970s"
+    assert singular("1970s") != singular("1970")
+    assert singular("CBS") != singular("CB")
+    assert singular("Governor-General") != singular("Secretary-General")
+    # Genuine plurals must still be singularized.
+    assert singular("Cats") == singular("Cat")
+    assert singular("Comanches") == singular("Comanche")
+    assert singular("PGA Championships") == singular("PGA Championship")

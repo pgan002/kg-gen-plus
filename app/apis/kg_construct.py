@@ -389,6 +389,7 @@ async def aggregate_and_deduplicate_graphs(
             aggregated_graph,
             entity_similarity_threshold=meta.entity_threshold,
             edge_similarity_threshold=meta.predicate_threshold,
+            use_embeddings=meta.deduplicate_with_embeddings,
         )
         kggen_logger.info(
             "Deduplication complete: entities=%s relations=%s",
