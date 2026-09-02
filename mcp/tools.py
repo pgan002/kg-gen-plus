@@ -13,11 +13,13 @@ than the server holding parsed state between calls.
 from __future__ import annotations
 
 import json
+import os
 from collections import defaultdict
 from typing import Optional, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
+from app import blobs, settings
 from app.utils import (
     parse_ontology_from_string,
     serialize_ontology_to_ttl,
@@ -70,6 +72,43 @@ class GraphWriteResult(BaseModel):
 _ListItemT = TypeVar("_ListItemT", bound=BaseModel)
 
 
+def _read_reference(value: str) -> bytes:
+    """Read a ``blob:<id>`` handle or a filesystem path, whichever this is."""
+    if blobs.is_handle(value):
+        try:
+            return blobs.load(value)
+        except KeyError:
+            raise ValueError(
+                f"Unknown or expired blob handle {value!r}. Blobs live for "
+                f"{settings.BLOB_TTL_SECONDS}s; re-upload via POST /api/blobs."
+            )
+    with open(value, "rb") as f:
+        return f.read()
+
+
+def resolve_ontology_ttl(ontology_ttl: Optional[str]) -> Optional[str]:
+    """The ontology Turtle, given the text itself, a path, or a blob handle.
+
+    The Turtle rides along on every call that needs it -- ~4,700 tokens for a
+    real 18-class ontology, on a tool call about a 90-token document -- so
+    passing it once as a blob and referring to the handle thereafter is the
+    single largest saving available to a caller.
+
+    Disambiguated conservatively: a blob handle announces itself, and a path is
+    a single line that exists on disk. Anything else is treated as the Turtle
+    itself, so an ontology that happens to be one line long and to name an
+    existing file is the only ambiguous case, and reading that file is the more
+    useful reading of it.
+    """
+    if ontology_ttl is None:
+        return None
+    if blobs.is_handle(ontology_ttl):
+        return _read_reference(ontology_ttl).decode("utf-8")
+    if "\n" not in ontology_ttl.strip() and os.path.exists(ontology_ttl):
+        return _read_reference(ontology_ttl).decode("utf-8")
+    return ontology_ttl
+
+
 def _resolve_list(
     value: list[_ListItemT] | str, model: type[_ListItemT]
 ) -> list[_ListItemT]:
@@ -82,11 +121,12 @@ def _resolve_list(
     calling model's own output-token limit (confirmed in practice: an
     apply_clusters call carrying ~300 relations inline hit exactly this wall).
     A normal call with an actual JSON array still works exactly as before;
-    this is purely additive. See SKILL.md's "Large inputs" section.
+    this is purely additive. A ``blob:<id>`` handle from ``POST /api/blobs``
+    works too, and is the form to use when the server shares no filesystem with
+    the caller. See SKILL.md's "Large inputs" section.
     """
     if isinstance(value, str):
-        with open(value) as f:
-            raw = json.load(f)
+        raw = json.loads(_read_reference(value))
         return [model.model_validate(item) for item in raw]
     return value
 
@@ -112,13 +152,13 @@ def _maybe_write_output(
 
 def parse_ontology(ontology_ttl: str) -> Ontology:
     """Parse a Turtle ontology into structured classes and predicates."""
-    onto, _ = parse_ontology_from_string(ontology_ttl)
+    onto, _ = parse_ontology_from_string(resolve_ontology_ttl(ontology_ttl))
     return onto
 
 
 def list_target_types(ontology_ttl: str) -> list[EntityType]:
     """Return the entity types (classes) the agent should extract, sorted by label."""
-    onto, _ = parse_ontology_from_string(ontology_ttl)
+    onto, _ = parse_ontology_from_string(resolve_ontology_ttl(ontology_ttl))
     return sorted(onto.classes, key=lambda t: t.label)
 
 
@@ -134,14 +174,31 @@ def suggest_predicates(
     Compatibility accounts for the class hierarchy: a predicate declared on a
     superclass is suggested for an entity of a subclass. Predicates with a
     literal (XSD) range are always kept.
+
+    The domain and range classes come back as label and URI only. Their
+    descriptions are what `list_target_types` (or the ontology file) already
+    delivers once, whereas here they were repeated inside every predicate that
+    shares a domain: on an 18-class/17-predicate ontology that was 12,894
+    characters of duplication, or ~5,800 tokens of a ~6,300-token result.
     """
-    onto, g = parse_ontology_from_string(ontology_ttl)
-    return filter_predicates_by_entity_types(
+    onto, g = parse_ontology_from_string(resolve_ontology_ttl(ontology_ttl))
+    predicates = filter_predicates_by_entity_types(
         entity_types=found_entity_types,
         predicate_domain_range=list(onto.predicates),
         ontology=g,
         enforce_domain_conformance=enforce_domain_conformance,
         enforce_range_conformance=enforce_range_conformance,
+    )
+    return [_without_class_descriptions(p) for p in predicates]
+
+
+def _without_class_descriptions(predicate: OntologyPredicate) -> OntologyPredicate:
+    """The predicate with its domain/range classes reduced to label and URI."""
+    trim = lambda types: {  # noqa: E731
+        EntityType(label=t.label, uri=t.uri) for t in types
+    }
+    return predicate.model_copy(
+        update={"domain": trim(predicate.domain), "range": trim(predicate.range)}
     )
 
 
@@ -172,7 +229,9 @@ def validate_conformance(
     # range conformance needs it to honour rdfs:subClassOf.
     rdf_ontology = None
     if ontology_ttl:
-        onto, rdf_ontology = parse_ontology_from_string(ontology_ttl)
+        onto, rdf_ontology = parse_ontology_from_string(
+            resolve_ontology_ttl(ontology_ttl)
+        )
         predicate_domain_range = list(onto.predicates)
         allowed_types = list(onto.classes)
 
@@ -226,7 +285,9 @@ def serialize_graph(
     onto = None
     rdf_ontology = None
     if ontology_ttl:
-        onto, rdf_ontology = parse_ontology_from_string(ontology_ttl)
+        onto, rdf_ontology = parse_ontology_from_string(
+            resolve_ontology_ttl(ontology_ttl)
+        )
 
     graph = Graph(
         typed_entities=set(typed_entities),
@@ -429,7 +490,9 @@ def apply_clusters(
     onto = None
     rdf_ontology = None
     if ontology_ttl:
-        onto, rdf_ontology = parse_ontology_from_string(ontology_ttl)
+        onto, rdf_ontology = parse_ontology_from_string(
+            resolve_ontology_ttl(ontology_ttl)
+        )
 
     graph = Graph(
         typed_entities=set(canonical_entities.values()),

@@ -17,7 +17,7 @@ from fastapi import (
 )
 from pydantic import ValidationError
 
-from app import settings
+from app import blobs, settings
 from app.apis.deps import get_kg_gen
 from app.generation import (
     apply_stat_headers,
@@ -48,6 +48,48 @@ from kg_gen.models import (
 
 
 kgc_router = APIRouter(prefix="/api")
+
+
+@kgc_router.post("/blobs", tags=["KG Construction"], name="upload_blob")
+async def upload_blob(
+    request: Request,
+    file: Optional[UploadFile] = File(
+        None, description="The data to store, as a multipart upload."
+    ),
+) -> dict:
+    """Store data and return a short handle for it.
+
+    Exists so an agent can hand a large list to a tool *by reference*. Tool
+    arguments are written by the calling model, so an inline 702-entity list
+    costs it ~32,000 output tokens; uploading here costs an HTTP request the
+    model never has to type, and the handle that comes back is ~20 tokens. The
+    tools that accept `typed_entities`/`relations`/cluster lists, and
+    `ontology_ttl`, all take a `blob:<id>` handle in place of the data.
+
+    Unlike the file-path form those tools also accept, this works when the agent
+    and the server share no filesystem, which is the normal case for a remote
+    MCP server.
+
+        curl -sF file=@entities.json http://HOST/api/blobs
+        curl -s --data-binary @entities.json http://HOST/api/blobs
+
+    Returns `{"blob": "blob:<id>", "bytes": <n>}`. The handle is content-
+    addressed, so uploading the same bytes twice yields the same handle.
+    """
+    data = await file.read() if file is not None else await request.body()
+    if not data:
+        raise HTTPException(
+            status_code=400,
+            detail="No data to store. Send a multipart 'file' field or a raw body.",
+        )
+    if len(data) > settings.MAX_PAYLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Blob of {len(data)} bytes exceeds the "
+            f"{settings.MAX_PAYLOAD_BYTES}-byte limit.",
+        )
+    handle = await blobs.store(data)
+    return {"blob": handle, "bytes": len(data)}
 
 
 @kgc_router.post("/convert_ontology", tags=["KG Construction"])

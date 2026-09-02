@@ -38,6 +38,19 @@ Both endpoints accept the same `corpus_file` / `ontology_file` uploads and
 `GenerationMetadata` query parameters, and progress is logged server-side in a
 tqdm-like form (`[generate] 45/200 docs (22.5%) elapsed=12.3s ETA=41.9s`).
 
+#### Passing large data by reference
+
+- **`POST /api/blobs`** stores a body (multipart `file` or raw) and returns
+  `{"blob": "blob:<id>", "bytes": n}`. Handles are content-addressed and expire
+  after `KGGEN_BLOB_TTL_SECONDS` (6 h by default).
+
+It exists for the MCP tools: their arguments are written by the calling model,
+so an inline entity list is charged to that model's output tokens (~32,000 for
+700 entities) and can exceed its output limit. `typed_entities`, `relations`,
+the cluster lists and `ontology_ttl` all accept a `blob:<id>` handle, or a
+filesystem path when the server shares a filesystem with the caller. Measured
+on a 200-document graph: ~16 tokens of arguments instead of ~41,500.
+
 #### Stat headers
 
 Successful responses carry a few scalar `X-KG-Gen-*` headers: `Time`,

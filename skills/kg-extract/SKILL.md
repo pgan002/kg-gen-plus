@@ -166,21 +166,41 @@ to route around it via a subagent, while a weaker model just quietly
 submitted an empty relations list instead. Neither is a model problem — it's
 a hard ceiling no amount of retyping avoids.
 
-**The path is resolved by the server, not by you.** With a local server
-(`http://localhost:...`) any path you can write works. With a **remote** server
-the path means nothing until the file is on *its* filesystem, so put it there
-out-of-band first — the point of the whole pattern is that the content never
-passes through your context. For a containerised server, for example:
+**A path only works when the server shares your filesystem.** It is resolved
+by the server, so with a local server (`http://localhost:...`) any path you can
+write works, while a **remote** server answers `No such file or directory` {EM}
+and it is tempting to conclude, wrongly, that the optimization does not apply
+to it.
+
+**Use a blob handle instead; it works everywhere.** Upload the data with an
+ordinary HTTP request and pass back the handle:
 
 ```bash
-cat entities.json | ssh HOST "docker exec -i CONTAINER sh -c 'cat > /tmp/entities.json'"
+curl -sF file=@entities.json http://HOST/api/blobs     # {EM}> {"blob":"blob:f3c2...","bytes":126855}
+curl -s --data-binary @entities.json http://HOST/api/blobs
 ```
 
-and then pass `/tmp/entities.json`. Verified against a remote server: 702
-entities and 87 relations validated from files, for ~20 tokens of arguments
-against ~32,000 to inline them. Without this step a remote server answers
-`No such file or directory` and it is tempting to conclude, wrongly, that the
-optimization does not apply to it.
+Then pass `blob:f3c2...` wherever the list would have gone. The bytes travel
+disk {EM}> network {EM}> server, so they never enter your context, and the handle
+is about twenty characters. Handles are content-addressed, so re-uploading the
+same data is free, and they expire after a few hours {EM} if one has gone, the
+error says so and you re-upload.
+
+**`ontology_ttl` takes a handle too**, and this is the larger saving: the server
+is stateless, so the Turtle rides along on *every* call that needs it. Upload
+the ontology once at the start and refer to the handle for the rest of the job.
+
+Measured on a 200-document run, passing the entity list, the relation list and
+the ontology all by handle:
+
+| | inline | by handle |
+|---|---|---|
+| argument payload | ~41,500 tokens | **~16 tokens** |
+
+MCP itself has no upload primitive {EM} tools are the only channel from you to
+the server, and their arguments are your output tokens; resources, prompts and
+sampling all run the other way, and `roots` shares path names, not contents.
+`POST /api/blobs` exists precisely to give that missing direction a home.
 
 Practical pattern for a large job: write each stage's output to a file with
 the Write tool (or let `output_file` do it for you), then pass that path into
@@ -194,10 +214,10 @@ would be a real amount of your own output.
 File paths fix the data you send *up*. The ontology and the tool results are
 the rest of the bill, and the server being stateless means the Turtle rides
 along on every call that needs it. Measured on an 18-class/17-predicate
-ontology: the Turtle is ~4,700 tokens per call, `list_target_types` returns
-~2,200, and `suggest_predicates` returns ~5,800 for 16 predicates — because
-each predicate re-serializes its domain and range classes *with their full
-descriptions*. Against a 90-token document that scaffolding is the entire cost.
+ontology: the Turtle is ~4,700 tokens per call and `list_target_types` returns
+~2,200. Against a 90-token document that scaffolding is the entire cost.
+Upload the ontology once as a blob (above) and the per-call charge for it
+disappears.
 
 **Call `suggest_predicates` once for the whole corpus.** Its filtering depends
 only on the type set you pass, never on the text, so one call covering every
