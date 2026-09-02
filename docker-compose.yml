@@ -10,7 +10,7 @@ x-logging: &default-logging
 
 services:
   server:
-    image: ${IMAGE_NAME}:0.12.0rc9
+    image: ${IMAGE_NAME}:0.12.0rc10
     container_name: kg-gen-server
     command: --port 8000
     logging: *default-logging
@@ -51,7 +51,7 @@ services:
   # corpus and intermediate graph in RAM on top of a ~600 MB shared
   # embedding/ML baseline, so replicas give more predictable memory behaviour.
   worker:
-    image: ${IMAGE_NAME}:0.12.0rc9
+    image: ${IMAGE_NAME}:0.12.0rc10
     entrypoint: ["python", "-m", "app.worker"]
     logging: *default-logging
     volumes:
