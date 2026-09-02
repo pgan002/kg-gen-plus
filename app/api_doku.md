@@ -110,9 +110,16 @@ the agent performs the cognitive work (NER, entity typing, relation extraction),
 while the MCP tools handle the deterministic parts.
 
 Tools exposed: `parse_ontology`, `list_target_types`, `suggest_predicates`,
-`validate_conformance`, `validate_graph_schema`, `serialize_graph`,
-`convert_ontology`, `suggest_clusters`, `apply_clusters`. The server is
-**stateless** — pass the ontology Turtle to each tool that needs it.
+`suggest_predicates_batch`, `validate_conformance`, `validate_graph_schema`,
+`serialize_graph`, `convert_ontology`, `suggest_clusters`, `apply_clusters`. The
+server is **stateless** — pass the ontology Turtle to each tool that needs it.
+
+`suggest_predicates` filters on the entity types it is handed, so it must be
+asked per chunk: the union of types over enough text is the whole ontology, and
+so is the union's answer. `suggest_predicates_batch` answers many chunks in one
+call — each predicate described once, the distinct answers de-duplicated, an
+index per chunk — which on a 200-chunk slice costs ~4,600 tokens against
+~74,300 for the equivalent singular calls.
 
 Deduplication is split across two tools so the agent reviews merges instead of
 trusting embeddings blindly: `suggest_clusters` proposes candidate duplicate
