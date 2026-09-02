@@ -85,7 +85,9 @@ Notes:
    **all** the entity types you found. It returns the predicates whose domain and
    range are both satisfied by those types (predicates with a literal/XSD range
    are always included). Because a predicate needs *both* endpoints present, pass
-   the complete set of types you extracted, not one at a time.
+   the complete set of types you extracted, not one at a time. On a corpus, call
+   it **once** for the union of types across all documents rather than once per
+   document (see "The other half of the cost").
 
 4. **Extract relations (you do this).** Extract subject–predicate–object triples
    from the text. Use only the suggested predicates, and respect their domain
@@ -164,6 +166,22 @@ to route around it via a subagent, while a weaker model just quietly
 submitted an empty relations list instead. Neither is a model problem — it's
 a hard ceiling no amount of retyping avoids.
 
+**The path is resolved by the server, not by you.** With a local server
+(`http://localhost:...`) any path you can write works. With a **remote** server
+the path means nothing until the file is on *its* filesystem, so put it there
+out-of-band first — the point of the whole pattern is that the content never
+passes through your context. For a containerised server, for example:
+
+```bash
+cat entities.json | ssh HOST "docker exec -i CONTAINER sh -c 'cat > /tmp/entities.json'"
+```
+
+and then pass `/tmp/entities.json`. Verified against a remote server: 702
+entities and 87 relations validated from files, for ~20 tokens of arguments
+against ~32,000 to inline them. Without this step a remote server answers
+`No such file or directory` and it is tempting to conclude, wrongly, that the
+optimization does not apply to it.
+
 Practical pattern for a large job: write each stage's output to a file with
 the Write tool (or let `output_file` do it for you), then pass that path into
 the next tool call rather than the data itself. For a single normal-sized
@@ -171,10 +189,62 @@ document this doesn't matter and inline data is simpler — reach for file
 paths specifically when a list is large enough that reproducing it verbatim
 would be a real amount of your own output.
 
+## The other half of the cost: the ontology on every call
+
+File paths fix the data you send *up*. The ontology and the tool results are
+the rest of the bill, and the server being stateless means the Turtle rides
+along on every call that needs it. Measured on an 18-class/17-predicate
+ontology: the Turtle is ~4,700 tokens per call, `list_target_types` returns
+~2,200, and `suggest_predicates` returns ~5,800 for 16 predicates — because
+each predicate re-serializes its domain and range classes *with their full
+descriptions*. Against a 90-token document that scaffolding is the entire cost.
+
+**Call `suggest_predicates` once for the whole corpus.** Its filtering depends
+only on the type set you pass, never on the text, so one call covering every
+type you expect to find is reusable for every document. Per-document calls
+multiply the ontology payload by the number of documents for an identical
+answer.
+
+**Read the ontology file directly instead of calling `list_target_types`**, when
+you have the file. You need the class descriptions in context either way to type
+entities well; the raw Turtle carries them once, whereas the tool result repeats
+them inside every predicate. Use `parse_ontology`/`list_target_types` when the
+ontology arrives as text you have not read, or to confirm it parses.
+
+## Extraction pitfalls
+
+Each of these cost a real conformance failure or a wrong triple on a
+200-document run.
+
+**Disambiguate homonyms in the surface form.** Entities are keyed by surface
+form throughout, so two different things sharing a name collapse into one and
+take whichever type was assigned last. A corpus containing both the Antarctic
+feature "Labyrinth" and the 1984 video game "Labyrinth" produced
+`Labyrinth -[publisher]-> Acornsoft: Subject type Place not in domain
+['Creative Work']`. Give one a distinguishing surface form
+(`Labyrinth (Wright Valley)`) rather than dropping the relation.
+
+**Type entities faithfully, even when it blocks a predicate.** Where the text
+says someone "established the Kingdom of Saudi Arabia", `founder` does not
+apply: its domain is Organization and a kingdom is a Country. Retyping the
+country as an Organization to make the predicate fit yields a conforming graph
+that misdescribes the world. Leave the relation out and let the gap show — an
+ontology that cannot express a common fact is a finding worth reporting, not an
+obstacle to route around.
+
+**Do not assert what the text denies.** Sources correct themselves: "it is
+sometimes asserted that Umm Ubays was the daughter of Al-Nahdiah ... however
+Ibn Ishaq makes it clear that [they] were two different people" states no
+parent relation. Extract the conclusion, not the claim being refuted.
+
 ## Notes
 
 - Prefer types and predicates from the provided ontology. When you must go beyond
   it, the extra types/predicates appear as ontology *extensions* in the output —
   that's expected, not an error.
-- This interactive path is for precision on a handful of documents. For bulk
-  corpora, use the batch HTTP service instead.
+- This interactive path buys conformance, not coverage. On the first 200
+  documents of a MuSiQue corpus it reached a conformance score of 1.0 with no
+  invented types or predicates, but extracted 0.43 relations per document —
+  against 0.59 for the same slice through the batch HTTP service, and 0.40 for a
+  strong hosted model through that service. Reach for it when correctness per
+  document matters; for bulk corpora, use the batch service.
