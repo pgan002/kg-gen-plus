@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kg-gen"
-version = "0.12.0rc8"
+version = "0.12.0rc9"
 authors = [{ name = "Belinda Mo", email = "justanexperimentpark@gmail.com" }]
 description = "Extract a knowledge graph using LLMs from any text"
 readme = "README.md"
