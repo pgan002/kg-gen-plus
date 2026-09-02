@@ -106,13 +106,34 @@ Notes:
    in *that chunk's* set, and respect their domain (subject type) and range
    (object type). Be thorough and faithful to the text.
 
-5. **Validate and self-correct.** Call `validate_conformance` with your entities,
+5. **Self-check the extraction before validating.** `validate_conformance`
+   checks your output against the *ontology*; it cannot tell you whether your
+   output matches the *text*. Two script checks cover that, and both have caught
+   real errors here — on one 200-document slice they found three misattributed
+   provenance entries and three entities that runs without the checks had missed
+   entirely:
+
+   - **Provenance is real and complete.** Every provenance id must be an id that
+     exists in the source. Then count the chunks with no entity at all and
+     re-read those: an empty chunk is usually an extraction gap, not an empty
+     chunk. (If you narrowed predicates per chunk, this is also where
+     over-narrowing shows up — a chunk with no candidate predicates is a chunk
+     whose entities you may have failed to type.)
+   - **Every surface form appears in its chunk's text.** Normalise both sides
+     (strip accents, lowercase, collapse non-alphanumerics) and confirm each
+     entity's surface form — ignoring any parenthetical disambiguator you added
+     — occurs in the text of at least one of its provenance chunks. A miss is
+     either a hallucination or a wrong id.
+
+   Fix what they flag and re-run them before moving on.
+
+6. **Validate and self-correct.** Call `validate_conformance` with your entities,
    relations, and the ontology. If the score is below 1.0, read the returned
    errors, fix the offending entities/relations, and re-run the check. Stop after
    a couple of passes even if not perfect — return your best result and note any
    remaining violations.
 
-6. **Produce the final graph.** Call `serialize_graph` to build the canonical
+7. **Produce the final graph.** Call `serialize_graph` to build the canonical
    knowledge graph (with URI reconciliation and literal detection). Then
    optionally:
    - `suggest_clusters` + `apply_clusters` to merge near-duplicate entities
@@ -181,6 +202,18 @@ requiring you to retype the data as tool-call output. `serialize_graph` and
 serialized graph is written there instead of being returned inline, and you
 get back a small summary (`num_entities`/`num_relations`/`output_file`) instead
 of the full graph.
+
+**Write the list with a generator script, not as literal JSON.** Whatever you
+type is charged to your output tokens, and JSON spends most of them on syntax.
+A script with one `add("<surface form>", "<type label>", ["<chunk id>", ...])`
+call per entity, dumping the JSON at the end, measured 70,086 bytes against
+102,805 for the same 610 entities as JSON — about 8,000 output tokens saved on
+a single 200-document slice.
+
+**Read the source text once.** Re-printing chunks to re-examine them is the
+most expensive habit available: a 200-document slice is ~22k tokens, so one
+extra dump of it costs more than the entire extraction it was meant to check.
+Scroll back to what you already read instead.
 
 **Use file paths once a list would run into the hundreds of items** (a long
 document, or especially merging across several documents at once). Retyping
