@@ -41,6 +41,35 @@ def configure_dspy_cache() -> None:
     )
 
 
+def configure_dspy_concurrency(n_parallel: int) -> None:
+    """Let ``n_parallel`` documents actually reach the LLM at once.
+
+    Entity extraction runs through ``dspy.asyncify`` -- ``dspy.Refine`` has no
+    ``aforward``, so there is no native async path -- and ``dspy.asyncify``
+    acquires a process-global ``anyio.CapacityLimiter`` sized by
+    ``dspy.settings.async_max_workers``, which defaults to **8**. That caps the
+    first LLM step of every document at 8 concurrent no matter what
+    ``n_parallel`` says, and the semaphore in ``kg_gen.generate`` cannot make up
+    for it.
+
+    Measured on the 16,131-document MuSiQue corpus: ``n_parallel=20`` and
+    ``n_parallel=50`` both delivered ~1,150 docs/h, with the vLLM endpoint
+    reporting 0 queued requests and single-digit KV-cache use -- starved, not
+    saturated -- and the worker at 2% CPU. Raising ``n_parallel`` alone buys
+    nothing.
+
+    Raised, never lowered: DSPy resizes one global limiter, and another job may
+    already be running in this process with a higher setting.
+    """
+    current = dspy.settings.get("async_max_workers") or 0
+    if n_parallel > current:
+        dspy.settings.configure(async_max_workers=n_parallel)
+        kggen_logger.info(
+            f"dspy async_max_workers raised {current} -> {n_parallel} so "
+            f"n_parallel={n_parallel} is not throttled to {current} by asyncify"
+        )
+
+
 def prepare_generation_inputs(
     corpus_bytes: bytes,
     ontology_bytes: Optional[bytes],
@@ -92,18 +121,62 @@ def prepare_generation_inputs(
     return inputs, onto, rdflib_onto, types, predicates
 
 
+# HTTP header values must be latin-1 encodable, and servers cap the header
+# block (uvicorn allows 8 KiB by default). Stat headers are telemetry: a
+# response must never fail because of them, hence the cap and the skip below.
+MAX_STAT_HEADER_BYTES = 1024
+
+
 def build_stats_headers(total_gen_stats) -> dict[str, str]:
-    """Build the ``X-KG-Gen-*`` response headers from generation stats."""
+    """Build the ``X-KG-Gen-*`` response headers from generation stats.
+
+    Scalars only, by design. This used to also dump the whole ``KGGenStats``
+    JSON into ``X-KG-Gen-Stats``, which grows without bound: it embeds one
+    record per failed document, each carrying that document's full LM response.
+    A 16,131-document run with 14 failures produced a 142 KB value containing an
+    en dash, so setting the header raised ``UnicodeEncodeError`` and *every*
+    fetch of that job's result returned 500 -- after the graph had already been
+    generated. The detail is in the response body (``KnowledgeGraph.stats``), so
+    keeping the headers small costs nothing.
+    """
     overall = total_gen_stats.overall_usage
     headers = {
-        "X-KG-Gen-Stats": total_gen_stats.model_dump_json(),
         "X-KG-Gen-Time": str(overall.execution_time),
         "X-KG-Gen-Input-Tokens": str(overall.lm_usage.prompt_tokens),
         "X-KG-Gen-Output-Tokens": str(overall.lm_usage.completion_tokens),
+        "X-KG-Gen-Total-Tokens": str(overall.lm_usage.total_tokens),
+        "X-KG-Gen-Failed-Documents": str(len(total_gen_stats.failed_documents)),
     }
     if total_gen_stats.deduplicate:
         headers["X-KG-Gen-Dedup-Stats"] = total_gen_stats.deduplicate.model_dump_json()
     return headers
+
+
+def apply_stat_headers(response, headers: Optional[dict[str, str]]) -> None:
+    """Copy stat headers onto a response, dropping any that cannot be sent.
+
+    Assigning a non-latin-1 or oversized value to ``response.headers`` raises,
+    and the exception escapes as a bare 500 that discards an otherwise valid
+    response body. Telemetry is never worth that, so unsendable values are
+    logged and skipped instead.
+    """
+    for key, value in (headers or {}).items():
+        try:
+            encoded = value.encode("latin-1")
+        except UnicodeEncodeError:
+            kggen_logger.warning(
+                f"Skipping stat header {key}: value is not latin-1 encodable. "
+                f"Full stats are in the response body."
+            )
+            continue
+        if len(encoded) > MAX_STAT_HEADER_BYTES:
+            kggen_logger.warning(
+                f"Skipping stat header {key}: {len(encoded)} bytes exceeds the "
+                f"{MAX_STAT_HEADER_BYTES}-byte cap. Full stats are in the "
+                f"response body."
+            )
+            continue
+        response.headers[key] = value
 
 
 async def execute_generation(
@@ -117,6 +190,7 @@ async def execute_generation(
     progress_callback=None,
 ) -> tuple[KnowledgeGraph, dict[str, str]]:
     """Run generation and return the KnowledgeGraph plus stat headers."""
+    configure_dspy_concurrency(generation_params.n_parallel)
     final_graph, total_gen_stats = await kg_gen.generate(
         input_data=inputs,
         n_parallel=generation_params.n_parallel,
@@ -136,7 +210,7 @@ async def execute_generation(
         deduplicate_with_embeddings=generation_params.deduplicate_with_embeddings,
         progress_callback=progress_callback,
     )
-    kg = final_graph.to_knowledge_graph(total_gen_stats, onto)
+    kg = final_graph.to_knowledge_graph(total_gen_stats, onto, rdflib_onto)
     return kg, build_stats_headers(total_gen_stats)
 
 

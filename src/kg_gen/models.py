@@ -1,12 +1,21 @@
 import json
+import logging
 import math
 import re
 
 import dspy
 from pydantic import BaseModel, Field, computed_field
+from rdflib import Graph as RDFGraph
 from typing import Optional, List, Set
 
 from typing_extensions import TypeVar
+
+from kg_gen.utils.label_matching import build_alias_index, match_label
+
+# The same logger object as ``app.kggen_logger``, obtained by name so this
+# module -- unlike ``kg_gen.kg_gen`` -- stays importable without the ``app``
+# package on the path. The benchmarks import ``kg_gen.models`` on its own.
+kggen_logger = logging.getLogger("kg_gen_app")
 
 
 def _guess_xsd_type(value: str) -> str:
@@ -476,14 +485,17 @@ class OutputRelation(BaseModel):
 
 class ClassExtension(BaseModel):
     label: str
-    uri: str
+    # Optional because the model often invents a type without inventing a URI
+    # for it. Such a class used to be dropped from the extensions entirely,
+    # leaving entities typed with something the report never mentioned.
+    uri: Optional[str] = None
     description: Optional[str] = None
     superclasses: List[str] = Field(default_factory=list)
 
 
 class PredicateExtension(BaseModel):
     label: str
-    uri: str
+    uri: Optional[str] = None  # see ClassExtension.uri
     description: Optional[str] = None
     domain: List[EntityTypeReference] = Field(default_factory=list)
     range: List[EntityTypeReference] = Field(default_factory=list)
@@ -561,26 +573,37 @@ class Graph(BaseModel):
             json.dump(self.model_dump(mode="json"), f, indent=2)
 
     def to_knowledge_graph(
-        self, stats: KGGenStats, ontology: Optional[Ontology] = None
+        self,
+        stats: KGGenStats,
+        ontology: Optional[Ontology] = None,
+        rdf_ontology: Optional[RDFGraph] = None,
     ) -> "KnowledgeGraph":
+        """Render the graph for output, resolving terms against the ontology.
+
+        Pass ``rdf_ontology`` (the parsed RDF graph the ``Ontology`` came from)
+        to also accept a term's ``skos:altLabel``/``prefLabel``/``hiddenLabel``
+        when matching what the model returned. Labels are matched by their
+        normalized form either way, so ``birth_date`` resolves to ``birth
+        date``; see :mod:`kg_gen.utils.label_matching`.
+        """
         entities_dict = {}
         surface_form_to_id = {}
 
         # Prepare ontology mappings for matching
         uri_to_class = {}
-        label_to_class = {}
         uri_to_pred = {}
-        label_to_pred = {}
+        class_index: dict = {}
+        pred_index: dict = {}
 
         if ontology:
             for c in ontology.classes:
                 if c.uri:
                     uri_to_class[c.uri] = c
-                label_to_class[c.label] = c
             for p in ontology.predicates:
                 if p.uri:
                     uri_to_pred[p.uri] = p
-                label_to_pred[p.label] = p
+            class_index = build_alias_index(ontology.classes, rdf_ontology)
+            pred_index = build_alias_index(ontology.predicates, rdf_ontology)
 
         # 1. Map TypedEntities to OutputEntities
         for i, te in enumerate(
@@ -599,7 +622,7 @@ class Graph(BaseModel):
                     if te.type.uri:
                         matched_class = uri_to_class.get(te.type.uri)
                     if not matched_class:
-                        matched_class = label_to_class.get(te.type.label)
+                        matched_class = match_label(class_index, te.type.label)
 
                     if matched_class:
                         type_uri = matched_class.uri
@@ -617,6 +640,7 @@ class Graph(BaseModel):
 
         # 2. Map relations
         output_relations = []
+        relations_without_subject = 0
         for rel in self.relations_wo_class_assertions:
             subj_id = surface_form_to_id.get(rel.subject.surface_form)
             obj_id = surface_form_to_id.get(rel.object.surface_form)
@@ -629,7 +653,7 @@ class Graph(BaseModel):
                 if rel.predicate.uri:
                     matched_pred = uri_to_pred.get(rel.predicate.uri)
                 if not matched_pred:
-                    matched_pred = label_to_pred.get(rel.predicate.surface_form)
+                    matched_pred = match_label(pred_index, rel.predicate.surface_form)
 
                 if matched_pred:
                     pred_label = matched_pred.label
@@ -665,18 +689,27 @@ class Graph(BaseModel):
                         provenance_ids=rel.provenance_ids,
                     )
                 )
+            else:
+                relations_without_subject += 1
+
+        if relations_without_subject:
+            # Silently dropping these would make the relation count unexplainable.
+            kggen_logger.warning(
+                f"Dropped {relations_without_subject} relation(s) whose subject is "
+                f"not one of the extracted entities, so there was no entity to "
+                f"attach them to."
+            )
 
         # 3. Handle ontology extensions
         classes_ext = []
         predicates_ext = []
 
         if ontology:
-            known_class_uris = {c.uri for c in ontology.classes if c.uri}
-            known_class_labels = {c.label for c in ontology.classes}
             known_predicate_uris = {p.uri for p in ontology.predicates if p.uri}
-            known_predicate_labels = {p.label for p in ontology.predicates}
 
-            # Use sets to keep track of what we already added to extensions in this call
+            # Track what this call already reported. A novelty is identified by
+            # its URI when it has one and by its label otherwise, so the same
+            # invention is reported once either way.
             added_ext_class_uris = set()
             added_ext_class_labels = set()
             added_ext_pred_uris = set()
@@ -684,11 +717,9 @@ class Graph(BaseModel):
 
             for te in self.typed_entities:
                 if te.type:
-                    is_known = False
-                    if te.type.uri and te.type.uri in known_class_uris:
-                        is_known = True
-                    elif te.type.label in known_class_labels:
-                        is_known = True
+                    is_known = bool(te.type.uri and te.type.uri in uri_to_class) or (
+                        match_label(class_index, te.type.label) is not None
+                    )
 
                     if not is_known:
                         if te.type.uri:
@@ -701,19 +732,21 @@ class Graph(BaseModel):
                                     )
                                 )
                                 added_ext_class_uris.add(te.type.uri)
-                        else:
-                            if te.type.label not in added_ext_class_labels:
-                                # ClassExtension REQUIRES uri (str)
-                                # If it's an extension and has no URI, we might need to skip or generate
-                                # Currently we only add it if it has a URI, as per previous logic
-                                pass
+                        elif te.type.label not in added_ext_class_labels:
+                            # No URI, but still a class the ontology does not
+                            # have: report it rather than let it disappear.
+                            classes_ext.append(
+                                ClassExtension(
+                                    label=te.type.label,
+                                    description=te.type.description,
+                                )
+                            )
+                            added_ext_class_labels.add(te.type.label)
 
             for rel in self.relations_wo_class_assertions:
-                is_known = False
-                if rel.predicate.uri and rel.predicate.uri in known_predicate_uris:
-                    is_known = True
-                elif rel.predicate.surface_form in known_predicate_labels:
-                    is_known = True
+                is_known = bool(
+                    rel.predicate.uri and rel.predicate.uri in known_predicate_uris
+                ) or (match_label(pred_index, rel.predicate.surface_form) is not None)
 
                 if not is_known:
                     if rel.predicate.uri:
@@ -726,10 +759,14 @@ class Graph(BaseModel):
                                 )
                             )
                             added_ext_pred_uris.add(rel.predicate.uri)
-                    else:
-                        if rel.predicate.surface_form not in added_ext_pred_labels:
-                            # PredicateExtension REQUIRES uri (str)
-                            pass
+                    elif rel.predicate.surface_form not in added_ext_pred_labels:
+                        predicates_ext.append(
+                            PredicateExtension(
+                                label=rel.predicate.surface_form,
+                                description=rel.predicate.description,
+                            )
+                        )
+                        added_ext_pred_labels.add(rel.predicate.surface_form)
 
         extensions = OntologyExtensions(classes=classes_ext, predicates=predicates_ext)
 

@@ -2,13 +2,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from typing import TextIO, BinaryIO
+from typing import Optional, TextIO, BinaryIO
 
 import rdflib
 from pydantic import BaseModel
 from rdflib.namespace import XSD
 
+from app.kggen_logger import kggen_logger
 from kg_gen.models import Ontology, EntityType, OntologyPredicate
+from kg_gen.utils.label_matching import (
+    find_normalized_label_collisions,
+    normalize_label,
+    skos_labels,
+)
 
 APP_DIR = Path(__file__).resolve().parent
 TEMPLATE_PATH = (
@@ -71,7 +77,10 @@ ONTOLOGY_PREDICATES_DOC = """The ontology is parsed using the following predicat
 - rdfs:label
 - rdfs:comment
 - rdfs:domain
-- rdfs:range"""
+- rdfs:range
+- skos:prefLabel, skos:altLabel, skos:hiddenLabel (alternative names: shown to
+  the model alongside the description, and accepted when matching what it
+  returns back to this term)"""
 
 
 def parse_ontology(onto_file: TextIO | BinaryIO) -> tuple[Ontology, rdflib.Graph]:
@@ -100,6 +109,34 @@ def parse_ontology_from_string(
     return _extract_ontology(g), g
 
 
+def _describe(
+    g: rdflib.Graph,
+    uri: rdflib.URIRef,
+    comment,
+    primary_label: str,
+) -> Optional[str]:
+    """The term's description, with its alternative names appended.
+
+    SKOS labels are the author's own synonym list, so the model is told about
+    them: they are the difference between it answering "State" (unmatched, and
+    reported as a novelty) and "Province" (the class that means it). They are
+    also accepted when matching the answer back -- see
+    :mod:`kg_gen.utils.label_matching`. Note this puts them in the description
+    rather than in a separate field, so re-serializing a parsed ontology through
+    :func:`serialize_ontology_to_ttl` folds them into ``rdfs:comment``.
+    """
+    description = str(comment) if comment else None
+    aliases = [
+        alias
+        for alias in skos_labels(g, str(uri))
+        if normalize_label(alias) != normalize_label(primary_label)
+    ]
+    if not aliases:
+        return description
+    also = f"Also known as: {', '.join(dict.fromkeys(aliases))}."
+    return f"{description} {also}" if description else also
+
+
 def _extract_ontology(g: rdflib.Graph) -> Ontology:
     """Extract the structured :class:`Ontology` (classes + predicates) from a
     parsed RDF graph. See :data:`ONTOLOGY_PREDICATES_DOC` for the predicates used."""
@@ -119,7 +156,7 @@ def _extract_ontology(g: rdflib.Graph) -> Ontology:
             entity_type = EntityType(
                 label=label,
                 uri=str(class_uri),
-                description=str(description) if description else None,
+                description=_describe(g, class_uri, description, label),
             )
             ontology.classes.add(entity_type)
             class_map[class_uri] = entity_type
@@ -141,7 +178,12 @@ def _extract_ontology(g: rdflib.Graph) -> Ontology:
             else:
                 label = pred_uri.split("/")[-1].split("#")[-1]
 
-            description = g.value(subject=pred_uri, predicate=rdflib.RDFS.comment)
+            description = _describe(
+                g,
+                pred_uri,
+                g.value(subject=pred_uri, predicate=rdflib.RDFS.comment),
+                label,
+            )
             prop_type = (
                 "owl:DatatypeProperty"
                 if pred_uri in datatype_properties
@@ -150,7 +192,7 @@ def _extract_ontology(g: rdflib.Graph) -> Ontology:
             predicate = OntologyPredicate(
                 label=label,
                 uri=str(pred_uri),
-                description=str(description) if description else None,
+                description=description,
                 property_type=prop_type,
             )
             # Get domain
@@ -165,6 +207,13 @@ def _extract_ontology(g: rdflib.Graph) -> Ontology:
                     predicate.range.add(xsd_to_python_type[range_uri])
 
             ontology.predicates.add(predicate)
+
+    for form, uris in find_normalized_label_collisions(g):
+        kggen_logger.warning(
+            f"Ontology terms share the label {form!r} once case and punctuation "
+            f"are ignored, so only one of them can ever be matched: "
+            f"{', '.join(uris)}"
+        )
 
     return ontology
 

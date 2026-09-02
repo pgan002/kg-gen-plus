@@ -20,6 +20,7 @@ from pydantic import ValidationError
 from app import settings
 from app.apis.deps import get_kg_gen
 from app.generation import (
+    apply_stat_headers,
     execute_generation,
     kg_gen_from_params,
     prepare_generation_inputs,
@@ -157,8 +158,7 @@ async def generate_graph(
         kggen_logger.exception("KGGen generation failed")
         raise HTTPException(status_code=500, detail=f"KGGen failed: {exc}")
 
-    for key, value in headers.items():
-        response.headers[key] = value
+    apply_stat_headers(response, headers)
     return kg
 
 
@@ -339,8 +339,7 @@ async def get_job_result(job_id: str, response: Response) -> KnowledgeGraph:
             )
         except JobNotFinished as exc:
             raise HTTPException(status_code=409, detail=str(exc))
-        for key, value in headers.items():
-            response.headers[key] = value
+        apply_stat_headers(response, headers)
         return graph
 
     job = job_store.get(job_id)
@@ -355,8 +354,7 @@ async def get_job_result(job_id: str, response: Response) -> KnowledgeGraph:
             status_code=409,
             detail=f"Job not finished (status: {job.status.value})",
         )
-    for key, value in (job.headers or {}).items():
-        response.headers[key] = value
+    apply_stat_headers(response, job.headers)
     return job.result
 
 
@@ -396,7 +394,9 @@ async def aggregate_and_deduplicate_graphs(
             len(deduplicated_graph.entities),
             len(deduplicated_graph.relations),
         )
-        response.headers["X-KG-Gen-Dedup-Stats"] = dedup_stats.model_dump_json()
+        apply_stat_headers(
+            response, {"X-KG-Gen-Dedup-Stats": dedup_stats.model_dump_json()}
+        )
         return deduplicated_graph
     else:
         return aggregated_graph
