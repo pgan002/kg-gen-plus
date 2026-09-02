@@ -224,15 +224,16 @@ def serialize_graph(
     relations = _resolve_list(relations, Relation)
 
     onto = None
+    rdf_ontology = None
     if ontology_ttl:
-        onto, _ = parse_ontology_from_string(ontology_ttl)
+        onto, rdf_ontology = parse_ontology_from_string(ontology_ttl)
 
     graph = Graph(
         typed_entities=set(typed_entities),
         relations_wo_class_assertions=relations,
     )
     return _maybe_write_output(
-        graph.to_knowledge_graph(KGGenStats(), onto), output_file
+        graph.to_knowledge_graph(KGGenStats(), onto, rdf_ontology), output_file
     )
 
 
@@ -426,8 +427,9 @@ def apply_clusters(
             )
 
     onto = None
+    rdf_ontology = None
     if ontology_ttl:
-        onto, _ = parse_ontology_from_string(ontology_ttl)
+        onto, rdf_ontology = parse_ontology_from_string(ontology_ttl)
 
     graph = Graph(
         typed_entities=set(canonical_entities.values()),
@@ -444,5 +446,5 @@ def apply_clusters(
         },
     )
     return _maybe_write_output(
-        graph.to_knowledge_graph(KGGenStats(), onto), output_file
+        graph.to_knowledge_graph(KGGenStats(), onto, rdf_ontology), output_file
     )

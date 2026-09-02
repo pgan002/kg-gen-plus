@@ -1,13 +1,22 @@
 import re
 import unicodedata
 from collections import defaultdict
-from typing import Iterable
+from typing import Iterable, Optional
 
 from semhash.utils import Encoder
 
-from kg_gen.models import Graph, Relation, Entity, TypedEntity, EntityOrSubclass
+from kg_gen.models import (
+    Graph,
+    Relation,
+    Entity,
+    EntityType,
+    TypedEntity,
+    EntityOrSubclass,
+)
+from kg_gen.utils.class_hierarchy import most_specific_type, types_compatible
 from semhash import SemHash
 import inflect
+from rdflib import Graph as RDFGraph
 
 
 # Upper-case runs, optionally with dots/ampersands/hyphens: "CBS", "U.S.", "AT&T".
@@ -77,11 +86,76 @@ class DeduplicateList:
             return token
         return singular
 
+    def _type_buckets(
+        self,
+        items: "list[TypedEntity] | list[Entity]",
+        ontology: Optional[RDFGraph],
+    ) -> dict[str, dict[str, int]]:
+        """Split each normalized surface form into type-compatible buckets.
+
+        The normalized form alone over-merges, because it ignores what the
+        entities *are*. Measured on a 16,131-document MuSiQue graph, 287 groups
+        merged across a type boundary, with a systematic failure mode: an
+        individual collapsing into the group named after them --
+        ``Alan``(Person) with ``Alans``(Organization), ``Aggie``(Person) with
+        ``Aggies``(SocialOrganization). Bucketing keeps those apart while still
+        merging ``Air Force``(GovernmentOrganization) with ``Air
+        Force``(Organization), where one type subsumes the other.
+
+        Returns ``{normalized form: {surface form: bucket index}}``. Surface
+        forms are processed in sorted order so bucket membership -- and therefore
+        the elected representative -- does not depend on set iteration order.
+
+        One case this cannot split: two entities sharing the *same* surface form
+        with incompatible types (the corpus has "African American" typed both
+        Person and Place). The maps this feeds -- ``original_map``,
+        ``surface_form2entity_map`` -- are keyed by surface form, so one form has
+        exactly one bucket and the two entities still collapse. Separating them
+        would mean keying deduplication by entity rather than by surface form.
+        """
+        by_form: dict[str, list] = defaultdict(list)
+        for item in items:
+            singular = self.singularize(self.normalize(item.surface_form)).casefold()
+            by_form[singular].append(item)
+
+        buckets: dict[str, dict[str, int]] = {}
+        for singular, group in by_form.items():
+            assignment: dict[str, int] = {}
+            representatives: list[Optional[EntityType]] = []
+            for item in sorted(group, key=lambda i: i.surface_form):
+                item_type = getattr(item, "type", None)
+                for index, existing in enumerate(representatives):
+                    if types_compatible(ontology, existing, item_type):
+                        assignment[item.surface_form] = index
+                        # Keep the bucket labelled by its most specific type, so
+                        # a later sibling is compared against that rather than
+                        # against a superclass that would accept anything.
+                        representatives[index] = most_specific_type(
+                            ontology, [existing, item_type]
+                        )
+                        break
+                else:
+                    assignment[item.surface_form] = len(representatives)
+                    representatives.append(item_type)
+            buckets[singular] = assignment
+        return buckets
+
+    @staticmethod
+    def _bucket_key(singular: str, item, buckets: dict[str, dict[str, int]]) -> str:
+        """The grouping key for an item: its normalized form plus its bucket.
+
+        Bucket 0 keeps the bare normalized form as its key, so a corpus with no
+        type conflicts produces exactly the keys it did before type awareness.
+        """
+        index = buckets.get(singular, {}).get(item.surface_form, 0)
+        return singular if index == 0 else f"{singular}\u0000{index}"
+
     def deduplicate(
         self,
         items: list[TypedEntity] | list[Entity],
         model: Encoder = None,
         use_embeddings: bool = True,
+        ontology: Optional[RDFGraph] = None,
     ):
         """
         Deduplicate a list of items using semantic hashing.
@@ -96,6 +170,9 @@ class DeduplicateList:
                 dominant cost of deduplication, and on a 200-document MuSiQue run
                 it was 86% of the job's wall clock while accounting for under 2%
                 of the merges. See ``run_semhash_deduplication``.
+            ontology: The parsed ontology graph. Supplied, entities are only
+                merged when their types are compatible, and ``rdfs:subClassOf``
+                decides what compatible means -- see ``_type_buckets``.
         """
         self.total_items = len(items)
 
@@ -111,10 +188,14 @@ class DeduplicateList:
         record_to_singular = {}
         key_to_forms: dict[str, set[str]] = defaultdict(set)
 
+        # Surface forms sharing a normalized form, grouped by type compatibility
+        # first -- see _type_buckets for why the string alone is not enough.
+        buckets = self._type_buckets(items, ontology)
+
         for item in items:
             normalized = self.normalize(item.surface_form)
             singular = self.singularize(normalized)
-            key = singular.casefold()
+            key = self._bucket_key(singular.casefold(), item, buckets)
             self.original_map[item.surface_form] = key
             self.surface_form2entity_map[item.surface_form] = item
             key_to_forms[key].add(item.surface_form)
@@ -234,6 +315,7 @@ def run_semhash_deduplication(
     edge_similarity_threshold: float = 0.75,
     deduplicate_edges: bool = True,
     use_embeddings: bool = False,
+    ontology: Optional[RDFGraph] = None,
 ) -> Graph:
     """
     Deduplicate the graph.
@@ -262,10 +344,14 @@ def run_semhash_deduplication(
     # Deduplicate each graph components
     entities_dedup = DeduplicateList(entity_similarity_threshold)
     entities_dedup.deduplicate(
-        list(graph.typed_entities), model=model, use_embeddings=use_embeddings
+        list(graph.typed_entities),
+        model=model,
+        use_embeddings=use_embeddings,
+        ontology=ontology,
     )
     if deduplicate_edges:
         edges_dedup = DeduplicateList(edge_similarity_threshold)
+        # Predicates have no entity type, so there is nothing to bucket by.
         edges_dedup.deduplicate(
             list(graph.edges), model=model, use_embeddings=use_embeddings
         )

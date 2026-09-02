@@ -79,8 +79,11 @@ def test_generate_graph_parallel(mock_kg_gen):
         assert "is_literal" in relation
 
     assert mock_kg_gen.generate.called
-    # Check if headers are set
-    assert "X-KG-Gen-Stats" in response.headers
+    # Stat headers are scalars only; the detail lives in the body under
+    # `stats` (see tests/test_stat_headers.py for why).
+    assert "X-KG-Gen-Stats" not in response.headers
+    assert response.headers["X-KG-Gen-Time"] == "0.1"  # the mock's dedup time
+    assert response.headers["X-KG-Gen-Failed-Documents"] == "0"
     assert "X-KG-Gen-Dedup-Stats" in response.headers
 
 

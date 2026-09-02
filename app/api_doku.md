@@ -14,6 +14,16 @@ Use the web APIs at `/api` to generate a graph from your text or ontology.
 
 **Note:** Knowledge Graph generation is an LLM-based process. While the system attempts to follow the provided ontology, conformance (types, domains, ranges) is best-effort and not strictly guaranteed.
 
+The model is shown ontology terms by label and answers with labels, so labels
+are matched back by their normalized form: `birth_date`, `birthDate` and
+`Birth Date` all resolve to a term labelled `birth date`. Nothing is guessed
+beyond that — a misspelling stays unmatched, and whatever stays unmatched is
+reported under `ontology_extensions` (with a `null` URI when the model did not
+invent one) rather than being dropped. `skos:prefLabel`, `skos:altLabel` and
+`skos:hiddenLabel` are honoured: they are shown to the model alongside the
+term's description and accepted when matching its answer, which is the
+supported way to teach it that e.g. `State` means your `Province` class.
+
 There are two ways to generate a graph from a `.jsonl` corpus:
 
 - **`POST /api/generate` (synchronous)**: the request blocks until generation
@@ -27,6 +37,16 @@ There are two ways to generate a graph from a `.jsonl` corpus:
 Both endpoints accept the same `corpus_file` / `ontology_file` uploads and
 `GenerationMetadata` query parameters, and progress is logged server-side in a
 tqdm-like form (`[generate] 45/200 docs (22.5%) elapsed=12.3s ETA=41.9s`).
+
+#### Stat headers
+
+Successful responses carry a few scalar `X-KG-Gen-*` headers: `Time`,
+`Input-Tokens`, `Output-Tokens`, `Total-Tokens`, `Failed-Documents` (a count),
+and `Dedup-Stats` when deduplication ran. They are deliberately small — the full
+per-step breakdown, class and predicate usage, and the per-document failure
+records are in the response body under `KnowledgeGraph.stats`. A stat header that
+would exceed 1 KB or is not latin-1 encodable is logged and dropped rather than
+being allowed to break the response.
 
 #### Background jobs
 

@@ -1,4 +1,4 @@
-from rdflib import Graph as RDFGraph, URIRef, RDFS, XSD
+from rdflib import Graph as RDFGraph, URIRef, XSD
 from typing import List, Tuple, Optional, Literal, Type
 from pathlib import Path
 import json
@@ -13,6 +13,8 @@ from kg_gen.models import (
     OntologyPredicate,
     EntityType,
 )
+from kg_gen.utils.class_hierarchy import class_closure_uris
+from kg_gen.utils.label_matching import build_alias_index, match_label
 
 
 def _format_entities(entities: List[TypedEntity]) -> str:
@@ -29,9 +31,9 @@ def _format_predicates(predicates: List[OntologyPredicate]) -> str:
 
     States the subject/object roles explicitly (subject = domain, object =
     range) so the model does not invert the triple direction, and appends each
-    predicate's description (from ``rdfs:comment`` in the ontology) when present
-    so it can disambiguate predicates by their definition rather than label
-    alone.
+    predicate's description (from ``rdfs:comment``, plus any SKOS alternative
+    names -- see ``app.utils._describe``) when present so it can disambiguate
+    predicates by their definition rather than label alone.
     """
     lines = []
     for p in predicates:
@@ -282,15 +284,17 @@ def validate_ontology_conformance(
     if not predicate_domain_range and not enforce_type_conformance:
         return 1.0, ""
 
-    allowed_labels = {t.label for t in allowed_types} if allowed_types else set()
+    allowed_type_index = (
+        build_alias_index(allowed_types, ontology) if allowed_types else {}
+    )
     errors = []
     successes = 0
     total_checks = 0
 
-    if enforce_type_conformance and allowed_labels:
+    if enforce_type_conformance and allowed_type_index:
         for ent in typed_entities:
             total_checks += 1
-            if ent.type and ent.type.label not in allowed_labels:
+            if ent.type and match_label(allowed_type_index, ent.type.label) is None:
                 errors.append(
                     f"Entity {ent.surface_form}: type {ent.type.label} not in allowed types"
                 )
@@ -303,14 +307,16 @@ def validate_ontology_conformance(
         return successes / total_checks, "; ".join(errors)
 
     entity_map = {te.surface_form: te for te in typed_entities}
-    predicate_map = (
-        {p.label: p for p in predicate_domain_range} if predicate_domain_range else {}
+    predicate_index = (
+        build_alias_index(predicate_domain_range, ontology)
+        if predicate_domain_range
+        else {}
     )
 
     for rel in relations:
         subj_ent = entity_map.get(rel.subject.surface_form)
         obj_ent = entity_map.get(rel.object.surface_form)
-        pred_obj = predicate_map.get(rel.predicate.surface_form)
+        pred_obj = match_label(predicate_index, rel.predicate.surface_form)
 
         if enforce_predicate_conformance:
             total_checks += 1
@@ -350,49 +356,6 @@ def validate_ontology_conformance(
     if total_checks == 0:
         return 1.0, ""
     return successes / total_checks, "; ".join(errors)
-
-
-def get_all_superclasses(g: RDFGraph, type_uri: URIRef) -> set[URIRef]:
-    superclasses = set()
-    q = [type_uri]
-    while q:
-        curr = q.pop(0)
-        if curr not in superclasses:
-            superclasses.add(curr)
-            scs = g.objects(curr, RDFS.subClassOf)
-            q.extend(scs)
-    return superclasses
-
-
-def class_closure_uris(
-    ontology: Optional[RDFGraph], entity_type: Optional[EntityType]
-) -> set[URIRef]:
-    """URIs of ``entity_type`` plus all its ancestors via ``rdfs:subClassOf``.
-
-    Returns an empty set when there is no ontology graph or the type cannot be
-    resolved in it; callers must read that as "hierarchy unknown" rather than
-    "matches nothing".
-
-    Resolution prefers ``entity_type.uri`` and falls back to matching
-    ``rdfs:label``. The URI is the more reliable key: extracted types often carry
-    a uri with a null label, and a label lookup spans every labelled subject in
-    the graph, so a predicate sharing a class's label could shadow it.
-    """
-    if ontology is None or entity_type is None:
-        return set()
-
-    if entity_type.uri:
-        candidate = URIRef(entity_type.uri)
-        if (candidate, None, None) in ontology:
-            return get_all_superclasses(ontology, candidate)
-
-    if entity_type.label:
-        # Compare as strings so a language-tagged label still matches.
-        for uri, _, label in ontology.triples((None, RDFS.label, None)):
-            if str(label) == entity_type.label:
-                return get_all_superclasses(ontology, uri)
-
-    return set()
 
 
 def type_satisfies(

@@ -3,7 +3,6 @@ import asyncio
 import time
 from rdflib import Graph as RDFGraph
 
-from app.kggen_logger import kggen_logger
 from kg_gen.steps._1_get_entities import type_terms, extract_entities
 from kg_gen.steps._2_get_relations import get_relations_typed
 from kg_gen.utils.deduplicate import run_semhash_deduplication
@@ -30,6 +29,11 @@ import numpy as np
 import logging
 
 logger = logging.getLogger(__name__)
+
+# The same logger object as ``app.kggen_logger``, obtained by name rather than
+# imported: only ``src/kg_gen`` is packaged, so reaching into the app layer from
+# here breaks every consumer of the wheel. See tests/test_library_independence.py.
+kggen_logger = logging.getLogger("kg_gen_app")
 
 # SentenceTransformer models are large (hundreds of MB) and stateless for
 # inference, so a single instance per model name is shared across all KGGen
@@ -159,10 +163,8 @@ class KGGen:
             max_tokens: Maximum tokens for model
             temperature: Temperature for model sampling
         """
-        if self.retrieval_model_name is not None:
-            self.retrieval_model = _get_shared_sentence_transformer(
-                self.retrieval_model_name
-            )
+        # The embedding model is loaded on first use, not here -- see
+        # _embedding_model(). Most runs never touch it.
 
         # Initialize dspy LM with current settings
         settings_dict: dict[str, Any] = {
@@ -450,6 +452,7 @@ class KGGen:
                 edge_similarity_threshold=edge_similarity_threshold,
                 deduplicate_edges=deduplicate_edges,
                 use_embeddings=deduplicate_with_embeddings,
+                ontology=ontology,
             )
             final_stats.deduplicate = dedup_stats
 
@@ -477,6 +480,7 @@ class KGGen:
         edge_similarity_threshold: float = 0.9,
         deduplicate_edges: bool = True,
         use_embeddings: bool = False,
+        ontology: Optional[RDFGraph] = None,
     ) -> tuple[Graph, StepStats]:
         """Merge duplicate entities (and optionally predicates) in ``graph``.
 
@@ -490,7 +494,10 @@ class KGGen:
             return graph, StepStats(execution_time=0.0)
         deduplicated_graph = run_semhash_deduplication(
             graph,
-            model=self.retrieval_model,
+            # Resolved only when the embedding pass runs: the string pass needs
+            # no model, so asking for one here would load 613 MB for nothing.
+            model=self._embedding_model() if use_embeddings else None,
+            ontology=ontology,
             entity_similarity_threshold=entity_similarity_threshold,
             edge_similarity_threshold=edge_similarity_threshold,
             deduplicate_edges=deduplicate_edges,
@@ -574,14 +581,34 @@ class KGGen:
     def visualize(graph: Graph, output_path: str, open_in_browser: bool = False):
         visualize_kg(graph, output_path, open_in_browser=open_in_browser)
 
+    def _embedding_model(self) -> SentenceTransformer:
+        """Load the embedding model on first use, and share it process-wide.
+
+        Loading it costs ~613 MB of RSS (measured for
+        ``mixedbread-ai/mxbai-embed-large-v1``) and ~10 s of startup, and almost
+        nothing needs it: the only consumer is the *embedding* pass of
+        deduplication, which is opt-in (``deduplicate_with_embeddings``). It used
+        to load in ``__init__`` whenever a model *name* was configured, so a run
+        with ``deduplicate=false`` still paid for it in full -- which matters
+        against a container memory limit.
+
+        Cached per model name across instances, so a process loads each model at
+        most once however many ``KGGen`` objects are built.
+        """
+        if self.retrieval_model is None:
+            if self.retrieval_model_name is None:
+                raise ValueError("No retrieval model provided")
+            self.retrieval_model = _get_shared_sentence_transformer(
+                self.retrieval_model_name
+            )
+        return self.retrieval_model
+
     def _parse_embedding_model(
         self, model: Optional[SentenceTransformer] = None
     ) -> Optional[SentenceTransformer]:
-        if model is None:
-            model = self.retrieval_model
-        if model is None:
-            raise ValueError("No retrieval model provided")
-        return model
+        if model is not None:
+            return model
+        return self._embedding_model()
 
     @staticmethod
     def to_nx(graph: Graph) -> nx.DiGraph:
