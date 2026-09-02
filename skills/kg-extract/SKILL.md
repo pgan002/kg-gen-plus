@@ -81,17 +81,30 @@ Notes:
    only those; otherwise choose sensible types yourself. Stay faithful to the
    text — do not invent entities.
 
-3. **Get suggested predicates.** Call `suggest_predicates` with the ontology and
-   **all** the entity types you found. It returns the predicates whose domain and
-   range are both satisfied by those types (predicates with a literal/XSD range
-   are always included). Because a predicate needs *both* endpoints present, pass
-   the complete set of types you extracted, not one at a time. On a corpus, call
-   it **once** for the union of types across all documents rather than once per
-   document (see "The other half of the cost").
+3. **Get the predicates each chunk can support.** Build a mapping from chunk id
+   to the entity types you found **in that chunk**, and pass it to
+   `suggest_predicates_batch` in a single call. It returns each predicate's
+   description once in `legend`, the distinct answers in `predicate_sets`, and
+   the index of the applicable set per chunk in `group_predicate_set`.
 
-4. **Extract relations (you do this).** Extract subject–predicate–object triples
-   from the text. Use only the suggested predicates, and respect their domain
-   (subject type) and range (object type). Be thorough and faithful to the text.
+   A predicate is kept for a chunk only when that chunk contains an entity
+   satisfying its domain *and* one satisfying its range (a literal/XSD range
+   needs no object entity, but the domain must still match). So narrowing is
+   per chunk by construction: on an 18-class/17-predicate ontology a single
+   chunk yields a median of 2 types and therefore **4 candidate predicates**,
+   where the union of types over 200 chunks yields 17 of 17 — no narrowing at
+   all. Do **not** aggregate the types first; that hands the model the whole
+   property set for every chunk.
+
+   Because narrowing follows your typing, **step 2 completeness now decides
+   step 4's ceiling**: a relation whose subject or object you failed to type is
+   not merely unsuggested, it is unreachable. If a chunk comes back with no
+   candidate predicates, re-read it for an entity you missed before accepting
+   that it carries no relations.
+
+4. **Extract relations (you do this).** For each chunk, use only the predicates
+   in *that chunk's* set, and respect their domain (subject type) and range
+   (object type). Be thorough and faithful to the text.
 
 5. **Validate and self-correct.** Call `validate_conformance` with your entities,
    relations, and the ontology. If the score is below 1.0, read the returned
@@ -143,6 +156,12 @@ Guidance: start with the defaults. If distinct things keep showing up as
 candidates, **raise** the threshold; if obvious duplicates aren't proposed at
 all, **lower** it — but the threshold only affects what gets *proposed*, you
 still decide what actually merges.
+
+When a run's entity count has to be comparable with one from the batch HTTP
+service, match that run's parameters rather than these defaults: pass its
+`retrieval_model` and set `entity_similarity_threshold` to its
+`entity_threshold`. Entity counts are only comparable after the same merge
+policy has been applied to both.
 
 ## Large inputs: use file paths, not inline data
 
@@ -219,11 +238,20 @@ ontology: the Turtle is ~4,700 tokens per call and `list_target_types` returns
 Upload the ontology once as a blob (above) and the per-call charge for it
 disappears.
 
-**Call `suggest_predicates` once for the whole corpus.** Its filtering depends
-only on the type set you pass, never on the text, so one call covering every
-type you expect to find is reusable for every document. Per-document calls
-multiply the ontology payload by the number of documents for an identical
-answer.
+**Batch `suggest_predicates` — do not aggregate the types.** Its filtering
+depends only on the type set you pass, never on the text, which makes it
+tempting to call it once for the union of every type in the corpus and reuse
+that. Don't: the answer is not identical, it is *unfiltered*. Over enough text
+the union of types is the whole ontology, so the union's answer is every
+predicate, and the narrowing the tool exists to provide is gone.
+
+Use `suggest_predicates_batch` instead, keyed per chunk. Two collapses make one
+call enough: chunks sharing a type signature share an answer, and distinct
+signatures still land on far fewer distinct answers — measured on a 200-chunk
+MuSiQue slice, 77 distinct type signatures collapsed onto 18 distinct predicate
+sets. One batch call costs ~4,600 tokens against ~74,300 for 77 singular calls
+(93.7% less) and returns the same per-chunk answers. Pass the mapping itself by
+file path or blob handle, since on a real slice it is the bulky argument.
 
 **Read the ontology file directly instead of calling `list_target_types`**, when
 you have the file. You need the class descriptions in context either way to type

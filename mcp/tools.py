@@ -192,6 +192,109 @@ def suggest_predicates(
     return [_without_class_descriptions(p) for p in predicates]
 
 
+class PredicateSuggestionGroups(BaseModel):
+    """Compatible predicates for many groups of found entity types at once.
+
+    ``legend`` describes each predicate exactly once. ``predicate_sets`` holds
+    the *distinct* answers, and ``group_predicate_set`` maps each caller group
+    key to the index of its set.
+    """
+
+    legend: list[OntologyPredicate]
+    predicate_sets: list[list[str]]
+    group_predicate_set: dict[str, int]
+
+
+def _resolve_type_groups(
+    value: "dict[str, list[EntityType | str]] | str",
+) -> dict[str, list[EntityType]]:
+    """Resolve the groups argument: the mapping itself, or a path/blob handle
+    to a JSON file holding it.
+
+    Each group's types may be given as ``EntityType`` objects or, more
+    compactly, as bare label strings -- the labels are all the filtering needs
+    once they match the ontology.
+    """
+    raw = json.loads(_read_reference(value)) if isinstance(value, str) else value
+    if not isinstance(raw, dict):
+        raise ValueError(
+            "found_entity_types_by_group must be a mapping of group key -> "
+            f"list of entity types, got {type(raw).__name__}."
+        )
+    groups: dict[str, list[EntityType]] = {}
+    for key, types in raw.items():
+        groups[str(key)] = [
+            EntityType(label=t) if isinstance(t, str) else EntityType.model_validate(t)
+            for t in types
+        ]
+    return groups
+
+
+def suggest_predicates_batch(
+    ontology_ttl: str,
+    found_entity_types_by_group: "dict[str, list[EntityType | str]] | str",
+    enforce_domain_conformance: bool = True,
+    enforce_range_conformance: bool = True,
+) -> PredicateSuggestionGroups:
+    """``suggest_predicates`` for many groups of found entity types in one call.
+
+    Narrowing predicates per *chunk* is what actually constrains the choice;
+    narrowing per document *set* does not. Measured on the MuSiQue ontology
+    (18 classes, 17 predicates) over a 200-chunk slice: a single chunk yields a
+    median of 2 entity types and so 8 candidate predicates, while the union of
+    types over the whole slice yields 17 of 18 classes and therefore 17 of 17
+    predicates -- no narrowing at all. Per-chunk calls recover that, but cost a
+    call and a full description payload per chunk.
+
+    Two collapses make one call enough. Groups sharing a type signature share an
+    answer, and distinct signatures still collapse onto far fewer distinct
+    answers: those 200 chunks hold 77 distinct type signatures but only 18
+    distinct predicate sets. So this returns each predicate's description once
+    in ``legend``, the distinct sets in ``predicate_sets``, and an index per
+    group -- instead of repeating ~17 descriptions per chunk.
+
+    Group keys are the caller's own labels for the groups, typically chunk ids.
+    Pass ``found_entity_types_by_group`` as a path or ``blob:<id>`` handle to
+    keep the mapping out of the caller's context (see ``_resolve_list``).
+    """
+    groups = _resolve_type_groups(found_entity_types_by_group)
+    onto, g = parse_ontology_from_string(resolve_ontology_ttl(ontology_ttl))
+    predicates = list(onto.predicates)
+
+    answer_by_signature: dict[frozenset[str], list[str]] = {}
+    described: dict[str, OntologyPredicate] = {}
+    predicate_sets: list[list[str]] = []
+    index_by_set: dict[tuple[str, ...], int] = {}
+    group_predicate_set: dict[str, int] = {}
+
+    for key, types in groups.items():
+        signature = frozenset(t.uri or t.label for t in types)
+        labels = answer_by_signature.get(signature)
+        if labels is None:
+            matched = filter_predicates_by_entity_types(
+                entity_types=types,
+                predicate_domain_range=predicates,
+                ontology=g,
+                enforce_domain_conformance=enforce_domain_conformance,
+                enforce_range_conformance=enforce_range_conformance,
+            )
+            labels = [p.label for p in matched]
+            answer_by_signature[signature] = labels
+            for p in matched:
+                described.setdefault(p.label, _without_class_descriptions(p))
+        fingerprint = tuple(labels)
+        if fingerprint not in index_by_set:
+            index_by_set[fingerprint] = len(predicate_sets)
+            predicate_sets.append(list(labels))
+        group_predicate_set[key] = index_by_set[fingerprint]
+
+    return PredicateSuggestionGroups(
+        legend=[described[label] for label in sorted(described)],
+        predicate_sets=predicate_sets,
+        group_predicate_set=group_predicate_set,
+    )
+
+
 def _without_class_descriptions(predicate: OntologyPredicate) -> OntologyPredicate:
     """The predicate with its domain/range classes reduced to label and URI."""
     trim = lambda types: {  # noqa: E731

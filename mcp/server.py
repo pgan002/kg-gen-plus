@@ -48,6 +48,7 @@ mcp = FastMCP(
 mcp.tool(tools.parse_ontology)
 mcp.tool(tools.list_target_types)
 mcp.tool(tools.suggest_predicates)
+mcp.tool(tools.suggest_predicates_batch)
 mcp.tool(tools.validate_conformance)
 mcp.tool(tools.validate_graph_schema)
 # These two return `KnowledgeGraph | GraphWriteResult`. FastMCP can't tell a
