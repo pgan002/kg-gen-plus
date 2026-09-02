@@ -59,7 +59,7 @@ mcp.tool(tools.validate_graph_schema)
 # output_schema=None disables the wrapping: the raw dict is returned as-is.
 mcp.tool(tools.serialize_graph, output_schema=None)
 mcp.tool(tools.convert_ontology)
-mcp.tool(tools.suggest_clusters)
+mcp.tool(tools.suggest_clusters, output_schema=None)
 mcp.tool(tools.apply_clusters, output_schema=None)
 
 

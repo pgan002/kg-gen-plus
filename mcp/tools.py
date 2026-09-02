@@ -69,6 +69,21 @@ class GraphWriteResult(BaseModel):
     output_file: str
 
 
+class ClusterProposalWriteResult(BaseModel):
+    """Returned by ``suggest_clusters`` instead of the full proposal when the
+    caller passes ``output_file``.
+
+    A corpus-scale proposal is the one large result with nowhere else to go: it
+    is the agent's to review, so it cannot be summarised away, but at a few
+    thousand clusters it does not belong in a single context either. Written to
+    disk it can be reviewed in slices, by as many agents as it takes.
+    """
+
+    num_entity_clusters: int
+    num_clustered_entities: int
+    output_file: str
+
+
 _ListItemT = TypeVar("_ListItemT", bound=BaseModel)
 
 
@@ -465,7 +480,8 @@ def suggest_clusters(
     typed_entities: list[TypedEntity] | str,
     entity_similarity_threshold: float = 0.8,
     retrieval_model: Optional[str] = "sentence-transformers/all-MiniLM-L6-v2",
-) -> ClusterProposal:
+    output_file: Optional[str] = None,
+) -> "ClusterProposal | ClusterProposalWriteResult":
     """Propose candidate duplicate clusters for entities using local embeddings.
     This only proposes — nothing is merged.
 
@@ -493,6 +509,11 @@ def suggest_clusters(
     retrieval_model:
         Sentence-transformers model used to embed surface forms. ``None`` falls
         back to the deduplication library's built-in default encoder.
+    output_file:
+        Write the proposal here as JSON and return a small summary instead of
+        the proposal itself. Use this at corpus scale: reviewing a few thousand
+        clusters inline costs more context than any one reviewer has, whereas a
+        file can be read in slices by several reviewers in parallel.
     """
     typed_entities = _resolve_list(typed_entities, TypedEntity)
 
@@ -506,7 +527,16 @@ def suggest_clusters(
         EntityCluster(representative=rep, members=members)
         for rep, members in _cluster(typed_entities, entity_similarity_threshold, model)
     ]
-    return ClusterProposal(entity_clusters=entity_clusters, edge_clusters=[])
+    proposal = ClusterProposal(entity_clusters=entity_clusters, edge_clusters=[])
+    if not output_file:
+        return proposal
+    with open(output_file, "w") as f:
+        f.write(proposal.model_dump_json(indent=2))
+    return ClusterProposalWriteResult(
+        num_entity_clusters=len(entity_clusters),
+        num_clustered_entities=sum(len(c.members) for c in entity_clusters),
+        output_file=output_file,
+    )
 
 
 def apply_clusters(

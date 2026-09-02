@@ -163,6 +163,13 @@ service, match that run's parameters rather than these defaults: pass its
 `entity_threshold`. Entity counts are only comparable after the same merge
 policy has been applied to both.
 
+At corpus scale, pass `output_file` to `suggest_clusters`. A few thousand
+clusters is more than one context can review, and the proposal is the one large
+result that cannot be summarised away — reviewing it *is* the step. Written to
+disk it can be read in slices and reviewed by several agents in parallel, each
+writing back the clusters it approved; concatenate those and hand the result to
+`apply_clusters` (which also takes a path or blob handle).
+
 ## Large inputs: use file paths, not inline data
 
 `validate_conformance`, `serialize_graph`, `suggest_clusters`, and
