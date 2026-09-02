@@ -122,8 +122,19 @@ Notes:
    - **Every surface form appears in its chunk's text.** Normalise both sides
      (strip accents, lowercase, collapse non-alphanumerics) and confirm each
      entity's surface form — ignoring any parenthetical disambiguator you added
-     — occurs in the text of at least one of its provenance chunks. A miss is
-     either a hallucination or a wrong id.
+     — occurs in the text of at least one of its provenance chunks.
+
+     A miss has three causes, and only the first two are errors: you
+     hallucinated the entity, you attached the wrong provenance id, or **the
+     text names the entity partially, by an alias, or only through
+     coreference** — which is normal prose and not a defect. In that third
+     case keep the entity. Do not truncate its name to whichever substring
+     happens to be literal: a chunk reading "Claus Philipp Maria Justinian
+     Schenk Graf von Stauffenberg" supports the surface form
+     `Claus von Stauffenberg`, and reducing it to `Claus Philipp Maria
+     Justinian` makes the entity unmatchable for everything downstream. Never
+     drop an entity the text genuinely discusses just because no substring of
+     your label is verbatim.
 
    Fix what they flag and re-run them before moving on.
 
