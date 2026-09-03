@@ -394,8 +394,17 @@ def run_semhash_deduplication(
     for entity, canonical in entity2canonical.items():
         canonical2cluster[canonical.surface_form].append(entity)
         new_entities.append(canonical)
+    # Deliberately `relations_wo_class_assertions`, not `relations`. The latter
+    # is a view that appends one `is a` triple per typed entity, so reading it
+    # here and writing the result back into `relations_wo_class_assertions`
+    # below would *materialise* those assertions as ordinary relations --
+    # permanently, and in a way `Graph.output_class_assertions = False` can no
+    # longer suppress. Class assertions are derived from `typed_entities`, which
+    # this function already deduplicates, so the view regenerates them correctly
+    # for the merged entities on its own.
     relation2canonical: dict[Relation, Relation] = {
-        relation: _get_relation(relation) for relation in graph.relations
+        relation: _get_relation(relation)
+        for relation in graph.relations_wo_class_assertions
     }
     canonical_relation2cluster = defaultdict(list)
     for relation, canonical in relation2canonical.items():
