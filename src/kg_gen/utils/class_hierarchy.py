@@ -42,8 +42,21 @@ def class_closure_uris(
     a uri with a null label, and a label lookup spans every labelled subject in
     the graph, so a predicate sharing a class's label could shadow it.
     """
-    if ontology is None or entity_type is None:
+    if entity_type is None:
         return set()
+
+    # With no ontology graph there is no hierarchy to walk, but the class is
+    # still a member of its own closure. Returning an empty set here instead
+    # made domain/range filtering vacuous: `filter_predicates_by_entity_types`
+    # intersects this closure with each predicate's domain and range, so an
+    # empty closure discards every predicate that declares either. Callers that
+    # pass `predicate_domain_range` without `ontology` -- the documented way to
+    # constrain predicates without an RDF graph -- therefore got *no* usable
+    # predicates, which then either silently degraded to "any predicate
+    # allowed" or, with `enforce_predicate_conformance`, returned no relations
+    # at all without so much as a model call.
+    if ontology is None:
+        return {URIRef(entity_type.uri)} if entity_type.uri else set()
 
     if entity_type.uri:
         candidate = URIRef(entity_type.uri)
