@@ -80,6 +80,11 @@ MAX_ATTEMPTS: int = _int_env("KGGEN_MAX_ATTEMPTS", 3)
 # graph in testing.
 RESULT_TTL_SECONDS: int = _int_env("KGGEN_RESULT_TTL_SECONDS", 24 * 3600)
 
+# How long an uploaded blob stays fetchable. Blobs are working data for a single
+# agent session -- an entity list on its way into validate_conformance -- so this
+# is much shorter than a job result's lifetime.
+BLOB_TTL_SECONDS: int = _int_env("KGGEN_BLOB_TTL_SECONDS", 6 * 3600)
+
 # Reject a corpus larger than this outright rather than letting a single request
 # consume an unbounded slice of Redis memory.
 MAX_PAYLOAD_BYTES: int = _int_env("KGGEN_MAX_PAYLOAD_BYTES", 64 * 1024 * 1024)

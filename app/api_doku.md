@@ -38,6 +38,19 @@ Both endpoints accept the same `corpus_file` / `ontology_file` uploads and
 `GenerationMetadata` query parameters, and progress is logged server-side in a
 tqdm-like form (`[generate] 45/200 docs (22.5%) elapsed=12.3s ETA=41.9s`).
 
+#### Passing large data by reference
+
+- **`POST /api/blobs`** stores a body (multipart `file` or raw) and returns
+  `{"blob": "blob:<id>", "bytes": n}`. Handles are content-addressed and expire
+  after `KGGEN_BLOB_TTL_SECONDS` (6 h by default).
+
+It exists for the MCP tools: their arguments are written by the calling model,
+so an inline entity list is charged to that model's output tokens (~32,000 for
+700 entities) and can exceed its output limit. `typed_entities`, `relations`,
+the cluster lists and `ontology_ttl` all accept a `blob:<id>` handle, or a
+filesystem path when the server shares a filesystem with the caller. Measured
+on a 200-document graph: ~16 tokens of arguments instead of ~41,500.
+
 #### Stat headers
 
 Successful responses carry a few scalar `X-KG-Gen-*` headers: `Time`,
@@ -97,9 +110,16 @@ the agent performs the cognitive work (NER, entity typing, relation extraction),
 while the MCP tools handle the deterministic parts.
 
 Tools exposed: `parse_ontology`, `list_target_types`, `suggest_predicates`,
-`validate_conformance`, `validate_graph_schema`, `serialize_graph`,
-`convert_ontology`, `suggest_clusters`, `apply_clusters`. The server is
-**stateless** — pass the ontology Turtle to each tool that needs it.
+`suggest_predicates_batch`, `validate_conformance`, `validate_graph_schema`,
+`serialize_graph`, `convert_ontology`, `suggest_clusters`, `apply_clusters`. The
+server is **stateless** — pass the ontology Turtle to each tool that needs it.
+
+`suggest_predicates` filters on the entity types it is handed, so it must be
+asked per chunk: the union of types over enough text is the whole ontology, and
+so is the union's answer. `suggest_predicates_batch` answers many chunks in one
+call — each predicate described once, the distinct answers de-duplicated, an
+index per chunk — which on a 200-chunk slice costs ~4,600 tokens against
+~74,300 for the equivalent singular calls.
 
 Deduplication is split across two tools so the agent reviews merges instead of
 trusting embeddings blindly: `suggest_clusters` proposes candidate duplicate

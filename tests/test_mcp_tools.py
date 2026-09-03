@@ -292,3 +292,40 @@ def test_apply_clusters_no_clusters_is_a_passthrough():
 
     assert {e.surface_form for e in kg.entities.values()} >= {"Ada"}
     assert len(kg.relations) == 1
+
+
+def test_suggest_clusters_can_write_the_proposal_to_a_file(tmp_path, monkeypatch):
+    """The proposal is the agent's to review, so it cannot be summarised away —
+    but at corpus scale it does not fit one context either. ``output_file``
+    keeps it out of the caller's context so it can be reviewed in slices.
+
+    ``_cluster`` is stubbed so this exercises the write path without loading a
+    sentence-transformers model (see this module's docstring).
+    """
+    a = TypedEntity(surface_form="USA", type=None)
+    b = TypedEntity(surface_form="United States", type=None)
+    monkeypatch.setattr(tools, "_cluster", lambda *_: [(a, [a, b])])
+
+    out = tmp_path / "proposal.json"
+    result = tools.suggest_clusters([a, b], retrieval_model=None, output_file=str(out))
+
+    assert result.num_entity_clusters == 1
+    assert result.num_clustered_entities == 2
+    assert result.output_file == str(out)
+    written = json.loads(out.read_text())
+    assert [m["surface_form"] for m in written["entity_clusters"][0]["members"]] == [
+        "USA",
+        "United States",
+    ]
+    assert written["entity_clusters"][0]["representative"]["surface_form"] == "USA"
+
+
+def test_suggest_clusters_still_returns_the_proposal_inline_by_default(monkeypatch):
+    a = TypedEntity(surface_form="USA", type=None)
+    b = TypedEntity(surface_form="United States", type=None)
+    monkeypatch.setattr(tools, "_cluster", lambda *_: [(a, [a, b])])
+
+    proposal = tools.suggest_clusters([a, b], retrieval_model=None)
+
+    assert [c.representative.surface_form for c in proposal.entity_clusters] == ["USA"]
+    assert proposal.edge_clusters == []

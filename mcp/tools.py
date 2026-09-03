@@ -13,11 +13,13 @@ than the server holding parsed state between calls.
 from __future__ import annotations
 
 import json
+import os
 from collections import defaultdict
 from typing import Optional, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
+from app import blobs, settings
 from app.utils import (
     parse_ontology_from_string,
     serialize_ontology_to_ttl,
@@ -67,7 +69,59 @@ class GraphWriteResult(BaseModel):
     output_file: str
 
 
+class ClusterProposalWriteResult(BaseModel):
+    """Returned by ``suggest_clusters`` instead of the full proposal when the
+    caller passes ``output_file``.
+
+    A corpus-scale proposal is the one large result with nowhere else to go: it
+    is the agent's to review, so it cannot be summarised away, but at a few
+    thousand clusters it does not belong in a single context either. Written to
+    disk it can be reviewed in slices, by as many agents as it takes.
+    """
+
+    num_entity_clusters: int
+    num_clustered_entities: int
+    output_file: str
+
+
 _ListItemT = TypeVar("_ListItemT", bound=BaseModel)
+
+
+def _read_reference(value: str) -> bytes:
+    """Read a ``blob:<id>`` handle or a filesystem path, whichever this is."""
+    if blobs.is_handle(value):
+        try:
+            return blobs.load(value)
+        except KeyError:
+            raise ValueError(
+                f"Unknown or expired blob handle {value!r}. Blobs live for "
+                f"{settings.BLOB_TTL_SECONDS}s; re-upload via POST /api/blobs."
+            )
+    with open(value, "rb") as f:
+        return f.read()
+
+
+def resolve_ontology_ttl(ontology_ttl: Optional[str]) -> Optional[str]:
+    """The ontology Turtle, given the text itself, a path, or a blob handle.
+
+    The Turtle rides along on every call that needs it -- ~4,700 tokens for a
+    real 18-class ontology, on a tool call about a 90-token document -- so
+    passing it once as a blob and referring to the handle thereafter is the
+    single largest saving available to a caller.
+
+    Disambiguated conservatively: a blob handle announces itself, and a path is
+    a single line that exists on disk. Anything else is treated as the Turtle
+    itself, so an ontology that happens to be one line long and to name an
+    existing file is the only ambiguous case, and reading that file is the more
+    useful reading of it.
+    """
+    if ontology_ttl is None:
+        return None
+    if blobs.is_handle(ontology_ttl):
+        return _read_reference(ontology_ttl).decode("utf-8")
+    if "\n" not in ontology_ttl.strip() and os.path.exists(ontology_ttl):
+        return _read_reference(ontology_ttl).decode("utf-8")
+    return ontology_ttl
 
 
 def _resolve_list(
@@ -82,11 +136,12 @@ def _resolve_list(
     calling model's own output-token limit (confirmed in practice: an
     apply_clusters call carrying ~300 relations inline hit exactly this wall).
     A normal call with an actual JSON array still works exactly as before;
-    this is purely additive. See SKILL.md's "Large inputs" section.
+    this is purely additive. A ``blob:<id>`` handle from ``POST /api/blobs``
+    works too, and is the form to use when the server shares no filesystem with
+    the caller. See SKILL.md's "Large inputs" section.
     """
     if isinstance(value, str):
-        with open(value) as f:
-            raw = json.load(f)
+        raw = json.loads(_read_reference(value))
         return [model.model_validate(item) for item in raw]
     return value
 
@@ -112,13 +167,13 @@ def _maybe_write_output(
 
 def parse_ontology(ontology_ttl: str) -> Ontology:
     """Parse a Turtle ontology into structured classes and predicates."""
-    onto, _ = parse_ontology_from_string(ontology_ttl)
+    onto, _ = parse_ontology_from_string(resolve_ontology_ttl(ontology_ttl))
     return onto
 
 
 def list_target_types(ontology_ttl: str) -> list[EntityType]:
     """Return the entity types (classes) the agent should extract, sorted by label."""
-    onto, _ = parse_ontology_from_string(ontology_ttl)
+    onto, _ = parse_ontology_from_string(resolve_ontology_ttl(ontology_ttl))
     return sorted(onto.classes, key=lambda t: t.label)
 
 
@@ -134,14 +189,134 @@ def suggest_predicates(
     Compatibility accounts for the class hierarchy: a predicate declared on a
     superclass is suggested for an entity of a subclass. Predicates with a
     literal (XSD) range are always kept.
+
+    The domain and range classes come back as label and URI only. Their
+    descriptions are what `list_target_types` (or the ontology file) already
+    delivers once, whereas here they were repeated inside every predicate that
+    shares a domain: on an 18-class/17-predicate ontology that was 12,894
+    characters of duplication, or ~5,800 tokens of a ~6,300-token result.
     """
-    onto, g = parse_ontology_from_string(ontology_ttl)
-    return filter_predicates_by_entity_types(
+    onto, g = parse_ontology_from_string(resolve_ontology_ttl(ontology_ttl))
+    predicates = filter_predicates_by_entity_types(
         entity_types=found_entity_types,
         predicate_domain_range=list(onto.predicates),
         ontology=g,
         enforce_domain_conformance=enforce_domain_conformance,
         enforce_range_conformance=enforce_range_conformance,
+    )
+    return [_without_class_descriptions(p) for p in predicates]
+
+
+class PredicateSuggestionGroups(BaseModel):
+    """Compatible predicates for many groups of found entity types at once.
+
+    ``legend`` describes each predicate exactly once. ``predicate_sets`` holds
+    the *distinct* answers, and ``group_predicate_set`` maps each caller group
+    key to the index of its set.
+    """
+
+    legend: list[OntologyPredicate]
+    predicate_sets: list[list[str]]
+    group_predicate_set: dict[str, int]
+
+
+def _resolve_type_groups(
+    value: "dict[str, list[EntityType | str]] | str",
+) -> dict[str, list[EntityType]]:
+    """Resolve the groups argument: the mapping itself, or a path/blob handle
+    to a JSON file holding it.
+
+    Each group's types may be given as ``EntityType`` objects or, more
+    compactly, as bare label strings -- the labels are all the filtering needs
+    once they match the ontology.
+    """
+    raw = json.loads(_read_reference(value)) if isinstance(value, str) else value
+    if not isinstance(raw, dict):
+        raise ValueError(
+            "found_entity_types_by_group must be a mapping of group key -> "
+            f"list of entity types, got {type(raw).__name__}."
+        )
+    groups: dict[str, list[EntityType]] = {}
+    for key, types in raw.items():
+        groups[str(key)] = [
+            EntityType(label=t) if isinstance(t, str) else EntityType.model_validate(t)
+            for t in types
+        ]
+    return groups
+
+
+def suggest_predicates_batch(
+    ontology_ttl: str,
+    found_entity_types_by_group: "dict[str, list[EntityType | str]] | str",
+    enforce_domain_conformance: bool = True,
+    enforce_range_conformance: bool = True,
+) -> PredicateSuggestionGroups:
+    """``suggest_predicates`` for many groups of found entity types in one call.
+
+    Narrowing predicates per *chunk* is what actually constrains the choice;
+    narrowing per document *set* does not. Measured on the MuSiQue ontology
+    (18 classes, 17 predicates) over a 200-chunk slice: a single chunk yields a
+    median of 2 entity types and so 8 candidate predicates, while the union of
+    types over the whole slice yields 17 of 18 classes and therefore 17 of 17
+    predicates -- no narrowing at all. Per-chunk calls recover that, but cost a
+    call and a full description payload per chunk.
+
+    Two collapses make one call enough. Groups sharing a type signature share an
+    answer, and distinct signatures still collapse onto far fewer distinct
+    answers: those 200 chunks hold 77 distinct type signatures but only 18
+    distinct predicate sets. So this returns each predicate's description once
+    in ``legend``, the distinct sets in ``predicate_sets``, and an index per
+    group -- instead of repeating ~17 descriptions per chunk.
+
+    Group keys are the caller's own labels for the groups, typically chunk ids.
+    Pass ``found_entity_types_by_group`` as a path or ``blob:<id>`` handle to
+    keep the mapping out of the caller's context (see ``_resolve_list``).
+    """
+    groups = _resolve_type_groups(found_entity_types_by_group)
+    onto, g = parse_ontology_from_string(resolve_ontology_ttl(ontology_ttl))
+    predicates = list(onto.predicates)
+
+    answer_by_signature: dict[frozenset[str], list[str]] = {}
+    described: dict[str, OntologyPredicate] = {}
+    predicate_sets: list[list[str]] = []
+    index_by_set: dict[tuple[str, ...], int] = {}
+    group_predicate_set: dict[str, int] = {}
+
+    for key, types in groups.items():
+        signature = frozenset(t.uri or t.label for t in types)
+        labels = answer_by_signature.get(signature)
+        if labels is None:
+            matched = filter_predicates_by_entity_types(
+                entity_types=types,
+                predicate_domain_range=predicates,
+                ontology=g,
+                enforce_domain_conformance=enforce_domain_conformance,
+                enforce_range_conformance=enforce_range_conformance,
+            )
+            labels = [p.label for p in matched]
+            answer_by_signature[signature] = labels
+            for p in matched:
+                described.setdefault(p.label, _without_class_descriptions(p))
+        fingerprint = tuple(labels)
+        if fingerprint not in index_by_set:
+            index_by_set[fingerprint] = len(predicate_sets)
+            predicate_sets.append(list(labels))
+        group_predicate_set[key] = index_by_set[fingerprint]
+
+    return PredicateSuggestionGroups(
+        legend=[described[label] for label in sorted(described)],
+        predicate_sets=predicate_sets,
+        group_predicate_set=group_predicate_set,
+    )
+
+
+def _without_class_descriptions(predicate: OntologyPredicate) -> OntologyPredicate:
+    """The predicate with its domain/range classes reduced to label and URI."""
+    trim = lambda types: {  # noqa: E731
+        EntityType(label=t.label, uri=t.uri) for t in types
+    }
+    return predicate.model_copy(
+        update={"domain": trim(predicate.domain), "range": trim(predicate.range)}
     )
 
 
@@ -172,7 +347,9 @@ def validate_conformance(
     # range conformance needs it to honour rdfs:subClassOf.
     rdf_ontology = None
     if ontology_ttl:
-        onto, rdf_ontology = parse_ontology_from_string(ontology_ttl)
+        onto, rdf_ontology = parse_ontology_from_string(
+            resolve_ontology_ttl(ontology_ttl)
+        )
         predicate_domain_range = list(onto.predicates)
         allowed_types = list(onto.classes)
 
@@ -226,7 +403,9 @@ def serialize_graph(
     onto = None
     rdf_ontology = None
     if ontology_ttl:
-        onto, rdf_ontology = parse_ontology_from_string(ontology_ttl)
+        onto, rdf_ontology = parse_ontology_from_string(
+            resolve_ontology_ttl(ontology_ttl)
+        )
 
     graph = Graph(
         typed_entities=set(typed_entities),
@@ -301,7 +480,8 @@ def suggest_clusters(
     typed_entities: list[TypedEntity] | str,
     entity_similarity_threshold: float = 0.8,
     retrieval_model: Optional[str] = "sentence-transformers/all-MiniLM-L6-v2",
-) -> ClusterProposal:
+    output_file: Optional[str] = None,
+) -> "ClusterProposal | ClusterProposalWriteResult":
     """Propose candidate duplicate clusters for entities using local embeddings.
     This only proposes — nothing is merged.
 
@@ -329,6 +509,11 @@ def suggest_clusters(
     retrieval_model:
         Sentence-transformers model used to embed surface forms. ``None`` falls
         back to the deduplication library's built-in default encoder.
+    output_file:
+        Write the proposal here as JSON and return a small summary instead of
+        the proposal itself. Use this at corpus scale: reviewing a few thousand
+        clusters inline costs more context than any one reviewer has, whereas a
+        file can be read in slices by several reviewers in parallel.
     """
     typed_entities = _resolve_list(typed_entities, TypedEntity)
 
@@ -342,7 +527,16 @@ def suggest_clusters(
         EntityCluster(representative=rep, members=members)
         for rep, members in _cluster(typed_entities, entity_similarity_threshold, model)
     ]
-    return ClusterProposal(entity_clusters=entity_clusters, edge_clusters=[])
+    proposal = ClusterProposal(entity_clusters=entity_clusters, edge_clusters=[])
+    if not output_file:
+        return proposal
+    with open(output_file, "w") as f:
+        f.write(proposal.model_dump_json(indent=2))
+    return ClusterProposalWriteResult(
+        num_entity_clusters=len(entity_clusters),
+        num_clustered_entities=sum(len(c.members) for c in entity_clusters),
+        output_file=output_file,
+    )
 
 
 def apply_clusters(
@@ -429,7 +623,9 @@ def apply_clusters(
     onto = None
     rdf_ontology = None
     if ontology_ttl:
-        onto, rdf_ontology = parse_ontology_from_string(ontology_ttl)
+        onto, rdf_ontology = parse_ontology_from_string(
+            resolve_ontology_ttl(ontology_ttl)
+        )
 
     graph = Graph(
         typed_entities=set(canonical_entities.values()),
