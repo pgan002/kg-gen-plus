@@ -33,3 +33,4 @@ benchmarks/wk/.env
 .junie
 .claude
 /misc
+results/
