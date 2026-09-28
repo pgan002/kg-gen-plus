@@ -17,14 +17,24 @@ import re
 import unicodedata
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote
 
+import inflect
 from rdflib import RDF, RDFS, BNode, Graph, Literal, Namespace, URIRef
 from rdflib.namespace import OWL
 
 PROV = Namespace("urn:kggen:provenance:")
 CLASS_SOURCES = ("surface", "type", "surface-and-type")
+_INFLECT = inflect.engine()
+_CLASS_ALIASES = {
+    "carnivorous animal": "carnivore",
+    "herbivorous animal": "herbivore",
+    "omnivorous animal": "omnivore",
+}
+_NON_SINGULAR_CLASS_HEADS = {"data", "media", "software"}
+_NON_SINGULAR_CLASS_SUFFIXES = ("is", "ness", "os", "ss", "us")
+_NON_LEMMATIZED_PROPERTY_VERBS = {"has", "is", "was", "does"}
 
 
 def workspace_root() -> Path:
@@ -127,8 +137,49 @@ def normalized_term_key(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip().casefold()
 
 
-def append_unique(terms: dict[str, dict[str, str]], cq_id: str, label: str) -> None:
-    normalized = normalized_term_key(label)
+def singularize_class_head(value: str) -> str:
+    words = value.split()
+    if (
+        not words
+        or words[-1] in _NON_SINGULAR_CLASS_HEADS
+        or words[-1].endswith(_NON_SINGULAR_CLASS_SUFFIXES)
+    ):
+        return value
+    singular = _INFLECT.singular_noun(cast(Any, words[-1]))
+    if isinstance(singular, str):
+        words[-1] = singular
+    return " ".join(words)
+
+
+def lemmatize_property_verb(value: str) -> str:
+    words = value.split()
+    if not words or words[0] in _NON_LEMMATIZED_PROPERTY_VERBS:
+        return value
+    verb = words[0]
+    if verb.endswith("ies") and len(verb) > 3:
+        verb = f"{verb[:-3]}y"
+    elif verb.endswith(("ches", "shes", "sses", "xes", "zes")):
+        verb = verb[:-2]
+    elif verb.endswith("s") and not verb.endswith("ss"):
+        verb = verb[:-1]
+    words[0] = verb
+    return " ".join(words)
+
+
+def morphological_term_key(value: str, kind: str) -> str:
+    normalized = normalized_term_key(value)
+    if kind == "class":
+        normalized = singularize_class_head(normalized)
+        return _CLASS_ALIASES.get(normalized, normalized)
+    if kind == "property":
+        return lemmatize_property_verb(normalized)
+    raise ValueError(f"Unknown ontology term kind: {kind}")
+
+
+def append_unique(
+    terms: dict[str, dict[str, str]], cq_id: str, label: str, *, kind: str
+) -> None:
+    normalized = morphological_term_key(label, kind)
     if normalized:
         # Emit the normalized form, rather than an arbitrary first-seen variant,
         # so aliases extracted in different CQs share one domain-wide label.
@@ -168,7 +219,7 @@ def cq2term_predictions(
             labels.append(type_label)
         for cq_id in provenance_ids(entity.get("provenance_ids")):
             for label in labels:
-                append_unique(classes, cq_id, label)
+                append_unique(classes, cq_id, label, kind="class")
 
     relations = payload.get("relations_wo_class_assertions", [])
     if not isinstance(relations, list):
@@ -185,7 +236,7 @@ def cq2term_predictions(
         if not label:
             continue
         for cq_id in provenance_ids(relation.get("provenance_ids")):
-            append_unique(properties, cq_id, label)
+            append_unique(properties, cq_id, label, kind="property")
 
     output = []
     for index, question in enumerate(questions):
