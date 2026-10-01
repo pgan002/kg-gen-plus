@@ -114,6 +114,19 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Deduplicate the aggregated graph after extraction (default: disabled).",
     )
+    parser.add_argument(
+        "--deduplicate-with-embeddings",
+        action="store_true",
+        help=(
+            "Run semantic embedding deduplication after string deduplication. "
+            "Requires --deduplicate."
+        ),
+    )
+    parser.add_argument(
+        "--retrieval-model",
+        default="sentence-transformers/all-mpnet-base-v2",
+        help="SentenceTransformer model used by embedding deduplication.",
+    )
     return parser.parse_args()
 
 
@@ -211,6 +224,10 @@ async def run_domain(
         "max_tokens": args.max_tokens,
         "n_parallel": args.n_parallel,
         "deduplicate": args.deduplicate,
+        "deduplicate_with_embeddings": args.deduplicate_with_embeddings,
+        "retrieval_model": (
+            args.retrieval_model if args.deduplicate_with_embeddings else None
+        ),
         "entity_context": ENTITY_CONTEXT,
         "relation_context": RELATION_CONTEXT,
         "completed_runs": [],
@@ -229,7 +246,9 @@ async def run_domain(
             api_key=args.api_key,
             temperature=args.temperature,
             max_tokens=args.max_tokens,
-            retrieval_model=None,
+            retrieval_model=(
+                args.retrieval_model if args.deduplicate_with_embeddings else None
+            ),
             disable_cache=True,
         )
         graph, stats = await kg.generate(
@@ -238,6 +257,7 @@ async def run_domain(
             relation_context=RELATION_CONTEXT,
             n_parallel=args.n_parallel,
             deduplicate=args.deduplicate,
+            deduplicate_with_embeddings=args.deduplicate_with_embeddings,
         )
 
         result_path = runs_dir / f"{run_number:02d}.json"
@@ -266,6 +286,8 @@ async def main() -> None:
         raise ValueError("--runs must be at least 1")
     if args.n_parallel < 1:
         raise ValueError("--n-parallel must be at least 1")
+    if args.deduplicate_with_embeddings and not args.deduplicate:
+        raise ValueError("--deduplicate-with-embeddings requires --deduplicate")
 
     domains = selected_domains(args.domain)
     args.dataset_dir = args.dataset_dir.resolve()

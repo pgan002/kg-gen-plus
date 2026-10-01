@@ -14,27 +14,25 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import unicodedata
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 from urllib.parse import quote
 
-import inflect
 from rdflib import RDF, RDFS, BNode, Graph, Literal, Namespace, URIRef
 from rdflib.namespace import OWL
 
+from kg_gen.ontology.term_clustering import (
+    OntologyTermClusterer,
+    cluster_term_assignments,
+)
+from kg_gen.ontology.term_normalization import (
+    OntologyTermKind,
+    normalize_ontology_term,
+)
+
 PROV = Namespace("urn:kggen:provenance:")
 CLASS_SOURCES = ("surface", "type", "surface-and-type")
-_INFLECT = inflect.engine()
-_CLASS_ALIASES = {
-    "carnivorous animal": "carnivore",
-    "herbivorous animal": "herbivore",
-    "omnivorous animal": "omnivore",
-}
-_NON_SINGULAR_CLASS_HEADS = {"data", "media", "software"}
-_NON_SINGULAR_CLASS_SUFFIXES = ("is", "ness", "os", "ss", "us")
-_NON_LEMMATIZED_PROPERTY_VERBS = {"has", "is", "was", "does"}
 
 
 def workspace_root() -> Path:
@@ -81,6 +79,22 @@ def parse_args() -> argparse.Namespace:
             "ablations, such as surface or type. It does not alter raw results."
         ),
     )
+    parser.add_argument(
+        "--semantic-clustering",
+        action="store_true",
+        help="Cluster semantically equivalent CQ2Term labels within each run/domain.",
+    )
+    parser.add_argument(
+        "--semantic-model",
+        default="sentence-transformers/all-MiniLM-L6-v2",
+        help="SentenceTransformer model for semantic clustering.",
+    )
+    parser.add_argument(
+        "--semantic-threshold",
+        type=float,
+        default=0.9,
+        help="Minimum cosine similarity for semantic clustering (default: 0.9).",
+    )
     return parser.parse_args()
 
 
@@ -122,72 +136,37 @@ def provenance_ids(value: Any) -> list[str]:
     return [item for item in value if isinstance(item, str)]
 
 
-def split_camel_case(value: str) -> str:
-    """Insert word boundaries into camelCase, PascalCase, and acronym names."""
-    value = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", value)
-    return re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1 \2", value)
-
-
-def normalized_term_key(value: str) -> str:
-    """Return a deterministic lexical form for CQ2Term comparison and output."""
-    value = unicodedata.normalize("NFKC", value)
-    value = split_camel_case(value)
-    value = re.sub(r"[_-]+", " ", value)
-    value = re.sub(r"[^\w\s]", " ", value, flags=re.UNICODE)
-    return re.sub(r"\s+", " ", value).strip().casefold()
-
-
-def singularize_class_head(value: str) -> str:
-    words = value.split()
-    if (
-        not words
-        or words[-1] in _NON_SINGULAR_CLASS_HEADS
-        or words[-1].endswith(_NON_SINGULAR_CLASS_SUFFIXES)
-    ):
-        return value
-    singular = _INFLECT.singular_noun(cast(Any, words[-1]))
-    if isinstance(singular, str):
-        words[-1] = singular
-    return " ".join(words)
-
-
-def lemmatize_property_verb(value: str) -> str:
-    words = value.split()
-    if not words or words[0] in _NON_LEMMATIZED_PROPERTY_VERBS:
-        return value
-    verb = words[0]
-    if verb.endswith("ies") and len(verb) > 3:
-        verb = f"{verb[:-3]}y"
-    elif verb.endswith(("ches", "shes", "sses", "xes", "zes")):
-        verb = verb[:-2]
-    elif verb.endswith("s") and not verb.endswith("ss"):
-        verb = verb[:-1]
-    words[0] = verb
-    return " ".join(words)
-
-
-def morphological_term_key(value: str, kind: str) -> str:
-    normalized = normalized_term_key(value)
-    if kind == "class":
-        normalized = singularize_class_head(normalized)
-        return _CLASS_ALIASES.get(normalized, normalized)
-    if kind == "property":
-        return lemmatize_property_verb(normalized)
-    raise ValueError(f"Unknown ontology term kind: {kind}")
-
-
 def append_unique(
-    terms: dict[str, dict[str, str]], cq_id: str, label: str, *, kind: str
+    terms: dict[str, dict[str, str]],
+    cq_id: str,
+    label: str,
+    *,
+    kind: OntologyTermKind,
 ) -> None:
-    normalized = morphological_term_key(label, kind)
+    normalized = normalize_ontology_term(label, kind)
     if normalized:
-        # Emit the normalized form, rather than an arbitrary first-seen variant,
-        # so aliases extracted in different CQs share one domain-wide label.
         terms[cq_id].setdefault(normalized, normalized)
 
 
+def cluster_terms(
+    terms_by_cq: dict[str, dict[str, str]], clusterer: OntologyTermClusterer
+) -> dict[str, dict[str, str]]:
+    assignments = cluster_term_assignments(
+        {cq_id: terms.keys() for cq_id, terms in terms_by_cq.items()}, clusterer
+    )
+    return defaultdict(
+        dict,
+        {
+            cq_id: {term: term for term in terms}
+            for cq_id, terms in assignments.items()
+        },
+    )
+
+
 def cq2term_predictions(
-    run_data: dict[str, Any], class_source: str
+    run_data: dict[str, Any],
+    class_source: str,
+    semantic_clusterer: OntologyTermClusterer | None = None,
 ) -> list[dict[str, Any]]:
     questions = run_data.get("questions")
     payload = run_data.get("graph")
@@ -237,6 +216,10 @@ def cq2term_predictions(
             continue
         for cq_id in provenance_ids(relation.get("provenance_ids")):
             append_unique(properties, cq_id, label, kind="property")
+
+    if semantic_clusterer is not None:
+        classes = cluster_terms(classes, semantic_clusterer)
+        properties = cluster_terms(properties, semantic_clusterer)
 
     output = []
     for index, question in enumerate(questions):
@@ -438,6 +421,13 @@ def main() -> None:
     export_label = identifier(args.export_label) if args.export_label else None
     if args.export_label and not export_label:
         raise ValueError("--export-label must contain a letter or number")
+    if not 0.0 <= args.semantic_threshold <= 1.0:
+        raise ValueError("--semantic-threshold must be between 0 and 1")
+    semantic_clusterer = (
+        OntologyTermClusterer(args.semantic_model, args.semantic_threshold)
+        if args.semantic_clustering
+        else None
+    )
     destinations: dict[Path, Path] = {}
 
     for run_dir, domain, experiment, run_files in discover_run_groups(results_dir):
@@ -472,7 +462,9 @@ def main() -> None:
                     )
                 write_json(
                     destination,
-                    cq2term_predictions(run_data, args.class_source),
+                    cq2term_predictions(
+                        run_data, args.class_source, semantic_clusterer
+                    ),
                 )
                 print(f"Staged CQ2Term {run_file.name} -> {destination}")
 
