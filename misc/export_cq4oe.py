@@ -16,12 +16,17 @@ import json
 import re
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote
 
 from rdflib import RDF, RDFS, BNode, Graph, Literal, Namespace, URIRef
 from rdflib.namespace import OWL
 
+from kg_gen.ontology.cq_term_assignment import (
+    CanonicalCQTermAssigner,
+    TermEncoder,
+    reassign_canonical_terms,
+)
 from kg_gen.ontology.term_clustering import (
     OntologyTermClusterer,
     cluster_term_assignments,
@@ -95,6 +100,26 @@ def parse_args() -> argparse.Namespace:
         default=0.9,
         help="Minimum cosine similarity for semantic clustering (default: 0.9).",
     )
+    parser.add_argument(
+        "--cq-reassignment",
+        action="store_true",
+        help=(
+            "Reassign the canonical domain class/property vocabulary to each CQ "
+            "using bounded semantic similarity."
+        ),
+    )
+    parser.add_argument(
+        "--cq-reassignment-threshold",
+        type=float,
+        default=0.45,
+        help="Minimum CQ-to-term cosine similarity (default: 0.45).",
+    )
+    parser.add_argument(
+        "--cq-reassignment-max-additions",
+        type=int,
+        default=3,
+        help="Maximum canonical terms added per CQ and term kind (default: 3).",
+    )
     return parser.parse_args()
 
 
@@ -167,6 +192,7 @@ def cq2term_predictions(
     run_data: dict[str, Any],
     class_source: str,
     semantic_clusterer: OntologyTermClusterer | None = None,
+    cq_assigner: CanonicalCQTermAssigner | None = None,
 ) -> list[dict[str, Any]]:
     questions = run_data.get("questions")
     payload = run_data.get("graph")
@@ -220,6 +246,34 @@ def cq2term_predictions(
     if semantic_clusterer is not None:
         classes = cluster_terms(classes, semantic_clusterer)
         properties = cluster_terms(properties, semantic_clusterer)
+
+    if cq_assigner is not None:
+        class_assignments = reassign_canonical_terms(
+            questions,
+            {cq_id: set(terms) for cq_id, terms in classes.items()},
+            "class",
+            cq_assigner,
+        )
+        property_assignments = reassign_canonical_terms(
+            questions,
+            {cq_id: set(terms) for cq_id, terms in properties.items()},
+            "property",
+            cq_assigner,
+        )
+        classes = defaultdict(
+            dict,
+            {
+                cq_id: {term: term for term in terms}
+                for cq_id, terms in class_assignments.items()
+            },
+        )
+        properties = defaultdict(
+            dict,
+            {
+                cq_id: {term: term for term in terms}
+                for cq_id, terms in property_assignments.items()
+            },
+        )
 
     output = []
     for index, question in enumerate(questions):
@@ -414,6 +468,111 @@ def discover_run_groups(results_dir: Path) -> list[tuple[Path, str, str, list[Pa
     return groups
 
 
+def staged_manifest(
+    *,
+    task: str,
+    run_name: str,
+    run_number_value: int,
+    source_manifest: dict[str, Any],
+    source_manifest_path: Path,
+    source_run: Path,
+    domain: str,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    manifest = {
+        "schema_version": 1,
+        "task": task,
+        "run_name": run_name,
+        "run": run_number_value,
+        "method": source_manifest["method"],
+        "model": source_manifest["model"],
+        "source_experiment_id": source_manifest["experiment_id"],
+        "source_manifests": {domain: str(source_manifest_path.resolve())},
+        "source_runs": {domain: str(source_run.resolve())},
+        "domains": [domain],
+        "generation": {
+            key: source_manifest.get(key)
+            for key in (
+                "api_base",
+                "temperature",
+                "max_tokens",
+                "n_parallel",
+                "entity_context",
+                "relation_context",
+            )
+        },
+        "graph_processing": {
+            key: source_manifest.get(key)
+            for key in (
+                "deduplicate",
+                "deduplicate_with_embeddings",
+                "retrieval_model",
+                "postprocessing",
+                "derived_from",
+            )
+        },
+    }
+    if task == "cq2term":
+        manifest["term_processing"] = {
+            "class_source": args.class_source,
+            "lexical_normalization": True,
+            "morphological_normalization": True,
+            "semantic_clustering": args.semantic_clustering,
+            "semantic_model": args.semantic_model
+            if args.semantic_clustering
+            else None,
+            "semantic_threshold": args.semantic_threshold
+            if args.semantic_clustering
+            else None,
+            "export_label": args.export_label,
+            "cq_reassignment": args.cq_reassignment,
+            "cq_reassignment_model": args.semantic_model
+            if args.cq_reassignment
+            else None,
+            "cq_reassignment_threshold": args.cq_reassignment_threshold
+            if args.cq_reassignment
+            else None,
+            "cq_reassignment_max_additions": args.cq_reassignment_max_additions
+            if args.cq_reassignment
+            else None,
+        }
+    else:
+        manifest["mode"] = args.mode
+        manifest["ontology_export"] = {
+            "format": "rdfxml",
+            "file_extension": ".owl",
+        }
+    return manifest
+
+
+def merge_staged_manifest(
+    existing: dict[str, Any], incoming: dict[str, Any], domain: str
+) -> None:
+    for key in (
+        "schema_version",
+        "task",
+        "run_name",
+        "run",
+        "method",
+        "model",
+        "source_experiment_id",
+        "generation",
+        "graph_processing",
+        "term_processing",
+        "mode",
+        "ontology_export",
+    ):
+        if existing.get(key) != incoming.get(key):
+            raise ValueError(
+                f"Inconsistent staged manifest field {key!r} for "
+                f"{existing['run_name']}: {existing.get(key)!r} versus "
+                f"{incoming.get(key)!r}"
+            )
+    existing["source_manifests"][domain] = incoming["source_manifests"][domain]
+    existing["source_runs"][domain] = incoming["source_runs"][domain]
+    existing["domains"] = sorted(set(existing["domains"]) | {domain})
+
+
 def main() -> None:
     args = parse_args()
     results_dir = args.results_dir.resolve()
@@ -423,12 +582,31 @@ def main() -> None:
         raise ValueError("--export-label must contain a letter or number")
     if not 0.0 <= args.semantic_threshold <= 1.0:
         raise ValueError("--semantic-threshold must be between 0 and 1")
+    if not 0.0 <= args.cq_reassignment_threshold <= 1.0:
+        raise ValueError("--cq-reassignment-threshold must be between 0 and 1")
+    if args.cq_reassignment_max_additions < 1:
+        raise ValueError("--cq-reassignment-max-additions must be at least 1")
     semantic_clusterer = (
         OntologyTermClusterer(args.semantic_model, args.semantic_threshold)
         if args.semantic_clustering
         else None
     )
+    cq_assigner = (
+        CanonicalCQTermAssigner(
+            args.semantic_model,
+            args.cq_reassignment_threshold,
+            args.cq_reassignment_max_additions,
+            encoder=(
+                cast(TermEncoder, semantic_clusterer.encoder)
+                if semantic_clusterer
+                else None
+            ),
+        )
+        if args.cq_reassignment
+        else None
+    )
     destinations: dict[Path, Path] = {}
+    staged_manifests: dict[Path, dict[str, Any]] = {}
 
     for run_dir, domain, experiment, run_files in discover_run_groups(results_dir):
         staged_experiment = (
@@ -439,6 +617,8 @@ def main() -> None:
             f"staged_experiment={staged_experiment}, runs={len(run_files)} "
             f"in {run_dir}"
         )
+        source_manifest_path = run_dir / "manifest.json"
+        source_manifest = load_manifest(run_dir)
         for run_file in run_files:
             number = run_number(run_file)
             model_name = f"{staged_experiment}-run-{number:02d}"
@@ -463,9 +643,29 @@ def main() -> None:
                 write_json(
                     destination,
                     cq2term_predictions(
-                        run_data, args.class_source, semantic_clusterer
+                        run_data,
+                        args.class_source,
+                        semantic_clusterer,
+                        cq_assigner,
                     ),
                 )
+                manifest_path = destination.parents[1] / "manifest.json"
+                incoming = staged_manifest(
+                    task="cq2term",
+                    run_name=model_name,
+                    run_number_value=number,
+                    source_manifest=source_manifest,
+                    source_manifest_path=source_manifest_path,
+                    source_run=run_file,
+                    domain=domain,
+                    args=args,
+                )
+                if manifest_path in staged_manifests:
+                    merge_staged_manifest(
+                        staged_manifests[manifest_path], incoming, domain
+                    )
+                else:
+                    staged_manifests[manifest_path] = incoming
                 print(f"Staged CQ2Term {run_file.name} -> {destination}")
 
             if args.task in ("cq2onto", "both"):
@@ -484,7 +684,28 @@ def main() -> None:
                         f"Both {previous} and {run_file} map to {destination}"
                     )
                 graph_json_to_owl(run_data, destination, domain)
+                manifest_path = destination.parents[1] / "manifest.json"
+                incoming = staged_manifest(
+                    task="cq2onto",
+                    run_name=model_name,
+                    run_number_value=number,
+                    source_manifest=source_manifest,
+                    source_manifest_path=source_manifest_path,
+                    source_run=run_file,
+                    domain=domain,
+                    args=args,
+                )
+                if manifest_path in staged_manifests:
+                    merge_staged_manifest(
+                        staged_manifests[manifest_path], incoming, domain
+                    )
+                else:
+                    staged_manifests[manifest_path] = incoming
                 print(f"Staged CQ2Onto {run_file.name} -> {destination}")
+
+    for manifest_path, manifest in sorted(staged_manifests.items()):
+        write_json(manifest_path, manifest)
+        print(f"Staged manifest -> {manifest_path}")
 
 
 if __name__ == "__main__":
