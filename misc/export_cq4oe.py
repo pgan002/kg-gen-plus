@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 from collections import defaultdict
 from pathlib import Path
@@ -22,6 +23,11 @@ from urllib.parse import quote
 from rdflib import RDF, RDFS, BNode, Graph, Literal, Namespace, URIRef
 from rdflib.namespace import OWL
 
+from kg_gen.ontology.class_candidate_filtering import (
+    ClassCandidateDecisionProvider,
+    OpenAIClassCandidateDecisionProvider,
+    filter_class_candidates,
+)
 from kg_gen.ontology.cq_term_assignment import (
     CanonicalCQTermAssigner,
     TermEncoder,
@@ -40,6 +46,7 @@ from kg_gen.ontology.term_roles import filter_ontology_term_roles
 PROV = Namespace("urn:kggen:provenance:")
 CLASS_SOURCES = ("surface", "type", "surface-and-type")
 TERM_ROLE_FILTERS = ("none", "ontology-conservative")
+CLASS_CANDIDATE_FILTERS = ("none", "llm-cq-required")
 
 
 def workspace_root() -> Path:
@@ -109,6 +116,43 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Filter copular pseudo-properties, class/property overlap, and "
             "literal-like class candidates (default: none)."
+        ),
+    )
+    parser.add_argument(
+        "--class-candidate-filter",
+        choices=CLASS_CANDIDATE_FILTERS,
+        default="none",
+        help=(
+            "Contextually remove plausible but CQ-unnecessary class candidates "
+            "using a closed-vocabulary LLM review (default: none)."
+        ),
+    )
+    parser.add_argument(
+        "--class-filter-model",
+        help="OpenAI-compatible model used by --class-candidate-filter.",
+    )
+    parser.add_argument(
+        "--class-filter-api-base",
+        default="http://localhost:8000/v1",
+        help="OpenAI-compatible API base for class filtering.",
+    )
+    parser.add_argument(
+        "--class-filter-api-key",
+        default=os.getenv("VLLM_API_KEY", "dummy"),
+        help="Class-filter API key (default: VLLM_API_KEY or 'dummy').",
+    )
+    parser.add_argument(
+        "--class-filter-max-tokens",
+        type=int,
+        default=8192,
+        help="Maximum class-filter response tokens (default: 8192).",
+    )
+    parser.add_argument(
+        "--class-filter-enable-thinking",
+        action="store_true",
+        help=(
+            "Enable model thinking for class filtering (default: disabled so "
+            "the token budget is used for the required JSON response)."
         ),
     )
     parser.add_argument(
@@ -205,7 +249,8 @@ def cq2term_predictions(
     semantic_clusterer: OntologyTermClusterer | None = None,
     cq_assigner: CanonicalCQTermAssigner | None = None,
     term_role_filter: str = "none",
-) -> list[dict[str, Any]]:
+    class_candidate_provider: ClassCandidateDecisionProvider | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     questions = run_data.get("questions")
     payload = run_data.get("graph")
     if not isinstance(questions, list):
@@ -215,6 +260,7 @@ def cq2term_predictions(
 
     classes: dict[str, dict[str, str]] = defaultdict(dict)
     properties: dict[str, dict[str, str]] = defaultdict(dict)
+    relations_by_cq: dict[str, list[str]] = defaultdict(list)
     entities = payload.get("typed_entities", [])
     if not isinstance(entities, list):
         raise TypeError("graph.typed_entities must be a list")
@@ -252,8 +298,24 @@ def cq2term_predictions(
         )
         if not label:
             continue
+        subject_data = relation.get("subject")
+        object_data = relation.get("object")
+        subject = (
+            clean_label(subject_data.get("surface_form"))
+            if isinstance(subject_data, dict)
+            else None
+        )
+        object_ = (
+            clean_label(object_data.get("surface_form"))
+            if isinstance(object_data, dict)
+            else None
+        )
         for cq_id in provenance_ids(relation.get("provenance_ids")):
             append_unique(properties, cq_id, label, kind="property")
+            if subject and object_:
+                relations_by_cq[cq_id].append(
+                    f"{subject} --{label}--> {object_}"
+                )
 
     if semantic_clusterer is not None:
         classes = cluster_terms(classes, semantic_clusterer)
@@ -280,6 +342,25 @@ def cq2term_predictions(
         )
     elif term_role_filter != "none":
         raise ValueError(f"Unknown term role filter: {term_role_filter}")
+
+    class_filter_decisions: list[dict[str, Any]] = []
+    if class_candidate_provider is not None:
+        filtered_classes, decisions = filter_class_candidates(
+            questions,
+            {cq_id: set(terms) for cq_id, terms in classes.items()},
+            relations_by_cq,
+            class_candidate_provider,
+        )
+        classes = defaultdict(
+            dict,
+            {
+                cq_id: {term: term for term in terms}
+                for cq_id, terms in filtered_classes.items()
+            },
+        )
+        class_filter_decisions = [
+            decision.model_dump(mode="json") for decision in decisions
+        ]
 
     if cq_assigner is not None:
         class_assignments = reassign_canonical_terms(
@@ -322,7 +403,7 @@ def cq2term_predictions(
                 "property": sorted(properties[cq_id].values(), key=str.casefold),
             }
         )
-    return output
+    return output, class_filter_decisions
 
 
 def term_uri(namespace: Namespace, label: str) -> URIRef:
@@ -560,6 +641,19 @@ def staged_manifest(
             else None,
             "export_label": args.export_label,
             "term_role_filter": args.term_role_filter,
+            "class_candidate_filter": args.class_candidate_filter,
+            "class_filter_model": args.class_filter_model
+            if args.class_candidate_filter != "none"
+            else None,
+            "class_filter_api_base": args.class_filter_api_base
+            if args.class_candidate_filter != "none"
+            else None,
+            "class_filter_max_tokens": args.class_filter_max_tokens
+            if args.class_candidate_filter != "none"
+            else None,
+            "class_filter_enable_thinking": args.class_filter_enable_thinking
+            if args.class_candidate_filter != "none"
+            else None,
             "cq_reassignment": args.cq_reassignment,
             "cq_reassignment_model": args.semantic_model
             if args.cq_reassignment
@@ -621,9 +715,30 @@ def main() -> None:
         raise ValueError("--cq-reassignment-threshold must be between 0 and 1")
     if args.cq_reassignment_max_additions < 1:
         raise ValueError("--cq-reassignment-max-additions must be at least 1")
+    if args.class_filter_max_tokens < 1:
+        raise ValueError("--class-filter-max-tokens must be at least 1")
+    if (
+        args.class_candidate_filter == "llm-cq-required"
+        and not args.class_filter_model
+    ):
+        raise ValueError(
+            "--class-filter-model is required with "
+            "--class-candidate-filter llm-cq-required"
+        )
     semantic_clusterer = (
         OntologyTermClusterer(args.semantic_model, args.semantic_threshold)
         if args.semantic_clustering
+        else None
+    )
+    class_candidate_provider = (
+        OpenAIClassCandidateDecisionProvider(
+            args.class_filter_model,
+            api_base=args.class_filter_api_base,
+            api_key=args.class_filter_api_key,
+            max_tokens=args.class_filter_max_tokens,
+            enable_thinking=args.class_filter_enable_thinking,
+        )
+        if args.class_candidate_filter == "llm-cq-required"
         else None
     )
     cq_assigner = (
@@ -675,16 +790,22 @@ def main() -> None:
                     raise ValueError(
                         f"Both {previous} and {run_file} map to {destination}"
                     )
-                write_json(
-                    destination,
-                    cq2term_predictions(
-                        run_data,
-                        args.class_source,
-                        semantic_clusterer,
-                        cq_assigner,
-                        args.term_role_filter,
-                    ),
+                predictions, class_filter_decisions = cq2term_predictions(
+                    run_data,
+                    args.class_source,
+                    semantic_clusterer,
+                    cq_assigner,
+                    args.term_role_filter,
+                    class_candidate_provider,
                 )
+                write_json(destination, predictions)
+                if class_filter_decisions:
+                    decision_path = (
+                        destination.parents[1]
+                        / "metadata"
+                        / f"{domain}_class_candidate_decisions.json"
+                    )
+                    write_json(decision_path, class_filter_decisions)
                 manifest_path = destination.parents[1] / "manifest.json"
                 incoming = staged_manifest(
                     task="cq2term",
