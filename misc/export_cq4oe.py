@@ -35,9 +35,11 @@ from kg_gen.ontology.term_normalization import (
     OntologyTermKind,
     normalize_ontology_term,
 )
+from kg_gen.ontology.term_roles import filter_ontology_term_roles
 
 PROV = Namespace("urn:kggen:provenance:")
 CLASS_SOURCES = ("surface", "type", "surface-and-type")
+TERM_ROLE_FILTERS = ("none", "ontology-conservative")
 
 
 def workspace_root() -> Path:
@@ -99,6 +101,15 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.9,
         help="Minimum cosine similarity for semantic clustering (default: 0.9).",
+    )
+    parser.add_argument(
+        "--term-role-filter",
+        choices=TERM_ROLE_FILTERS,
+        default="none",
+        help=(
+            "Filter copular pseudo-properties, class/property overlap, and "
+            "literal-like class candidates (default: none)."
+        ),
     )
     parser.add_argument(
         "--cq-reassignment",
@@ -193,6 +204,7 @@ def cq2term_predictions(
     class_source: str,
     semantic_clusterer: OntologyTermClusterer | None = None,
     cq_assigner: CanonicalCQTermAssigner | None = None,
+    term_role_filter: str = "none",
 ) -> list[dict[str, Any]]:
     questions = run_data.get("questions")
     payload = run_data.get("graph")
@@ -246,6 +258,28 @@ def cq2term_predictions(
     if semantic_clusterer is not None:
         classes = cluster_terms(classes, semantic_clusterer)
         properties = cluster_terms(properties, semantic_clusterer)
+
+    if term_role_filter == "ontology-conservative":
+        class_assignments, property_assignments, _ = filter_ontology_term_roles(
+            {cq_id: set(terms) for cq_id, terms in classes.items()},
+            {cq_id: set(terms) for cq_id, terms in properties.items()},
+        )
+        classes = defaultdict(
+            dict,
+            {
+                cq_id: {term: term for term in terms}
+                for cq_id, terms in class_assignments.items()
+            },
+        )
+        properties = defaultdict(
+            dict,
+            {
+                cq_id: {term: term for term in terms}
+                for cq_id, terms in property_assignments.items()
+            },
+        )
+    elif term_role_filter != "none":
+        raise ValueError(f"Unknown term role filter: {term_role_filter}")
 
     if cq_assigner is not None:
         class_assignments = reassign_canonical_terms(
@@ -525,6 +559,7 @@ def staged_manifest(
             if args.semantic_clustering
             else None,
             "export_label": args.export_label,
+            "term_role_filter": args.term_role_filter,
             "cq_reassignment": args.cq_reassignment,
             "cq_reassignment_model": args.semantic_model
             if args.cq_reassignment
@@ -647,6 +682,7 @@ def main() -> None:
                         args.class_source,
                         semantic_clusterer,
                         cq_assigner,
+                        args.term_role_filter,
                     ),
                 )
                 manifest_path = destination.parents[1] / "manifest.json"
