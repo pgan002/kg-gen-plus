@@ -20,6 +20,20 @@ def test_exact_class_property_overlap_prefers_property_role():
     assert excluded["CQ1"]["class:eat"] == "also_observed_as_relation_predicate"
 
 
+def test_induced_alias_is_property_evidence_without_being_exported():
+    classes, properties, excluded = filter_ontology_term_roles(
+        {"CQ1": {"can read", "software"}},
+        {"CQ1": {"has specified data input"}},
+        additional_property_evidence={"can read"},
+    )
+
+    assert classes["CQ1"] == {"software"}
+    assert properties["CQ1"] == {"has specified data input"}
+    assert excluded["CQ1"]["class:can read"] == (
+        "also_observed_as_relation_predicate"
+    )
+
+
 def test_domain_wide_property_evidence_removes_class_in_another_cq():
     classes, properties, excluded = filter_ontology_term_roles(
         {"CQ1": {"eat"}, "CQ2": {"animal"}},

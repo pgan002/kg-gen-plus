@@ -91,6 +91,8 @@ def classify_class(
 def filter_ontology_term_roles(
     class_assignments: Mapping[str, set[str]],
     property_assignments: Mapping[str, set[str]],
+    *,
+    additional_property_evidence: set[str] | None = None,
 ) -> tuple[dict[str, set[str]], dict[str, set[str]], dict[str, dict[str, str]]]:
     """Filter assignments and return per-term exclusion reasons.
 
@@ -102,6 +104,7 @@ def filter_ontology_term_roles(
     observed_properties = {
         term for terms in property_assignments.values() for term in terms
     }
+    observed_properties.update(additional_property_evidence or set())
     classes: dict[str, set[str]] = {}
     properties: dict[str, set[str]] = {}
     excluded: dict[str, dict[str, str]] = {}
