@@ -10,6 +10,9 @@ from typing import Literal, Protocol
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
+from kg_gen.ontology.provenance_validation import (
+    validate_canonical_assignment_provenance,
+)
 from kg_gen.ontology.term_normalization import (
     normalize_ontology_term,
     singularize_class_head,
@@ -331,9 +334,18 @@ def canonical_predicate_assignments(
 ) -> dict[str, set[str]]:
     """Propagate canonical labels to every CQ contributing an accepted alias."""
     alias_map = result.alias_map
+    original_assignments: dict[str, set[str]] = defaultdict(set)
     assignments: dict[str, set[str]] = defaultdict(set)
     for occurrence in occurrences:
         canonical = alias_map.get(occurrence.label)
         if canonical:
+            original_assignments[occurrence.cq_id].add(occurrence.label)
             assignments[occurrence.cq_id].add(canonical)
-    return dict(assignments)
+    output = dict(assignments)
+    validate_canonical_assignment_provenance(
+        original_assignments,
+        output,
+        alias_map,
+        stage="predicate induction",
+    )
+    return output

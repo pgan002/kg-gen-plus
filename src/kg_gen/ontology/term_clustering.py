@@ -9,6 +9,10 @@ from typing import Any, Protocol
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
+from kg_gen.ontology.provenance_validation import (
+    validate_canonical_assignment_provenance,
+)
+
 _SEMANTIC_STOPWORDS = {
     "a",
     "an",
@@ -142,7 +146,14 @@ def cluster_term_assignments(
         for term in terms:
             occurrence_counts[term] += 1
     mapping = clusterer.canonical_map(occurrence_counts)
-    return {
+    canonical_assignments = {
         source: {mapping[term] for term in terms}
         for source, terms in materialized.items()
     }
+    validate_canonical_assignment_provenance(
+        materialized,
+        canonical_assignments,
+        mapping,
+        stage="semantic term clustering",
+    )
+    return canonical_assignments

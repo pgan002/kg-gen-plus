@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from typing import Any, Literal, cast
 
 import inflect
 
+from kg_gen.ontology.provenance_validation import (
+    validate_canonical_assignment_provenance,
+)
 from kg_gen.utils.term_normalization import normalized_label_key
 
 OntologyTermKind = Literal["class", "property"]
@@ -59,3 +63,30 @@ def normalize_ontology_term(value: str, kind: OntologyTermKind) -> str:
         normalized = singularize_class_head(normalized)
         return _CLASS_ALIASES.get(normalized, normalized)
     return lemmatize_property_verb(normalized)
+
+
+def normalize_term_assignments(
+    assignments: Mapping[str, Iterable[str]], kind: OntologyTermKind
+) -> dict[str, set[str]]:
+    """Normalize labels while asserting exact preservation of valid provenance."""
+    materialized = {source: set(terms) for source, terms in assignments.items()}
+    canonical_map = {
+        term: normalized
+        for term in {term for terms in materialized.values() for term in terms}
+        if (normalized := normalize_ontology_term(term, kind))
+    }
+    valid_original = {
+        source: {term for term in terms if term in canonical_map}
+        for source, terms in materialized.items()
+    }
+    normalized_assignments = {
+        source: {canonical_map[term] for term in terms}
+        for source, terms in valid_original.items()
+    }
+    validate_canonical_assignment_provenance(
+        valid_original,
+        normalized_assignments,
+        canonical_map,
+        stage=f"{kind} lexical/morphological normalization",
+    )
+    return normalized_assignments

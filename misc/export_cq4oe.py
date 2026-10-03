@@ -48,6 +48,7 @@ from kg_gen.ontology.term_clustering import (
 from kg_gen.ontology.term_normalization import (
     OntologyTermKind,
     normalize_ontology_term,
+    normalize_term_assignments,
 )
 from kg_gen.ontology.term_roles import filter_ontology_term_roles
 
@@ -275,16 +276,25 @@ def provenance_ids(value: Any) -> list[str]:
     return [item for item in value if isinstance(item, str)]
 
 
-def append_unique(
-    terms: dict[str, dict[str, str]],
-    cq_id: str,
-    label: str,
-    *,
-    kind: OntologyTermKind,
+def append_raw_term(
+    terms: dict[str, dict[str, str]], cq_id: str, label: str
 ) -> None:
-    normalized = normalize_ontology_term(label, kind)
-    if normalized:
-        terms[cq_id].setdefault(normalized, normalized)
+    terms[cq_id].setdefault(label, label)
+
+
+def normalize_export_assignments(
+    terms_by_cq: dict[str, dict[str, str]], kind: OntologyTermKind
+) -> dict[str, dict[str, str]]:
+    assignments = normalize_term_assignments(
+        {cq_id: terms.keys() for cq_id, terms in terms_by_cq.items()}, kind
+    )
+    return defaultdict(
+        dict,
+        {
+            cq_id: {term: term for term in terms}
+            for cq_id, terms in assignments.items()
+        },
+    )
 
 
 def cluster_terms(
@@ -393,7 +403,7 @@ def cq2term_predictions(
             labels.append(type_label)
         for cq_id in provenance_ids(entity.get("provenance_ids")):
             for label in labels:
-                append_unique(classes, cq_id, label, kind="class")
+                append_raw_term(classes, cq_id, label)
 
     relations = payload.get("relations_wo_class_assertions", [])
     if not isinstance(relations, list):
@@ -422,11 +432,14 @@ def cq2term_predictions(
             else None
         )
         for cq_id in provenance_ids(relation.get("provenance_ids")):
-            append_unique(properties, cq_id, label, kind="property")
+            append_raw_term(properties, cq_id, label)
             if subject and object_:
                 relations_by_cq[cq_id].append(
                     f"{subject} --{label}--> {object_}"
                 )
+
+    classes = normalize_export_assignments(classes, "class")
+    properties = normalize_export_assignments(properties, "property")
 
     if induced_predicates is not None:
         induced_assignments = canonical_predicate_assignments(
@@ -442,7 +455,8 @@ def cq2term_predictions(
 
     if semantic_clusterer is not None:
         classes = cluster_terms(classes, semantic_clusterer)
-        properties = cluster_terms(properties, semantic_clusterer)
+        if induced_predicates is None:
+            properties = cluster_terms(properties, semantic_clusterer)
 
     if term_role_filter == "ontology-conservative":
         class_assignments, property_assignments, _ = filter_ontology_term_roles(
