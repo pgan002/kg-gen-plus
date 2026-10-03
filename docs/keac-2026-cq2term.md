@@ -35,8 +35,16 @@ predicate induction, or embedding-based graph deduplication.
 
 ```bash
 git clone https://github.com/pgan002/kg-gen-plus.git
+cd kg-gen-plus
+git checkout 0a879370776ce7859708f6aa01c8221dc82ccfd7
+cd ..
 git clone https://codeberg.org/ke-automation-challenge/challenge-catalog.git
 ```
+
+Commit `0a879370776ce7859708f6aa01c8221dc82ccfd7` is the exact KGGen+ code
+version used by this submission and is also recorded as the metadata entry
+point. Checking it out avoids depending on the repository's changing default
+branch.
 
 For optional local evaluation, also clone CQ4OE:
 
