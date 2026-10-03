@@ -964,6 +964,64 @@ def existing_export_matches(
     return True
 
 
+def build_export_processors(
+    args: argparse.Namespace,
+) -> tuple[
+    OntologyTermClusterer | None,
+    PredicateInductionProvider | None,
+    ClassCandidateDecisionProvider | None,
+    CanonicalCQTermAssigner | None,
+]:
+    """Initialize expensive export processors only when some output needs work."""
+    semantic_clusterer = (
+        OntologyTermClusterer(args.semantic_model, args.semantic_threshold)
+        if args.semantic_clustering
+        else None
+    )
+    predicate_induction_provider: PredicateInductionProvider | None = (
+        OpenAIPredicateInductionProvider(
+            args.predicate_induction_model,
+            api_base=args.predicate_induction_api_base,
+            api_key=args.predicate_induction_api_key,
+            max_tokens=args.predicate_induction_max_tokens,
+            enable_thinking=args.predicate_induction_enable_thinking,
+        )
+        if args.predicate_induction == "llm-domain"
+        else None
+    )
+    class_candidate_provider: ClassCandidateDecisionProvider | None = (
+        OpenAIClassCandidateDecisionProvider(
+            args.class_filter_model,
+            api_base=args.class_filter_api_base,
+            api_key=args.class_filter_api_key,
+            max_tokens=args.class_filter_max_tokens,
+            enable_thinking=args.class_filter_enable_thinking,
+        )
+        if args.class_candidate_filter == "llm-cq-required"
+        else None
+    )
+    cq_assigner = (
+        CanonicalCQTermAssigner(
+            args.semantic_model,
+            args.cq_reassignment_threshold,
+            args.cq_reassignment_max_additions,
+            encoder=(
+                cast(TermEncoder, semantic_clusterer.encoder)
+                if semantic_clusterer
+                else None
+            ),
+        )
+        if args.cq_reassignment
+        else None
+    )
+    return (
+        semantic_clusterer,
+        predicate_induction_provider,
+        class_candidate_provider,
+        cq_assigner,
+    )
+
+
 def main() -> None:
     args = parse_args()
     results_dir = args.results_dir.resolve()
@@ -996,47 +1054,11 @@ def main() -> None:
             "--class-filter-model is required with "
             "--class-candidate-filter llm-cq-required"
         )
-    semantic_clusterer = (
-        OntologyTermClusterer(args.semantic_model, args.semantic_threshold)
-        if args.semantic_clustering
-        else None
-    )
-    predicate_induction_provider: PredicateInductionProvider | None = (
-        OpenAIPredicateInductionProvider(
-            args.predicate_induction_model,
-            api_base=args.predicate_induction_api_base,
-            api_key=args.predicate_induction_api_key,
-            max_tokens=args.predicate_induction_max_tokens,
-            enable_thinking=args.predicate_induction_enable_thinking,
-        )
-        if args.predicate_induction == "llm-domain"
-        else None
-    )
-    class_candidate_provider = (
-        OpenAIClassCandidateDecisionProvider(
-            args.class_filter_model,
-            api_base=args.class_filter_api_base,
-            api_key=args.class_filter_api_key,
-            max_tokens=args.class_filter_max_tokens,
-            enable_thinking=args.class_filter_enable_thinking,
-        )
-        if args.class_candidate_filter == "llm-cq-required"
-        else None
-    )
-    cq_assigner = (
-        CanonicalCQTermAssigner(
-            args.semantic_model,
-            args.cq_reassignment_threshold,
-            args.cq_reassignment_max_additions,
-            encoder=(
-                cast(TermEncoder, semantic_clusterer.encoder)
-                if semantic_clusterer
-                else None
-            ),
-        )
-        if args.cq_reassignment
-        else None
-    )
+    semantic_clusterer: OntologyTermClusterer | None = None
+    predicate_induction_provider: PredicateInductionProvider | None = None
+    class_candidate_provider: ClassCandidateDecisionProvider | None = None
+    cq_assigner: CanonicalCQTermAssigner | None = None
+    processors_initialized = False
     destinations: dict[Path, Path] = {}
     staged_manifests: dict[Path, dict[str, Any]] = {}
 
@@ -1128,6 +1150,15 @@ def main() -> None:
                 print(f"Skipped matching existing exports for {domain} {run_file.name}")
                 continue
 
+            if not processors_initialized:
+                (
+                    semantic_clusterer,
+                    predicate_induction_provider,
+                    class_candidate_provider,
+                    cq_assigner,
+                ) = build_export_processors(args)
+                processors_initialized = True
+
             run_data = read_json(run_file)
             if not isinstance(run_data, dict):
                 raise TypeError(f"Expected an object in {run_file}")
@@ -1166,7 +1197,7 @@ def main() -> None:
                     occurrences,
                 )
                 write_json(destination, predictions)
-                if class_filter_decisions:
+                if args.class_candidate_filter != "none":
                     decision_path = (
                         destination.parents[1]
                         / "metadata"

@@ -106,6 +106,16 @@ def test_completed_manifest_resumes_a_domain_not_yet_recorded(tmp_path):
     assert pending[manifest_path]["domains"] == ["awo"]
 
 
+def test_matching_export_does_not_add_pending_manifest(tmp_path):
+    _, destination, trace = write_complete_export(tmp_path)
+    pending = {}
+
+    assert existing_export_matches(
+        destination, manifest(), "awo", [destination, trace], pending
+    )
+    assert pending == {}
+
+
 def test_atomic_manifest_write_replaces_existing_document(tmp_path):
     path = tmp_path / "manifest.json"
     write_json_atomic(path, {"domains": ["awo"]})
